@@ -65,6 +65,41 @@ describe('row-level security', () => {
     expect(designs).toHaveLength(1);
   });
 
+  test('customer cannot edit a design that already has an order', async () => {
+    await insertOrder(aliceDesign, alice);
+    await expect(
+      asUser(db, alice, () => db.query(`update designs set layers = '[{"x":1}]'::jsonb where id = $1`, [aliceDesign])),
+    ).rejects.toThrow();
+    const r = await db.query<{ layers: unknown }>('select layers from designs where id = $1', [aliceDesign]);
+    expect(r.rows[0].layers).toEqual([]);
+  });
+
+  test('customer cannot write reject_reason', async () => {
+    await expect(
+      asUser(db, alice, () => db.query(`update designs set reject_reason = 'x' where id = $1`, [aliceDesign])),
+    ).rejects.toThrow();
+  });
+
+  test('customer can still edit layers of an unordered design and reset approval to draft', async () => {
+    await db.query(`update designs set status = 'approved' where id = $1`, [aliceDesign]);
+    await asUser(db, alice, () =>
+      db.query(`update designs set layers = '[{"x":1}]'::jsonb, status = 'draft' where id = $1`, [aliceDesign]),
+    );
+    const r = await db.query<{ status: string }>('select status from designs where id = $1', [aliceDesign]);
+    expect(r.rows[0].status).toBe('draft');
+  });
+
+  test('order stores an immutable snapshot of the design layers', async () => {
+    await db.query(`update designs set layers = '[{"x":1}]'::jsonb where id = $1`, [aliceDesign]);
+    await db.query(
+      `insert into orders (design_id, user_id, cost_pkr, price_pkr, delivery_fee_pkr, name, phone, city, province, address, payment_ref, layers_snapshot)
+       values ($1,$2,800,1500,250,'A','03001234567','Lahore','Punjab','1 Road',$3,'[{"x":1}]'::jsonb)`,
+      [aliceDesign, alice, `TEST-${aliceDesign}`],
+    );
+    const r = await db.query<{ layers_snapshot: unknown }>('select layers_snapshot from orders where design_id = $1', [aliceDesign]);
+    expect(r.rows[0].layers_snapshot).toEqual([{ x: 1 }]);
+  });
+
   test('a design can only have one order', async () => {
     await insertOrder(aliceDesign, alice);
     await expect(insertOrder(aliceDesign, alice)).rejects.toThrow();

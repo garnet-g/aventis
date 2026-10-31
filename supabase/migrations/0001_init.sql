@@ -50,6 +50,7 @@ create table public.orders (
   payment_ref text not null unique,
   mockup_path text,
   design_file_path text,
+  layers_snapshot jsonb not null default '[]'::jsonb, -- copy of the paid design; artifacts are always rendered from this
   artifacts_failed boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -84,6 +85,22 @@ create policy designs_delete on public.designs for delete to authenticated
 create policy orders_select on public.orders for select to authenticated
   using (user_id = auth.uid() or public.is_admin());
 
+-- Once a design has an order, customers can no longer change or delete it.
+create function public.block_edit_after_order() returns trigger language plpgsql as $$
+begin
+  if current_user in ('authenticated', 'anon')
+     and exists (select 1 from public.orders where design_id = old.id) then
+    raise exception 'design % already has an order and cannot be changed', old.id;
+  end if;
+  return coalesce(new, old);
+end $$;
+
+create trigger designs_block_edit_after_order before update or delete on public.designs
+  for each row execute function public.block_edit_after_order();
+
 grant select on public.profiles, public.orders to authenticated;
-grant select, insert, update, delete on public.designs to authenticated;
+-- Column-level grants: customers can never write reject_reason, id, or timestamps.
+grant select, delete on public.designs to authenticated;
+grant insert (user_id, product, color, size, layers, status) on public.designs to authenticated;
+grant update (product, color, size, layers, status) on public.designs to authenticated;
 grant all on public.profiles, public.designs, public.orders to service_role;
