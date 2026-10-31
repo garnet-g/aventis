@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import { describe, expect, test } from 'vitest';
 import { catalog } from '@/lib/catalog';
-import { checkUploadBytes, validateUpload } from '@/lib/upload';
+import { checkUploadBytes, declaredSizeTooLarge, MAX_UPLOAD_BYTES, validateUpload } from '@/lib/upload';
 
 const area = catalog.tee.printArea; // 28 cm wide -> 1654 px minimum at 150 DPI
 const good = { mime: 'image/png', bytes: 200_000, widthPx: 2000, heightPx: 2000 };
@@ -36,6 +36,21 @@ describe('validateUpload', () => {
     expect(validateUpload({ ...good, bytes: 0 }, area).ok).toBe(false);
     expect(validateUpload({ ...good, widthPx: NaN }, area).ok).toBe(false);
     expect(validateUpload({ ...good, heightPx: 0 }, area).ok).toBe(false);
+  });
+});
+
+describe('declaredSizeTooLarge (rejects before the body is buffered)', () => {
+  test('a content-length above the limit plus multipart overhead is too large', () => {
+    expect(declaredSizeTooLarge(String(MAX_UPLOAD_BYTES + 2 * 1024 * 1024))).toBe(true);
+  });
+
+  test('a content-length at the limit plus small overhead is fine', () => {
+    expect(declaredSizeTooLarge(String(MAX_UPLOAD_BYTES + 1024))).toBe(false);
+  });
+
+  test('a missing or garbage content-length is not trusted as too large (file size is checked after)', () => {
+    expect(declaredSizeTooLarge(null)).toBe(false);
+    expect(declaredSizeTooLarge('abc')).toBe(false);
   });
 });
 

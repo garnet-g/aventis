@@ -7,6 +7,14 @@ const ALLOWED_MIME = ['image/png', 'image/jpeg'];
 export type UploadMeta = { mime: string; bytes: number; widthPx: number; heightPx: number };
 export type UploadResult = { ok: true } | { ok: false; reason: string };
 
+const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
+
+/** True when the declared Content-Length already exceeds the cap, so the body is never buffered. */
+export function declaredSizeTooLarge(contentLength: string | null): boolean {
+  const n = Number(contentLength);
+  return Number.isFinite(n) && n > MAX_UPLOAD_BYTES + MULTIPART_OVERHEAD_BYTES;
+}
+
 export function minWidthPx(area: PrintArea): number {
   return Math.ceil(MIN_DPI * (area.widthCm / 2.54));
 }
