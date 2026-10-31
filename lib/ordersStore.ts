@@ -66,5 +66,13 @@ export function supabaseOrderStore(): OrderStore {
       }
       return toOrder(data as OrderRow);
     },
+    async setArtifacts(id, p) {
+      const { error } = await db().from('orders').update({ mockup_path: p.mockupPath, design_file_path: p.designFilePath, artifacts_failed: false }).eq('id', id);
+      if (error) throw new Error(error.message);
+    },
+    async markArtifactsFailed(id) {
+      const { error } = await db().from('orders').update({ artifacts_failed: true }).eq('id', id);
+      if (error) throw new Error(error.message);
+    },
   };
 }

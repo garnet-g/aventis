@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { catalog, DELIVERY_FEE_PKR } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
-import { layersHash, type DesignStore } from '@/lib/designs';
+import { layersHash, type Design, type DesignStore } from '@/lib/designs';
 import type { PaymentProvider } from '@/lib/payments';
 
 export type OrderStatus = 'paid' | 'at_printer' | 'shipped' | 'delivered';
@@ -53,7 +53,12 @@ export interface OrderStore {
   findByDesign(designId: string): Promise<Order | null>;
   /** Must throw DuplicateOrderError when the design already has an order (unique design_id / payment_ref). */
   insert(order: NewOrder): Promise<Order>;
+  setArtifacts(orderId: string, paths: { mockupPath: string; designFilePath: string }): Promise<void>;
+  markArtifactsFailed(orderId: string): Promise<void>;
 }
+
+/** Renders and stores the mockup and design file for a paid order, from the order's own snapshot. */
+export type ArtifactGenerator = (args: { order: Order; design: Design }) => Promise<{ mockupPath: string; designFilePath: string }>;
 
 export class DuplicateOrderError extends Error {
   constructor() {
@@ -72,7 +77,7 @@ export class HttpError extends Error {
 
 /** Charges the server-computed amount for an approved design and records exactly one paid order. */
 export async function createPaidOrder(
-  deps: { designs: DesignStore; orders: OrderStore; provider: PaymentProvider },
+  deps: { designs: DesignStore; orders: OrderStore; provider: PaymentProvider; artifacts?: ArtifactGenerator },
   args: { designId: string; userId: string; delivery: unknown },
 ): Promise<Order> {
   const delivery = deliverySchema.parse(args.delivery);
@@ -91,8 +96,9 @@ export async function createPaidOrder(
   const paid = await deps.provider.charge({ amountPkr: product.pricePkr + DELIVERY_FEE_PKR, reference: design.id });
   if (!paid.ok) throw new HttpError(402, `Payment failed: ${paid.reason}`);
 
+  let order: Order;
   try {
-    return await deps.orders.insert({
+    order = await deps.orders.insert({
       designId: design.id,
       userId: design.userId,
       costPkr: product.costPkr,
@@ -108,5 +114,18 @@ export async function createPaidOrder(
       if (winner) return winner;
     }
     throw e;
+  }
+
+  // Only the request that created the order generates files. A failure never undoes a payment: the order
+  // stays paid and is flagged so an admin can regenerate the files.
+  if (!deps.artifacts) return order;
+  try {
+    const paths = await deps.artifacts({ order, design });
+    await deps.orders.setArtifacts(order.id, paths);
+    return { ...order, ...paths, artifactsFailed: false };
+  } catch (e) {
+    console.error('artifact generation failed for order', order.id, e);
+    await deps.orders.markArtifactsFailed(order.id).catch(() => undefined);
+    return { ...order, artifactsFailed: true };
   }
 }

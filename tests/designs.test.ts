@@ -6,7 +6,7 @@ import { MemoryDesignStore } from './helpers/memoryStore';
 
 const rect = { x: 0.2, y: 0.2, width: 0.5, height: 0.3 };
 const text = (t: string): DesignLayer => ({
-  kind: 'text', text: t, font: 'Arial', fill: '#111111', direction: 'ltr', rect, rotation: 0,
+  kind: 'text', text: t, font: 'Arial', fill: '#111111', direction: 'ltr', fontSize: 0.12, rect, rotation: 0,
 });
 const base = { product: 'tee', color: 'white', size: 'M' } as const;
 const FILE = '3f2b8c1e-9a4d-4e7b-8c55-1d2e3f4a5b6c.png'; // server-generated upload names look like this

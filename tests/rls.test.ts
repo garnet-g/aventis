@@ -6,12 +6,14 @@ let db: PGlite;
 let alice: string, bob: string, admin: string;
 let aliceDesign: string;
 
-async function insertOrder(designId: string, userId: string) {
+/** Orders may only be created for an approved design whose layers equal the snapshot (the DB enforces it). */
+async function insertOrder(designId: string, userId: string, opts: { approve?: boolean; snapshot?: string } = {}) {
+  if (opts.approve !== false) await db.query(`update designs set status = 'approved' where id = $1`, [designId]);
   await db.query(
     `insert into orders (design_id, user_id, status, cost_pkr, price_pkr, delivery_fee_pkr,
-       name, phone, city, province, address, payment_ref)
-     values ($1,$2,'paid',800,1500,250,'A','03001234567','Lahore','Punjab','1 Road',$3)`,
-    [designId, userId, `TEST-${designId}`],
+       name, phone, city, province, address, payment_ref, layers_snapshot)
+     values ($1,$2,'paid',800,1500,250,'A','03001234567','Lahore','Punjab','1 Road',$3,$4::jsonb)`,
+    [designId, userId, `TEST-${designId}`, opts.snapshot ?? '[]'],
   );
 }
 
@@ -91,7 +93,7 @@ describe('row-level security', () => {
   });
 
   test('order stores an immutable snapshot of the design layers', async () => {
-    await db.query(`update designs set layers = '[{"x":1}]'::jsonb where id = $1`, [aliceDesign]);
+    await db.query(`update designs set layers = '[{"x":1}]'::jsonb, status = 'approved' where id = $1`, [aliceDesign]);
     await db.query(
       `insert into orders (design_id, user_id, cost_pkr, price_pkr, delivery_fee_pkr, name, phone, city, province, address, payment_ref, layers_snapshot)
        values ($1,$2,800,1500,250,'A','03001234567','Lahore','Punjab','1 Road',$3,'[{"x":1}]'::jsonb)`,
@@ -99,6 +101,22 @@ describe('row-level security', () => {
     );
     const r = await db.query<{ layers_snapshot: unknown }>('select layers_snapshot from orders where design_id = $1', [aliceDesign]);
     expect(r.rows[0].layers_snapshot).toEqual([{ x: 1 }]);
+  });
+
+  test('an order cannot be created for a design that is not approved', async () => {
+    await expect(insertOrder(aliceDesign, alice, { approve: false })).rejects.toThrow(/approved design/i);
+  });
+
+  test("an order snapshot must equal the design's current layers", async () => {
+    await expect(insertOrder(aliceDesign, alice, { snapshot: '[{"x":1}]' })).rejects.toThrow(/approved design/i);
+  });
+
+  test('even the service role cannot edit or delete a design that has an order', async () => {
+    await insertOrder(aliceDesign, alice);
+    await expect(
+      db.query(`update designs set layers = '[{"x":1}]'::jsonb where id = $1`, [aliceDesign]),
+    ).rejects.toThrow(/already has an order/i);
+    await expect(db.query('delete from designs where id = $1', [aliceDesign])).rejects.toThrow();
   });
 
   test('a design can only have one order', async () => {

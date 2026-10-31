@@ -79,15 +79,30 @@ create policy designs_select on public.designs for select to authenticated
 create policy orders_select on public.orders for select to authenticated
   using (user_id = auth.uid() or public.is_admin());
 
--- Once a design has an order, customers can no longer change or delete it.
+-- Once a design has an order it is frozen for EVERY role (the service role included): the order's snapshot
+-- and the design can never drift apart. Nothing in fulfilment needs to edit a design.
 create function public.block_edit_after_order() returns trigger language plpgsql as $$
 begin
-  if current_user in ('authenticated', 'anon')
-     and exists (select 1 from public.orders where design_id = old.id) then
+  if exists (select 1 from public.orders where design_id = old.id) then
     raise exception 'design % already has an order and cannot be changed', old.id;
   end if;
   return coalesce(new, old);
 end $$;
+
+-- An order can only be created for an approved design, for exactly the layers that were approved.
+-- `for share` locks the design row, so a concurrent edit has to wait: the check and the insert are atomic.
+create function public.check_order_matches_design() returns trigger language plpgsql as $$
+declare d public.designs;
+begin
+  select * into d from public.designs where id = new.design_id for share;
+  if d.id is null or d.status <> 'approved' or d.user_id <> new.user_id or d.layers <> new.layers_snapshot then
+    raise exception 'an order requires an approved design with matching layers';
+  end if;
+  return new;
+end $$;
+
+create trigger orders_check_design before insert on public.orders
+  for each row execute function public.check_order_matches_design();
 
 create trigger designs_block_edit_after_order before update or delete on public.designs
   for each row execute function public.block_edit_after_order();

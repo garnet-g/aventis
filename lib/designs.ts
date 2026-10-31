@@ -49,6 +49,7 @@ const layerSchema = z.discriminatedUnion('kind', [
     font: z.string().max(200),
     fill: z.string().regex(/^#[0-9a-f]{6}$/i),
     direction: z.enum(['ltr', 'rtl']),
+    fontSize: z.number().positive().max(1),
     rect: rectSchema,
     rotation: z.number().min(-360).max(360),
   }),

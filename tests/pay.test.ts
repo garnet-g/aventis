@@ -13,7 +13,7 @@ import { pgOrderStore } from './helpers/pgOrderStore';
 
 const delivery = { name: 'Ali Khan', phone: '03001234567', city: 'Lahore', province: 'Punjab', address: 'House 1, Street 2, Gulberg' };
 const text = (t: string): DesignLayer => ({
-  kind: 'text', text: t, font: 'Arial', fill: '#111111', direction: 'ltr', rect: { x: 0.1, y: 0.1, width: 0.5, height: 0.2 }, rotation: 0,
+  kind: 'text', text: t, font: 'Arial', fill: '#111111', direction: 'ltr', fontSize: 0.12, rect: { x: 0.1, y: 0.1, width: 0.5, height: 0.2 }, rotation: 0,
 });
 
 class SpyProvider implements PaymentProvider {
@@ -149,6 +149,45 @@ describe('createPaidOrder', () => {
     const failing: PaymentProvider = { name: 'f', isTestMode: false, charge: async () => ({ ok: false, reason: 'card declined' }) };
     await expect(createPaidOrder({ ...deps(), provider: failing }, { designId: d.id, userId: alice, delivery })).rejects.toMatchObject({ status: 402 });
     expect((await db.query('select 1 from orders')).rows).toHaveLength(0);
+  });
+});
+
+describe('artifacts at payment', () => {
+  const paths = { mockupPath: 'o/mockup.png', designFilePath: 'o/design.png' };
+
+  test('successful generation stores both file paths on the order', async () => {
+    const d = await makeDesign(alice, 'Ali');
+    let seen: unknown;
+    const order = await createPaidOrder(
+      { ...deps(), provider: new SpyProvider(), artifacts: async (a) => ((seen = a.order.layersSnapshot), paths) },
+      { designId: d.id, userId: alice, delivery },
+    );
+    expect(order).toMatchObject({ ...paths, artifactsFailed: false });
+    expect(seen).toEqual(d.layers); // rendered from the order's snapshot
+    const row = (await db.query<{ mockup_path: string; design_file_path: string }>('select mockup_path, design_file_path from orders')).rows[0];
+    expect(row).toEqual({ mockup_path: paths.mockupPath, design_file_path: paths.designFilePath });
+  });
+
+  test('generation failure leaves the order paid with artifacts_failed true', async () => {
+    const d = await makeDesign(alice, 'Ali');
+    const order = await createPaidOrder(
+      { ...deps(), provider: new SpyProvider(), artifacts: async () => Promise.reject(new Error('disk full')) },
+      { designId: d.id, userId: alice, delivery },
+    );
+    expect(order).toMatchObject({ status: 'paid', artifactsFailed: true, mockupPath: null });
+    const row = (await db.query<{ status: string; artifacts_failed: boolean }>('select status, artifacts_failed from orders')).rows[0];
+    expect(row).toEqual({ status: 'paid', artifacts_failed: true });
+  });
+
+  test('only the request that created the order generates files, even when two race', async () => {
+    const d = await makeDesign(alice, 'Ali');
+    let calls = 0;
+    const artifacts = async () => (calls++, paths);
+    await Promise.all([
+      createPaidOrder({ ...deps(), provider: new SpyProvider(), artifacts }, { designId: d.id, userId: alice, delivery }),
+      createPaidOrder({ ...deps(), provider: new SpyProvider(), artifacts }, { designId: d.id, userId: alice, delivery }),
+    ]);
+    expect(calls).toBe(1);
   });
 });
 

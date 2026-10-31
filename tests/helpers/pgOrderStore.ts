@@ -46,5 +46,11 @@ export function pgOrderStore(db: PGlite): OrderStore {
         throw e;
       }
     },
+    async setArtifacts(id, p) {
+      await db.query('update orders set mockup_path = $2, design_file_path = $3, artifacts_failed = false where id = $1', [id, p.mockupPath, p.designFilePath]);
+    },
+    async markArtifactsFailed(id) {
+      await db.query('update orders set artifacts_failed = true where id = $1', [id]);
+    },
   };
 }

@@ -7,7 +7,8 @@ import type { DesignLayer } from '@/lib/designLayers';
 import { CANVAS_H, CANVAS_W, detectDirection, printAreaRect, toFraction } from '@/lib/editorGeometry';
 import { clampToPrintArea } from '@/lib/printArea';
 
-export const TEXT_FONT = '"Noto Nastaliq Urdu", "Noto Sans Arabic", Arial, sans-serif';
+// Same families the server uses to render the print file, so the preview matches what is printed.
+export const TEXT_FONT = '"Noto Sans", "Noto Nastaliq Urdu", Arial, sans-serif';
 
 type Meta = { kind: 'image'; uploadPath: string } | { kind: 'text' };
 
@@ -48,6 +49,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
           font: String(t.fontFamily),
           fill: String(t.fill),
           direction: detectDirection(t.text),
+          fontSize: ((t.fontSize ?? 26) * (obj.scaleY ?? 1)) / area.width,
           rect,
           rotation,
         },
@@ -164,7 +166,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
     async addText(text) {
       const canvas = fabricRef.current!;
       const area = areaRef.current;
-      await document.fonts.load('28px "Noto Nastaliq Urdu"', text).catch(() => undefined);
+      await Promise.all([document.fonts.load('28px "Noto Sans"', text), document.fonts.load('28px "Noto Nastaliq Urdu"', text)]).catch(() => undefined);
       const t = new Textbox(text, {
         originX: 'center',
         originY: 'center',
