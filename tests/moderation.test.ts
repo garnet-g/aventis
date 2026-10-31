@@ -18,6 +18,34 @@ describe('moderateText', () => {
     expect(moderateText(['fu​ck'])).toBe('explicit');
   });
 
+  test('other invisible characters (soft hyphen, hangul filler, ZWNJ) do not hide a banned word', () => {
+    expect(moderateText(['fu­ck'])).toBe('explicit');
+    expect(moderateText(['fuㅤck'])).toBe('explicit');
+    expect(moderateText(['چو‌تیا'])).toBe('explicit');
+  });
+
+  test('combining marks do not hide a banned word', () => {
+    expect(moderateText(['fúck'])).toBe('explicit');
+  });
+
+  test('Cyrillic or Greek lookalike letters do not hide a banned word', () => {
+    expect(moderateText(['fuсk'])).toBe('explicit'); // Cyrillic с
+    expect(moderateText(['pоrn'])).toBe('explicit'); // Cyrillic о -> "porn"
+  });
+
+  test('a mixed Latin + Cyrillic word that is not banned goes to human review', () => {
+    expect(moderateText(['tеam'])).toBe('unsure');
+  });
+
+  test('spaced or separated letters are caught even when long words are split', () => {
+    expect(moderateText(['f u c k i n g'])).toBe('explicit');
+    expect(moderateText(['what the f_u_c_k_i_n_g hell'])).toBe('explicit');
+  });
+
+  test('Urdu text with ordinary diacritics stays clear', () => {
+    expect(moderateText(['عَلِی'])).toBe('clear');
+  });
+
   test('roman urdu banned word is explicit', () => {
     expect(moderateText(['tu chutiya hai'])).toBe('explicit');
   });
