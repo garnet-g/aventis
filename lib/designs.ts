@@ -18,12 +18,16 @@ export type Design = {
   rejectReason: string | null;
   /** Hash of the layers that were last moderated; lets an unchanged resubmit skip re-moderation. */
   moderatedHash: string | null;
+  /** Changes on every write; lets submitDesign detect an edit that happened while it was checking. */
+  version: string;
 };
 
 export interface DesignStore {
   get(id: string): Promise<Design | null>;
   insert(userId: string, input: Pick<Design, 'product' | 'color' | 'size' | 'layers'>): Promise<Design>;
-  update(id: string, patch: Partial<Omit<Design, 'id' | 'userId'>>): Promise<Design>;
+  update(id: string, patch: Partial<Omit<Design, 'id' | 'userId' | 'version'>>): Promise<Design>;
+  /** Applies the patch only if the design still has `version`; returns null when it changed in the meantime. */
+  updateIfVersion(id: string, version: string, patch: Partial<Omit<Design, 'id' | 'userId' | 'version'>>): Promise<Design | null>;
   downloadUpload(path: string): Promise<Buffer>;
 }
 
@@ -59,6 +63,19 @@ export type DesignInput = z.input<typeof inputSchema>;
 
 export const layersHash = (layers: DesignLayer[]) => createHash('sha256').update(JSON.stringify(layers)).digest('hex');
 
+const UPLOAD_FILE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}.(png|jpg)$/;
+
+/** Image layers may only reference files this server stored for this very design: `<user>/<design>/<uuid>.png|jpg`. */
+function assertUploadsOwned(userId: string, designId: string, layers: DesignLayer[]) {
+  for (const l of layers) {
+    if (l.kind !== 'image') continue;
+    const parts = l.uploadPath.split('/');
+    if (parts.length !== 3 || parts[0] !== userId || parts[1] !== designId || !UPLOAD_FILE.test(parts[2])) {
+      throw new Error('Invalid upload reference.');
+    }
+  }
+}
+
 const NOT_FOUND = 'Design not found.';
 const EXPLICIT_REASON = 'This design appears to contain explicit content and cannot be printed.';
 
@@ -75,12 +92,7 @@ export async function saveDesign(store: DesignStore, userId: string, input: Desi
 
   const existing = await store.get(id);
   if (!existing || existing.userId !== userId) throw new Error(NOT_FOUND);
-  const prefix = `${userId}/${id}/`;
-  for (const l of layers) {
-    if (l.kind === 'image' && (!l.uploadPath.startsWith(prefix) || l.uploadPath.slice(prefix.length).includes('/') || l.uploadPath.includes('..'))) {
-      throw new Error('Invalid upload reference.');
-    }
-  }
+  assertUploadsOwned(userId, id, layers);
   return store.update(id, { ...parsed, layers, status: 'draft', rejectReason: null });
 }
 
@@ -98,18 +110,24 @@ export async function submitDesign(store: DesignStore, provider: ImageSafetyProv
   if (!d || d.userId !== userId) throw new Error(NOT_FOUND);
   if (d.layers.length === 0) throw new Error('Add something to print first.');
 
+  // Never trust what is stored: it could have been written by something other than saveDesign.
+  const layers = z.array(layerSchema).max(20).parse(d.layers) as DesignLayer[];
+  assertUploadsOwned(userId, id, layers);
+
   const hash = layersHash(d.layers);
   if (d.status !== 'draft' && d.moderatedHash === hash) return resultFor(d);
 
-  const texts = d.layers.flatMap((l) => (l.kind === 'text' ? [l.text] : []));
-  const images = await Promise.all(d.layers.flatMap((l) => (l.kind === 'image' ? [store.downloadUpload(l.uploadPath)] : [])));
+  const texts = layers.flatMap((l) => (l.kind === 'text' ? [l.text] : []));
+  const images = await Promise.all(layers.flatMap((l) => (l.kind === 'image' ? [store.downloadUpload(l.uploadPath)] : [])));
   const verdict = await moderateDesign({ texts, images }, provider);
 
   const status: DesignStatus = verdict === 'clear' ? 'approved' : verdict === 'unsure' ? 'pending_review' : 'rejected';
-  const updated = await store.update(id, {
+  // Only record the verdict if the design is exactly what we checked; otherwise it must be checked again.
+  const updated = await store.updateIfVersion(id, d.version, {
     status,
     moderatedHash: hash,
     rejectReason: status === 'rejected' ? EXPLICIT_REASON : null,
   });
+  if (!updated) throw new Error('Your design changed while it was being checked. Please try again.');
   return resultFor(updated);
 }

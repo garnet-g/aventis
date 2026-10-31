@@ -9,6 +9,7 @@ const text = (t: string): DesignLayer => ({
   kind: 'text', text: t, font: 'Arial', fill: '#111111', direction: 'ltr', rect, rotation: 0,
 });
 const base = { product: 'tee', color: 'white', size: 'M' } as const;
+const FILE = '3f2b8c1e-9a4d-4e7b-8c55-1d2e3f4a5b6c.png'; // server-generated upload names look like this
 
 let store: MemoryDesignStore;
 beforeEach(() => {
@@ -47,7 +48,7 @@ describe('submitDesign', () => {
 
   test('an explicit uploaded image is rejected', async () => {
     const d0 = await saveDesign(store, 'alice', { ...base, layers: [] });
-    const path = `alice/${d0.id}/a.png`;
+    const path = `alice/${d0.id}/${FILE}`;
     store.files.set(path, Buffer.from('img'));
     const d = await saveDesign(store, 'alice', { ...base, layers: [{ kind: 'image', uploadPath: path, rect, rotation: 0 }] }, d0.id);
     const r = await submitDesign(store, new StubImageSafetyProvider(0.95), d.id, 'alice');
@@ -67,7 +68,7 @@ describe('submitDesign', () => {
   test('submit twice on the same unchanged design returns the same result without re-moderating', async () => {
     const provider = new CountingProvider(0);
     const d0 = await saveDesign(store, 'alice', { ...base, layers: [] });
-    const path = `alice/${d0.id}/a.png`;
+    const path = `alice/${d0.id}/${FILE}`;
     store.files.set(path, Buffer.from('img'));
     const d = await saveDesign(store, 'alice', { ...base, layers: [{ kind: 'image', uploadPath: path, rect, rotation: 0 }] }, d0.id);
     const first = await submitDesign(store, provider, d.id, 'alice');
@@ -85,7 +86,55 @@ describe('submitDesign', () => {
   });
 });
 
+class RacingProvider extends StubImageSafetyProvider {
+  constructor(private readonly during: () => Promise<unknown>) {
+    super(0);
+  }
+  async score() {
+    await this.during();
+    return super.score();
+  }
+}
+
+describe('submitDesign safety under attack', () => {
+  test("stored layers pointing at someone else's upload are refused at submit", async () => {
+    const d = await saveDesign(store, 'alice', { ...base, layers: [text('Ali')] });
+    store.files.set(`bob/other/${FILE}`, Buffer.from('secret'));
+    // bypass saveDesign, as a direct database write would
+    await store.update(d.id, { layers: [{ kind: 'image', uploadPath: `bob/other/${FILE}`, rect, rotation: 0 }] });
+    await expect(submitDesign(store, new StubImageSafetyProvider(0), d.id, 'alice')).rejects.toThrow(/upload/i);
+  });
+
+  test('stored layers that fail validation are refused at submit', async () => {
+    const d = await saveDesign(store, 'alice', { ...base, layers: [text('Ali')] });
+    await store.update(d.id, { layers: [{ ...(text('Ali') as object), rect: { x: 5, y: 5, width: 9, height: 9 } } as DesignLayer] });
+    await expect(submitDesign(store, new StubImageSafetyProvider(0), d.id, 'alice')).rejects.toThrow();
+  });
+
+  test('a design edited while it is being checked is not approved', async () => {
+    const d0 = await saveDesign(store, 'alice', { ...base, layers: [] });
+    const path = `alice/${d0.id}/${FILE}`;
+    store.files.set(path, Buffer.from('img'));
+    const d = await saveDesign(store, 'alice', { ...base, layers: [{ kind: 'image', uploadPath: path, rect, rotation: 0 }] }, d0.id);
+    const racing = new RacingProvider(() => saveDesign(store, 'alice', { ...base, layers: [text('Changed')] }, d.id));
+    await expect(submitDesign(store, racing, d.id, 'alice')).rejects.toThrow(/changed/i);
+    const after = (await store.get(d.id))!;
+    expect(after.status).toBe('draft');
+    expect(after.layers).toEqual([text('Changed')]);
+  });
+});
+
 describe('saveDesign', () => {
+  test('upload file names must match the server-generated format', async () => {
+    const d = await saveDesign(store, 'alice', { ...base, layers: [] });
+    const attempt = (name: string) =>
+      saveDesign(store, 'alice', { ...base, layers: [{ kind: 'image', uploadPath: `alice/${d.id}/${name}`, rect, rotation: 0 }] }, d.id);
+    for (const bad of ['a.png', FILE.replace('.png', '.PNG'), `${FILE}.exe`, `${FILE}%2e`, `x\\${FILE}`, ` ${FILE}`, `${FILE}\n`]) {
+      await expect(attempt(bad)).rejects.toThrow(/upload/i);
+    }
+    await expect(attempt(FILE.replace('.png', '.jpg'))).resolves.toBeTruthy();
+  });
+
   test('saving changed layers on an approved design resets status to draft', async () => {
     const d = await saveDesign(store, 'alice', { ...base, layers: [text('Ali')] });
     await submitDesign(store, new StubImageSafetyProvider(0), d.id, 'alice');

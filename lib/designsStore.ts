@@ -11,6 +11,7 @@ type Row = {
   status: Design['status'];
   reject_reason: string | null;
   moderated_hash: string | null;
+  updated_at: string;
 };
 
 const toDesign = (r: Row): Design => ({
@@ -23,9 +24,10 @@ const toDesign = (r: Row): Design => ({
   status: r.status,
   rejectReason: r.reject_reason,
   moderatedHash: r.moderated_hash,
+  version: r.updated_at,
 });
 
-const toRow = (p: Partial<Omit<Design, 'id' | 'userId'>>) => ({
+const toRow = (p: Partial<Omit<Design, 'id' | 'userId' | 'version'>>) => ({
   ...(p.product && { product: p.product }),
   ...(p.color && { color: p.color }),
   ...(p.size && { size: p.size }),
@@ -52,6 +54,12 @@ export function supabaseDesignStore(): DesignStore {
       const { data, error } = await db().from('designs').update(toRow(patch)).eq('id', id).select('*').single();
       if (error) throw new Error(error.message);
       return toDesign(data as Row);
+    },
+    async updateIfVersion(id, version, patch) {
+      // updated_at is bumped by a trigger on every write, so it doubles as the version.
+      const { data, error } = await db().from('designs').update(toRow(patch)).eq('id', id).eq('updated_at', version).select('*');
+      if (error) throw new Error(error.message);
+      return data && data.length > 0 ? toDesign(data[0] as Row) : null;
     },
     async downloadUpload(path) {
       const { data, error } = await db().storage.from('uploads').download(path);

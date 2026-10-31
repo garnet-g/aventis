@@ -70,17 +70,10 @@ alter table public.orders enable row level security;
 create policy profiles_select on public.profiles for select to authenticated
   using (id = auth.uid() or public.is_admin());
 
--- Customers manage only their own designs, and can only ever write status 'draft'.
--- approved / pending_review / rejected are set server-side with the service role.
+-- Customers read only their own designs; admins read all. There are no customer write policies:
+-- every write goes through the API with the service role.
 create policy designs_select on public.designs for select to authenticated
   using (user_id = auth.uid() or public.is_admin());
-create policy designs_insert on public.designs for insert to authenticated
-  with check (user_id = auth.uid() and status = 'draft');
-create policy designs_update on public.designs for update to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid() and status = 'draft');
-create policy designs_delete on public.designs for delete to authenticated
-  using (user_id = auth.uid() and status = 'draft');
 
 -- Orders are read-only for customers; created and changed only by the service role.
 create policy orders_select on public.orders for select to authenticated
@@ -100,8 +93,7 @@ create trigger designs_block_edit_after_order before update or delete on public.
   for each row execute function public.block_edit_after_order();
 
 grant select on public.profiles, public.orders to authenticated;
--- Column-level grants: customers can never write reject_reason, id, or timestamps.
-grant select, delete on public.designs to authenticated;
-grant insert (user_id, product, color, size, layers, status) on public.designs to authenticated;
-grant update (product, color, size, layers, status) on public.designs to authenticated;
+-- Customers can only READ designs. Every write (create, edit, moderation result) goes through the API with the
+-- service role, so layers and upload paths are always validated by server code first.
+grant select on public.designs to authenticated;
 grant all on public.profiles, public.designs, public.orders to service_role;

@@ -80,13 +80,14 @@ describe('row-level security', () => {
     ).rejects.toThrow();
   });
 
-  test('customer can still edit layers of an unordered design and reset approval to draft', async () => {
-    await db.query(`update designs set status = 'approved' where id = $1`, [aliceDesign]);
-    await asUser(db, alice, () =>
-      db.query(`update designs set layers = '[{"x":1}]'::jsonb, status = 'draft' where id = $1`, [aliceDesign]),
-    );
-    const r = await db.query<{ status: string }>('select status from designs where id = $1', [aliceDesign]);
-    expect(r.rows[0].status).toBe('draft');
+  test('customer cannot insert, update or delete designs directly (all writes go through the API)', async () => {
+    await expect(asUser(db, alice, () => insertDesign(db, alice))).rejects.toThrow();
+    await expect(
+      asUser(db, alice, () => db.query(`update designs set layers = '[{"x":1}]'::jsonb where id = $1`, [aliceDesign])),
+    ).rejects.toThrow();
+    await expect(asUser(db, alice, () => db.query('delete from designs where id = $1', [aliceDesign]))).rejects.toThrow();
+    const r = await db.query<{ layers: unknown }>('select layers from designs where id = $1', [aliceDesign]);
+    expect(r.rows[0].layers).toEqual([]);
   });
 
   test('order stores an immutable snapshot of the design layers', async () => {
