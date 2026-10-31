@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { OrderActions } from '@/components/OrderActions';
 import { nextStatus, orderProfit } from '@/lib/admin';
 import { requireAdmin } from '@/lib/auth';
@@ -6,9 +7,15 @@ import { supabaseDesignStore } from '@/lib/designsStore';
 import { ORDER_STATUS_LABEL, pkr } from '@/lib/labels';
 import { supabaseOrderStore } from '@/lib/ordersStore';
 
-export const dynamic = 'force-dynamic';
+export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<p className="p-4 text-sm text-neutral-500">Loading…</p>}>
+      <OrderDetail params={params} />
+    </Suspense>
+  );
+}
 
-export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+async function OrderDetail({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
   const order = await supabaseOrderStore().findById(id);

@@ -133,6 +133,8 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
     }
     FabricImage.fromURL(catalog[product].garmentImage(color)).then((img) => {
       if (cancelled || fabricRef.current !== canvas) return;
+      // Fabric objects default to a centre origin; the background must sit at the canvas's top-left corner.
+      img.set({ originX: 'left', originY: 'top', left: 0, top: 0 });
       img.scaleToWidth(CANVAS_W);
       canvas.backgroundImage = img;
       canvas.requestRenderAll();

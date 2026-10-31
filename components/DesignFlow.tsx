@@ -11,6 +11,7 @@ export function DesignFlow() {
   const state = useRef<WorkbenchState>({ product: 'tee', color: 'white', size: 'M', layers: [] });
   const designId = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [outcome, setOutcome] = useState<Outcome | null>(null);
 
@@ -52,6 +53,7 @@ export function DesignFlow() {
   }
 
   async function onContinue() {
+    if (uploading) return; // never save while an image is still on its way
     setBusy(true);
     setError('');
     setOutcome(null);
@@ -70,7 +72,7 @@ export function DesignFlow() {
   }
 
   return (
-    <DesignWorkbench uploadFile={uploadFile} onChange={(s) => (state.current = s)}>
+    <DesignWorkbench uploadFile={uploadFile} onChange={(s) => (state.current = s)} onUploadingChange={setUploading}>
       {error && (
         <p role="alert" className="text-sm text-red-600">
           {error}
@@ -83,11 +85,11 @@ export function DesignFlow() {
       )}
       <button
         data-testid="continue"
-        disabled={busy}
+        disabled={busy || uploading}
         onClick={onContinue}
         className="rounded bg-orange-600 p-3 font-semibold text-white disabled:opacity-50"
       >
-        {busy ? 'Checking your design…' : 'Continue to checkout'}
+        {busy ? 'Checking your design…' : uploading ? 'Uploading your image…' : 'Continue to checkout'}
       </button>
     </DesignWorkbench>
   );

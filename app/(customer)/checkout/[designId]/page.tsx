@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { CheckoutForm } from '@/components/CheckoutForm';
 import { requireUser } from '@/lib/auth';
 import { catalog, DELIVERY_FEE_PKR } from '@/lib/catalog';
@@ -8,7 +9,15 @@ import { getPaymentProvider } from '@/lib/payments';
 
 const pkr = (n: number) => `PKR ${n.toLocaleString('en-PK')}`;
 
-export default async function CheckoutPage({ params }: { params: Promise<{ designId: string }> }) {
+export default function CheckoutPage({ params }: { params: Promise<{ designId: string }> }) {
+  return (
+    <Suspense fallback={<p className="p-4 text-sm text-neutral-500">Loading…</p>}>
+      <Checkout params={params} />
+    </Suspense>
+  );
+}
+
+async function Checkout({ params }: { params: Promise<{ designId: string }> }) {
   const user = await requireUser();
   const { designId } = await params;
   const design = await supabaseDesignStore().get(designId);

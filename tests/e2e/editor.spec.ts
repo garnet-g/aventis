@@ -49,3 +49,28 @@ test('editor is usable at 375px width without horizontal scroll', async ({ page 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test('the garment photo fills the canvas: a black shirt is dark where the body is and light outside it', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await page.getByRole('button', { name: 'Black' }).click();
+  // canvas logical size is 400x500; the tee body is centred (x 90..310) and the photo corner is plain background
+  const sample = async (x: number, y: number) =>
+    page.evaluate(
+      ([lx, ly]) => {
+        const c = document.querySelector('canvas.lower-canvas') as HTMLCanvasElement;
+        const scale = c.width / 400;
+        const d = c.getContext('2d')!.getImageData(Math.round(lx * scale), Math.round(ly * scale), 1, 1).data;
+        return d[3] < 255 ? -1 : (d[0] + d[1] + d[2]) / 3; // -1 = nothing painted here
+      },
+      [x, y],
+    );
+  // the white photo may be painted first; wait until the black one has replaced it
+  await expect
+    .poll(async () => {
+      const v = await sample(200, 350);
+      return v >= 0 && v < 80; // -1 means nothing is painted yet
+    }, { message: 'shirt body should be painted and dark' })
+    .toBe(true);
+  expect(await sample(15, 485)).toBeGreaterThan(200); // bottom-left corner: light grey background
+  expect(await sample(385, 15)).toBeGreaterThan(200); // top-right corner: light grey background
+});

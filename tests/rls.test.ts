@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import type { PGlite } from '@electric-sql/pglite';
 import { addUser, asUser, insertDesign, newDb } from './helpers/db';
 
@@ -23,6 +23,11 @@ beforeEach(async () => {
   bob = await addUser(db, 'bob@example.com');
   admin = await addUser(db, 'admin@example.com', { admin: true });
   aliceDesign = await insertDesign(db, alice);
+});
+
+// Free each in-process Postgres (WASM memory) as soon as its test is done.
+afterEach(async () => {
+  await db.close();
 });
 
 describe('row-level security', () => {

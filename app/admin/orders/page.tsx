@@ -1,13 +1,20 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { orderProfit } from '@/lib/admin';
 import { requireAdmin } from '@/lib/auth';
 import { ORDER_STATUS_LABEL, pkr } from '@/lib/labels';
 import { toOrder, type OrderRow } from '@/lib/ordersStore';
 import { getServiceClient } from '@/lib/supabase/server';
 
-export const dynamic = 'force-dynamic';
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={<p className="p-4 text-sm text-neutral-500">Loading…</p>}>
+      <Orders />
+    </Suspense>
+  );
+}
 
-export default async function OrdersPage() {
+async function Orders() {
   await requireAdmin();
   const { data } = await getServiceClient()
     .from('orders')

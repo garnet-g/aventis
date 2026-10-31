@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { PGlite } from '@electric-sql/pglite';
 import type { DesignLayer } from '@/lib/designLayers';
 import { layersHash, saveDesign, submitDesign } from '@/lib/designs';
@@ -70,6 +70,11 @@ beforeEach(async () => {
   db = await newDb();
   designs = new MemoryDesignStore();
   alice = await addUser(db, 'alice@example.com');
+});
+
+// Free each in-process Postgres (WASM memory) as soon as its test is done.
+afterEach(async () => {
+  await db.close();
 });
 
 describe('decideDesign', () => {

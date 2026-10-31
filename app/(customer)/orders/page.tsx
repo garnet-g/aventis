@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { requireUser } from '@/lib/auth';
 import { catalog } from '@/lib/catalog';
 import { buildCustomerView } from '@/lib/customerItems';
@@ -6,9 +7,15 @@ import { toDesign, type DesignRow } from '@/lib/designsStore';
 import type { OrderStatus } from '@/lib/orders';
 import { getServerClient } from '@/lib/supabase/server';
 
-export const dynamic = 'force-dynamic';
+export default function MyOrdersPage() {
+  return (
+    <Suspense fallback={<p className="p-4 text-sm text-neutral-500">Loading…</p>}>
+      <MyOrders />
+    </Suspense>
+  );
+}
 
-export default async function MyOrdersPage() {
+async function MyOrders() {
   const user = await requireUser();
   // These queries run as the customer, so row-level security already limits them to their own rows.
   const db = await getServerClient();

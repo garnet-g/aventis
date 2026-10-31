@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { catalog, COLORS, SIZES, type Color, type ProductId, type Size } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
 import { Editor, type EditorHandle } from '@/components/Editor';
@@ -11,6 +11,8 @@ type Props = {
   /** Uploads the file to the server and returns the stored path, or an error message to show the customer. */
   uploadFile?: (file: File) => Promise<{ path: string } | { error: string }>;
   onChange?: (state: WorkbenchState) => void;
+  /** True from the moment a file is chosen until its image is on the canvas, so callers can hold back saving. */
+  onUploadingChange?: (uploading: boolean) => void;
   showLayersJson?: boolean;
   children?: ReactNode;
 };
@@ -18,11 +20,15 @@ type Props = {
 const pill = (on: boolean) =>
   `rounded-full border px-4 py-2 text-sm font-medium ${on ? 'border-black bg-black text-white' : 'border-neutral-300 bg-white'}`;
 
-export function DesignWorkbench({ uploadFile, onChange, showLayersJson, children }: Props) {
+export function DesignWorkbench({ uploadFile, onChange, onUploadingChange, showLayersJson, children }: Props) {
   const editor = useRef<EditorHandle>(null);
   const [state, setState] = useState<WorkbenchState>({ product: 'tee', color: 'white', size: 'M', layers: [] });
   const [text, setText] = useState('');
   const [error, setError] = useState('');
+  // The page is server-rendered first. Until React has attached its handlers, a chosen file or a typed name would be
+  // silently lost, so those controls stay disabled until the page is interactive.
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
 
   const update = (patch: Partial<WorkbenchState>) => {
     setState((prev) => {
@@ -37,9 +43,14 @@ export function DesignWorkbench({ uploadFile, onChange, showLayersJson, children
     e.target.value = '';
     if (!file) return;
     setError('');
-    const result = uploadFile ? await uploadFile(file) : { path: URL.createObjectURL(file) };
-    if ('error' in result) return setError(result.error);
-    await editor.current?.addImage(URL.createObjectURL(file), result.path);
+    onUploadingChange?.(true);
+    try {
+      const result = uploadFile ? await uploadFile(file) : { path: URL.createObjectURL(file) };
+      if ('error' in result) return setError(result.error);
+      await editor.current?.addImage(URL.createObjectURL(file), result.path);
+    } finally {
+      onUploadingChange?.(false);
+    }
   }
 
   async function addText() {
@@ -77,7 +88,7 @@ export function DesignWorkbench({ uploadFile, onChange, showLayersJson, children
       <div className="flex flex-col gap-3">
         <label className="rounded border border-dashed border-neutral-400 p-3 text-center text-sm">
           Upload image (PNG or JPG)
-          <input data-testid="upload-input" type="file" accept="image/png,image/jpeg" className="sr-only" onChange={onFile} />
+          <input data-testid="upload-input" disabled={!ready} type="file" accept="image/png,image/jpeg" className="sr-only" onChange={onFile} />
         </label>
         {error && (
           <p role="alert" className="text-sm text-red-600">
@@ -87,12 +98,13 @@ export function DesignWorkbench({ uploadFile, onChange, showLayersJson, children
         <div className="flex gap-2">
           <input
             data-testid="text-input"
+            disabled={!ready}
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Your name or text"
             className="min-w-0 flex-1 rounded border p-3"
           />
-          <button className="rounded bg-black px-4 font-semibold text-white" onClick={addText}>
+          <button disabled={!ready} className="rounded bg-black px-4 font-semibold text-white disabled:opacity-50" onClick={addText}>
             Add name
           </button>
         </div>

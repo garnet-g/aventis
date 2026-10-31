@@ -1,10 +1,17 @@
+import { Suspense } from 'react';
 import { ReviewActions } from '@/components/ReviewActions';
 import { requireAdmin } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase/server';
 
-export const dynamic = 'force-dynamic';
+export default function ReviewQueuePage() {
+  return (
+    <Suspense fallback={<p className="p-4 text-sm text-neutral-500">Loading…</p>}>
+      <ReviewQueue />
+    </Suspense>
+  );
+}
 
-export default async function ReviewQueuePage() {
+async function ReviewQueue() {
   await requireAdmin();
   const { data } = await getServiceClient()
     .from('designs')
