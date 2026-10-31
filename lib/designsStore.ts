@@ -1,7 +1,7 @@
 import type { Design, DesignStore } from '@/lib/designs';
 import { getServiceClient } from '@/lib/supabase/server';
 
-type Row = {
+export type DesignRow = {
   id: string;
   user_id: string;
   product: Design['product'];
@@ -14,7 +14,7 @@ type Row = {
   updated_at: string;
 };
 
-const toDesign = (r: Row): Design => ({
+export const toDesign = (r: DesignRow): Design => ({
   id: r.id,
   userId: r.user_id,
   product: r.product,
@@ -43,23 +43,23 @@ export function supabaseDesignStore(): DesignStore {
   return {
     async get(id) {
       const { data } = await db().from('designs').select('*').eq('id', id).maybeSingle();
-      return data ? toDesign(data as Row) : null;
+      return data ? toDesign(data as DesignRow) : null;
     },
     async insert(userId, input) {
       const { data, error } = await db().from('designs').insert({ user_id: userId, ...toRow(input) }).select('*').single();
       if (error) throw new Error(error.message);
-      return toDesign(data as Row);
+      return toDesign(data as DesignRow);
     },
     async update(id, patch) {
       const { data, error } = await db().from('designs').update(toRow(patch)).eq('id', id).select('*').single();
       if (error) throw new Error(error.message);
-      return toDesign(data as Row);
+      return toDesign(data as DesignRow);
     },
     async updateIfVersion(id, version, patch) {
       // updated_at is bumped by a trigger on every write, so it doubles as the version.
       const { data, error } = await db().from('designs').update(toRow(patch)).eq('id', id).eq('updated_at', version).select('*');
       if (error) throw new Error(error.message);
-      return data && data.length > 0 ? toDesign(data[0] as Row) : null;
+      return data && data.length > 0 ? toDesign(data[0] as DesignRow) : null;
     },
     async hasOrder(id) {
       const { count } = await db().from('orders').select('id', { count: 'exact', head: true }).eq('design_id', id);

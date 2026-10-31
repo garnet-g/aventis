@@ -1,4 +1,5 @@
 import { layersHash, type Design, type DesignStore } from '@/lib/designs';
+import { notifyDecision, type EmailSender } from '@/lib/notify';
 import { HttpError, type ArtifactGenerator, type Order, type OrderStatus, type OrderStore } from '@/lib/orders';
 
 const FLOW: OrderStatus[] = ['paid', 'at_printer', 'shipped', 'delivered'];
@@ -72,4 +73,28 @@ export async function signedDownloadUrl(
   path: string,
 ): Promise<string> {
   return storage.createSignedUrl(path, SIGNED_URL_SECONDS);
+}
+
+/** Decides, then emails the customer. A failed email is logged and never undoes the decision. */
+export async function decideAndNotify(
+  deps: { designs: DesignStore; email: EmailSender; emailFor: (userId: string) => Promise<string | null>; siteUrl: string },
+  id: string,
+  decision: 'approve' | 'reject',
+  reason?: string,
+): Promise<Design> {
+  const design = await decideDesign({ designs: deps.designs }, id, decision, reason);
+  try {
+    const to = await deps.emailFor(design.userId);
+    if (to) {
+      await notifyDecision(deps.email, deps.siteUrl, {
+        to,
+        decision: design.status === 'approved' ? 'approved' : 'rejected',
+        designId: design.id,
+        reason: design.rejectReason ?? undefined,
+      });
+    }
+  } catch (e) {
+    console.error('could not email the customer about design', design.id, e);
+  }
+  return design;
 }
