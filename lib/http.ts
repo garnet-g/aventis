@@ -1,9 +1,12 @@
+import { unstable_rethrow } from 'next/navigation';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { HttpError } from '@/lib/orders';
 
 /** Maps known errors to customer-friendly responses; anything unknown is a plain 500 with no details. */
 export function errorResponse(e: unknown) {
+  // A redirect or notFound thrown by the session check must reach Next.js, not be swallowed into a 500.
+  unstable_rethrow(e);
   if (e instanceof ZodError) {
     const first = e.issues[0];
     return NextResponse.json({ error: first?.message || 'Invalid request.' }, { status: 400 });

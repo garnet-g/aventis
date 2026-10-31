@@ -19,7 +19,7 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }));
 
-import { requireAdmin, requireUser } from '@/lib/auth';
+import { apiUser, requireAdmin, requireUser } from '@/lib/auth';
 
 beforeEach(() => {
   currentUser = null;
@@ -43,6 +43,15 @@ describe('auth gates', () => {
 
   test('requireAdmin rejects anonymous by sending them to sign in', async () => {
     await expect(requireAdmin()).rejects.toThrow('REDIRECT:/login');
+  });
+
+  test('apiUser returns null for anonymous instead of redirecting (API routes answer 401)', async () => {
+    await expect(apiUser()).resolves.toBeNull();
+  });
+
+  test('apiUser returns the signed-in user', async () => {
+    currentUser = { id: 'u1' };
+    await expect(apiUser()).resolves.toEqual({ id: 'u1' });
   });
 
   test('requireAdmin accepts an admin', async () => {

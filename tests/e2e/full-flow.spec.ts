@@ -127,3 +127,12 @@ test('customer uploads and generated files are not publicly readable', async () 
     await db.storage.from(bucket).remove([path]);
   }
 });
+
+test('customer API calls without a session answer 401, not a redirect or a server error', async ({ playwright }) => {
+  const anon = await playwright.request.newContext({ baseURL: 'http://localhost:3100' });
+  for (const url of ['/api/pay', '/api/designs', '/api/designs/00000000-0000-0000-0000-000000000000/submit', '/api/designs/00000000-0000-0000-0000-000000000000/upload']) {
+    const res = await anon.post(url, { data: {}, maxRedirects: 0 });
+    expect(res.status(), url).toBe(401);
+  }
+  await anon.dispose();
+});
