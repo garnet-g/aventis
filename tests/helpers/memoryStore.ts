@@ -4,6 +4,11 @@ import type { Design, DesignStore } from '@/lib/designs';
 export class MemoryDesignStore implements DesignStore {
   designs = new Map<string, Design>();
   files = new Map<string, Buffer>();
+  ordered = new Set<string>(); // design ids that have an order
+
+  async hasOrder(id: string) {
+    return this.ordered.has(id);
+  }
 
   async get(id: string) {
     return this.designs.get(id) ?? null;

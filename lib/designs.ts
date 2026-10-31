@@ -28,6 +28,8 @@ export interface DesignStore {
   update(id: string, patch: Partial<Omit<Design, 'id' | 'userId' | 'version'>>): Promise<Design>;
   /** Applies the patch only if the design still has `version`; returns null when it changed in the meantime. */
   updateIfVersion(id: string, version: string, patch: Partial<Omit<Design, 'id' | 'userId' | 'version'>>): Promise<Design | null>;
+  /** True once the design has been paid for; such designs are frozen. */
+  hasOrder(id: string): Promise<boolean>;
   downloadUpload(path: string): Promise<Buffer>;
 }
 
@@ -92,6 +94,7 @@ export async function saveDesign(store: DesignStore, userId: string, input: Desi
 
   const existing = await store.get(id);
   if (!existing || existing.userId !== userId) throw new Error(NOT_FOUND);
+  if (await store.hasOrder(id)) throw new Error('This design already has an order and cannot be changed.');
   assertUploadsOwned(userId, id, layers);
   return store.update(id, { ...parsed, layers, status: 'draft', rejectReason: null });
 }

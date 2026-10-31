@@ -61,6 +61,10 @@ export function supabaseDesignStore(): DesignStore {
       if (error) throw new Error(error.message);
       return data && data.length > 0 ? toDesign(data[0] as Row) : null;
     },
+    async hasOrder(id) {
+      const { count } = await db().from('orders').select('id', { count: 'exact', head: true }).eq('design_id', id);
+      return (count ?? 0) > 0;
+    },
     async downloadUpload(path) {
       const { data, error } = await db().storage.from('uploads').download(path);
       if (error || !data) throw new Error('Could not read upload.');

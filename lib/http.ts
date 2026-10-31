@@ -10,7 +10,7 @@ export function errorResponse(e: unknown) {
   }
   if (e instanceof Error) {
     if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
-    if (/changed while/i.test(e.message)) return NextResponse.json({ error: e.message }, { status: 409 });
+    if (/changed while|already has an order/i.test(e.message)) return NextResponse.json({ error: e.message }, { status: 409 });
     if (/not found/i.test(e.message)) return NextResponse.json({ error: e.message }, { status: 404 });
     if (/add something|invalid upload/i.test(e.message)) return NextResponse.json({ error: e.message }, { status: 400 });
   }

@@ -125,6 +125,13 @@ describe('submitDesign safety under attack', () => {
 });
 
 describe('saveDesign', () => {
+  test('a design that already has an order cannot be edited', async () => {
+    const d = await saveDesign(store, 'alice', { ...base, layers: [text('Ali')] });
+    store.ordered.add(d.id);
+    await expect(saveDesign(store, 'alice', { ...base, layers: [text('Different')] }, d.id)).rejects.toThrow(/already has an order/i);
+    expect((await store.get(d.id))!.layers).toEqual([text('Ali')]);
+  });
+
   test('upload file names must match the server-generated format', async () => {
     const d = await saveDesign(store, 'alice', { ...base, layers: [] });
     const attempt = (name: string) =>
