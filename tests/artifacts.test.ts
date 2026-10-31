@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 import { describe, expect, test } from 'vitest';
-import { generateArtifacts, renderDesignPng, renderMockupPng, type ArtifactStorage } from '@/lib/artifacts';
+import { designPixelSize, generateArtifacts, renderDesignPng, renderMockupPng, renderTextOverlay, type ArtifactStorage } from '@/lib/artifacts';
 import type { DesignLayer } from '@/lib/designLayers';
 
 const item = { product: 'tee', color: 'white' } as const;
@@ -83,6 +83,34 @@ describe('renderDesignPng', () => {
   test('a layer with no content in the print area still yields a valid transparent PNG', async () => {
     const png = await renderDesignPng(item, [], loader);
     expect((await opaquePixels(png)).count).toBe(0);
+  });
+});
+
+describe('renderTextOverlay stays bounded', () => {
+  const { width: W, height: H } = designPixelSize('tee');
+  const layer = (text: string, fontSize: number, width = 0.9): Extract<DesignLayer, { kind: 'text' }> => ({
+    kind: 'text', text, font: 'x', fill: '#000000', direction: 'ltr', fontSize,
+    rect: { x: 0.05, y: 0.05, width, height: 0.2 }, rotation: 0,
+  });
+
+  test('the largest font with the longest text is shrunk to fit the print area', async () => {
+    const png = await renderTextOverlay(layer('W'.repeat(60), 1), W, H);
+    const meta = await sharp(png).metadata();
+    expect(meta.width!).toBeLessThanOrEqual(Math.ceil(W * 1.05));
+    expect(meta.height!).toBeLessThanOrEqual(Math.ceil(H * 1.05));
+  }, 30_000);
+
+  test('a very narrow box with long text cannot grow past the print area either', async () => {
+    const png = await renderTextOverlay(layer('W'.repeat(60), 0.5, 0.01), W, H);
+    const meta = await sharp(png).metadata();
+    expect(meta.height!).toBeLessThanOrEqual(Math.ceil(H * 1.05));
+  }, 30_000);
+
+  test('normal text keeps its requested size', async () => {
+    const meta = await sharp(await renderTextOverlay(layer('Ali Khan', 0.12), W, H)).metadata();
+    // The overlay is ink-tight: ascender text such as "Ali Khan" is about 0.75 of the font size tall.
+    expect(meta.height!).toBeGreaterThanOrEqual(Math.round(0.12 * W * 0.7));
+    expect(meta.height!).toBeLessThanOrEqual(Math.round(0.12 * W * 2.5));
   });
 });
 

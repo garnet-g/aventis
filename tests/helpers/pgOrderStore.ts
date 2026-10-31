@@ -33,6 +33,14 @@ export function pgOrderStore(db: PGlite): OrderStore {
       const r = await db.query<Row>('select * from orders where design_id = $1', [designId]);
       return r.rows[0] ? toOrder(r.rows[0]) : null;
     },
+    async findById(id) {
+      const r = await db.query<Row>('select * from orders where id = $1', [id]);
+      return r.rows[0] ? toOrder(r.rows[0]) : null;
+    },
+    async setStatus(id, from, to) {
+      const r = await db.query<Row>('update orders set status = $3 where id = $1 and status = $2 returning *', [id, from, to]);
+      return r.rows[0] ? toOrder(r.rows[0]) : null;
+    },
     async insert(o: NewOrder) {
       try {
         const r = await db.query<Row>(

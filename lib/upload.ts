@@ -2,6 +2,8 @@ import sharp, { type Metadata } from 'sharp';
 import { MIN_DPI, type PrintArea } from '@/lib/catalog';
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+/** A small PNG can decompress to gigabytes; cap the decoded size. */
+export const MAX_UPLOAD_PIXELS = 40_000_000;
 const ALLOWED_MIME = ['image/png', 'image/jpeg'];
 
 export type UploadMeta = { mime: string; bytes: number; widthPx: number; heightPx: number };
@@ -26,6 +28,9 @@ export function validateUpload(meta: UploadMeta, area: PrintArea): UploadResult 
   if (![meta.widthPx, meta.heightPx].every((n) => Number.isFinite(n) && n > 0)) {
     return { ok: false, reason: 'The file is not a valid image.' };
   }
+  if (meta.widthPx * meta.heightPx > MAX_UPLOAD_PIXELS) {
+    return { ok: false, reason: 'The image is too large in pixels. Use an image under 40 megapixels.' };
+  }
   const min = minWidthPx(area);
   if (meta.widthPx < min) {
     return {
@@ -43,7 +48,7 @@ export async function checkUploadBytes(
 ): Promise<{ ok: true; mime: string; widthPx: number; heightPx: number } | { ok: false; reason: string }> {
   let meta: Metadata;
   try {
-    meta = await sharp(bytes).metadata();
+    meta = await sharp(bytes, { limitInputPixels: 268_402_689 }).metadata();
   } catch {
     return { ok: false, reason: bytes.length === 0 ? 'The file is empty.' : 'The file is not a valid image.' };
   }

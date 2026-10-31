@@ -51,6 +51,9 @@ export type NewOrder = Pick<
 
 export interface OrderStore {
   findByDesign(designId: string): Promise<Order | null>;
+  findById(id: string): Promise<Order | null>;
+  /** Compare-and-set: changes the status only if it is still `from`; returns null when someone else moved it first. */
+  setStatus(id: string, from: OrderStatus, to: OrderStatus): Promise<Order | null>;
   /** Must throw DuplicateOrderError when the design already has an order (unique design_id / payment_ref). */
   insert(order: NewOrder): Promise<Order>;
   setArtifacts(orderId: string, paths: { mockupPath: string; designFilePath: string }): Promise<void>;

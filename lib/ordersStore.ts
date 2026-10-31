@@ -45,6 +45,15 @@ export function supabaseOrderStore(): OrderStore {
       const { data } = await db().from('orders').select('*').eq('design_id', designId).maybeSingle();
       return data ? toOrder(data as OrderRow) : null;
     },
+    async findById(id) {
+      const { data } = await db().from('orders').select('*').eq('id', id).maybeSingle();
+      return data ? toOrder(data as OrderRow) : null;
+    },
+    async setStatus(id, from, to) {
+      const { data, error } = await db().from('orders').update({ status: to }).eq('id', id).eq('status', from).select('*');
+      if (error) throw new Error(error.message);
+      return data && data.length > 0 ? toOrder(data[0] as OrderRow) : null;
+    },
     async insert(o: NewOrder) {
       const { data, error } = await db()
         .from('orders')

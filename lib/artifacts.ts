@@ -31,22 +31,41 @@ export function designPixelSize(product: ProductId) {
 const escapeMarkup = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
-async function textOverlay(layer: Extract<DesignLayer, { kind: 'text' }>, W: number) {
+const MAX_INPUT_PIXELS = 50_000_000;
+const PREFLIGHT_FONT_PX = 16;
+
+function textOptions(layer: Extract<DesignLayer, { kind: 'text' }>, fontPx: number, boxPx: number): SharpOptions {
   const font = FONTS[layer.direction];
   // `rtl` is supported by sharp/libvips but missing from its type definitions.
-  const options = {
+  return {
     text: {
       text: `<span foreground="${layer.fill}">${escapeMarkup(layer.text)}</span>`,
-      font: `${font.family} ${Math.max(1, Math.round(layer.fontSize * W))}`,
+      font: `${font.family} ${Math.max(1, Math.round(fontPx))}`,
       fontfile: path.join(process.cwd(), 'assets', 'fonts', font.file),
-      width: Math.max(1, Math.round(layer.rect.width * W)),
+      width: Math.max(1, Math.round(boxPx)),
       align: 'center',
       rgba: true,
       dpi: 72, // 1 point = 1 pixel
       rtl: layer.direction === 'rtl',
     },
   } as unknown as SharpOptions;
-  return sharp(options).png().toBuffer();
+}
+
+/**
+ * Renders a text layer at the size the customer chose. Rendered size grows linearly with font size, so a tiny
+ * preflight render tells us how big the real one would be; if it would not fit inside the print area the font is
+ * shrunk first. That bounds memory no matter what a (possibly hand-crafted) layer asks for.
+ */
+export async function renderTextOverlay(layer: Extract<DesignLayer, { kind: 'text' }>, W: number, H: number): Promise<Buffer> {
+  let fontPx = layer.fontSize * W;
+  const boxPx = layer.rect.width * W;
+  for (let i = 0; i < 30 && fontPx > PREFLIGHT_FONT_PX; i++) {
+    const k = fontPx / PREFLIGHT_FONT_PX;
+    const { info } = await sharp(textOptions(layer, fontPx / k, boxPx / k)).png().toBuffer({ resolveWithObject: true });
+    if (info.width * k <= W && info.height * k <= H) break;
+    fontPx *= 0.8;
+  }
+  return sharp(textOptions(layer, fontPx, boxPx)).png().toBuffer();
 }
 
 /** Crops an overlay to the canvas bounds so compositing never needs negative offsets. */
@@ -72,13 +91,13 @@ export async function renderDesignPng(item: ArtifactItem, layers: DesignLayer[],
   for (const layer of layers) {
     let png: Buffer;
     if (layer.kind === 'image') {
-      png = await sharp(await loadImage(layer.uploadPath))
+      png = await sharp(await loadImage(layer.uploadPath), { limitInputPixels: MAX_INPUT_PIXELS })
         .ensureAlpha()
         .resize(Math.max(1, Math.round(layer.rect.width * W)), Math.max(1, Math.round(layer.rect.height * H)), { fit: 'fill' })
         .png()
         .toBuffer();
     } else {
-      png = await textOverlay(layer, W);
+      png = await renderTextOverlay(layer, W, H);
     }
     if (layer.rotation) png = await sharp(png).rotate(layer.rotation, { background: TRANSPARENT }).png().toBuffer();
 

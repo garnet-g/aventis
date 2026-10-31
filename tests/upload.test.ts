@@ -32,6 +32,12 @@ describe('validateUpload', () => {
     expect(validateUpload({ ...good, widthPx: 1654 }, area)).toEqual({ ok: true });
   });
 
+  test('an image with more than 40 megapixels is rejected (decompression-bomb guard)', () => {
+    const r = validateUpload({ ...good, widthPx: 9000, heightPx: 9000 }, area);
+    expect(r.ok === false && r.reason).toMatch(/too large/i);
+    expect(validateUpload({ ...good, widthPx: 6000, heightPx: 6000 }, area)).toEqual({ ok: true });
+  });
+
   test('file with image mime but 0 bytes or NaN dimensions is rejected, not thrown', () => {
     expect(validateUpload({ ...good, bytes: 0 }, area).ok).toBe(false);
     expect(validateUpload({ ...good, widthPx: NaN }, area).ok).toBe(false);
