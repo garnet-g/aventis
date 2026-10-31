@@ -37,6 +37,21 @@ describe('moderateText', () => {
     expect(moderateText(['tеam'])).toBe('unsure');
   });
 
+  test('letters from any other script mixed into a Latin word go to human review', () => {
+    expect(moderateText(['fսck'])).toBe('unsure'); // Armenian ս
+    expect(moderateText(['fuᏟk'])).toBe('unsure'); // Cherokee
+  });
+
+  test('non-ASCII Latin letters NFKD leaves unchanged (small capitals, dotless i) go to human review', () => {
+    expect(moderateText(['ᴘorn'])).toBe('unsure'); // small capital P
+    expect(moderateText(['ıdiot'])).toBe('unsure'); // dotless i
+  });
+
+  test('ordinary accented names and a pure Cyrillic word stay clear', () => {
+    expect(moderateText(['Zoë'])).toBe('clear');
+    expect(moderateText(['мир'])).toBe('clear');
+  });
+
   test('spaced or separated letters are caught even when long words are split', () => {
     expect(moderateText(['f u c k i n g'])).toBe('explicit');
     expect(moderateText(['what the f_u_c_k_i_n_g hell'])).toBe('explicit');

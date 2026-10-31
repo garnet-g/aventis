@@ -20,7 +20,15 @@ const AMBIGUOUS = new Set(banned.ambiguous.map(normalizeWord));
 // Long banned words are also matched inside a string with every separator removed ("f u c k i n g").
 const LONG_EXPLICIT = [...EXPLICIT].filter((w) => [...w].length >= 5);
 
-const isMixedScript = (part: string) => /[a-z]/.test(part) && /[Ͱ-ϿЀ-ӿ]/.test(part);
+// A word that mixes plain a-z with letters of any other script, or that holds non-ASCII Latin letters NFKD
+// leaves alone (small capitals, dotless i), may be a lookalike spelling: a person reviews it.
+function isMixedScript(part: string): boolean {
+  const chars = [...part];
+  const hasAscii = chars.some((c) => /[a-z]/.test(c));
+  const hasExoticLatin = chars.some((c) => /\p{Script=Latin}/u.test(c) && !/[a-z]/.test(c));
+  const hasOtherScript = chars.some((c) => /\p{L}/u.test(c) && !/\p{Script=Latin}/u.test(c));
+  return hasExoticLatin || (hasAscii && hasOtherScript);
+}
 
 function analyse(text: string): { tokens: string[]; squashed: string; mixed: boolean } {
   const parts = normalize(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
