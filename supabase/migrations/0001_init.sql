@@ -29,6 +29,7 @@ create table public.designs (
   status text not null default 'draft'
     check (status in ('draft', 'pending_review', 'approved', 'rejected')),
   reject_reason text,
+  moderated_hash text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

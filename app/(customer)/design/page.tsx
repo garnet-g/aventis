@@ -1,7 +1,7 @@
 import { requireUser } from '@/lib/auth';
-import { DesignWorkbench } from '@/components/DesignWorkbench';
+import { DesignFlow } from '@/components/DesignFlow';
 
 export default async function DesignPage() {
   await requireUser();
-  return <DesignWorkbench />;
+  return <DesignFlow />;
 }
