@@ -91,11 +91,12 @@ export async function renderDesignPng(item: ArtifactItem, layers: DesignLayer[],
   for (const layer of layers) {
     let png: Buffer;
     if (layer.kind === 'image') {
-      png = await sharp(await loadImage(layer.uploadPath), { limitInputPixels: MAX_INPUT_PIXELS })
+      let image = sharp(await loadImage(layer.uploadPath), { limitInputPixels: MAX_INPUT_PIXELS })
         .ensureAlpha()
-        .resize(Math.max(1, Math.round(layer.rect.width * W)), Math.max(1, Math.round(layer.rect.height * H)), { fit: 'fill' })
-        .png()
-        .toBuffer();
+        .resize(Math.max(1, Math.round(layer.rect.width * W)), Math.max(1, Math.round(layer.rect.height * H)), { fit: 'fill' });
+      if (layer.flipX) image = image.flop(); // mirror left to right
+      if (layer.flipY) image = image.flip(); // mirror top to bottom
+      png = await image.png().toBuffer();
     } else {
       png = await renderTextOverlay(layer, W, H);
     }

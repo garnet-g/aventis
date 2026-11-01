@@ -6,6 +6,7 @@ import { catalog, type Color, type ProductId } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
 import { CANVAS_H, CANVAS_W, detectDirection, printAreaRect, toFraction } from '@/lib/editorGeometry';
 import { clampToPrintArea } from '@/lib/printArea';
+import { printQuality, type PrintQuality } from '@/lib/quality';
 
 // Same families the server uses to render the print file, so the preview matches what is printed.
 /** Selection handles in the Printly palette, large enough for a finger. */
@@ -23,15 +24,25 @@ export const TEXT_FONT = '"Noto Sans", "Noto Nastaliq Urdu", Arial, sans-serif';
 
 type Meta = { kind: 'image'; uploadPath: string } | { kind: 'text' };
 
+/** What is currently selected on the canvas, so the page can show the right tools. */
+export type Selection = { kind: 'image'; quality: PrintQuality } | { kind: 'text' } | null;
+
 export type EditorHandle = {
   addImage(url: string, uploadPath: string): Promise<void>;
   addText(text: string): Promise<void>;
   removeSelected(): void;
+  flipSelected(axis: 'x' | 'y'): void;
+  rotateSelected(degrees: number): void;
 };
 
-type Props = { product: ProductId; color: Color; onChange?: (layers: DesignLayer[]) => void };
+type Props = {
+  product: ProductId;
+  color: Color;
+  onChange?: (layers: DesignLayer[]) => void;
+  onSelectionChange?: (selection: Selection) => void;
+};
 
-export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product, color, onChange }, ref) {
+export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product, color, onChange, onSelectionChange }, ref) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasEl = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<Canvas | null>(null);
@@ -39,8 +50,12 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
   const metaRef = useRef(new WeakMap<FabricObject, Meta>());
   const onChangeRef = useRef(onChange);
   const colorRef = useRef(color);
+  const productRef = useRef(product);
+  const onSelectionRef = useRef(onSelectionChange);
   onChangeRef.current = onChange;
   colorRef.current = color;
+  productRef.current = product;
+  onSelectionRef.current = onSelectionChange;
 
   const readLayers = (): DesignLayer[] => {
     const area = areaRef.current;
@@ -51,7 +66,9 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
       const h = obj.getScaledHeight();
       const rect = toFraction({ x: (obj.left ?? 0) - w / 2, y: (obj.top ?? 0) - h / 2, width: w, height: h }, area);
       const rotation = obj.angle ?? 0;
-      if (meta.kind === 'image') return [{ kind: 'image', uploadPath: meta.uploadPath, rect, rotation }];
+      if (meta.kind === 'image') {
+        return [{ kind: 'image', uploadPath: meta.uploadPath, rect, rotation, flipX: !!obj.flipX, flipY: !!obj.flipY }];
+      }
       const t = obj as Textbox;
       return [
         {
@@ -87,6 +104,16 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
 
   const emit = () => onChangeRef.current?.(readLayers());
 
+  /** Tells the page what is selected and, for an image, how sharp it will print at its current size. */
+  const reportSelection = () => {
+    const obj = fabricRef.current?.getActiveObject();
+    const meta = obj && metaRef.current.get(obj);
+    if (!obj || !meta) return onSelectionRef.current?.(null);
+    if (meta.kind === 'text') return onSelectionRef.current?.({ kind: 'text' });
+    const printedWidthCm = (obj.getScaledWidth() / areaRef.current.width) * catalog[productRef.current].printArea.widthCm;
+    onSelectionRef.current?.({ kind: 'image', quality: printQuality((obj as FabricImage).width, printedWidthCm) });
+  };
+
   useEffect(() => {
     const canvas = new Canvas(canvasEl.current!, {
       width: CANVAS_W,
@@ -102,9 +129,17 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
     canvas.on('object:modified', (e) => {
       constrain(e.target);
       emit();
+      reportSelection();
     });
+    canvas.on('object:scaling', reportSelection);
     canvas.on('object:added', emit);
-    canvas.on('object:removed', emit);
+    canvas.on('object:removed', () => {
+      emit();
+      reportSelection();
+    });
+    canvas.on('selection:created', reportSelection);
+    canvas.on('selection:updated', reportSelection);
+    canvas.on('selection:cleared', reportSelection);
 
     // Phone-first: shrink the canvas display to the available width (drawing coordinates stay 400x500).
     const fit = () => {
@@ -199,6 +234,26 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
       constrain(t);
       canvas.setActiveObject(t);
       canvas.requestRenderAll();
+    },
+    flipSelected(axis) {
+      const canvas = fabricRef.current;
+      const obj = canvas?.getActiveObject();
+      // Only images can be mirrored: mirrored text would not match what gets printed.
+      if (!canvas || !obj || metaRef.current.get(obj)?.kind !== 'image') return;
+      if (axis === 'x') obj.flipX = !obj.flipX;
+      else obj.flipY = !obj.flipY;
+      obj.setCoords();
+      canvas.requestRenderAll();
+      canvas.fire('object:modified', { target: obj });
+    },
+    rotateSelected(degrees) {
+      const canvas = fabricRef.current;
+      const obj = canvas?.getActiveObject();
+      if (!canvas || !obj) return;
+      obj.rotate((((obj.angle ?? 0) + degrees) % 360 + 360) % 360);
+      obj.setCoords();
+      canvas.requestRenderAll();
+      canvas.fire('object:modified', { target: obj });
     },
     removeSelected() {
       const canvas = fabricRef.current;

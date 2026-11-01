@@ -64,6 +64,22 @@ describe('renderDesignPng', () => {
     expect([meta.width, meta.height]).toEqual([TEE_W, TEE_H]);
   });
 
+  test('a flipped image layer is mirrored (left to right and top to bottom)', async () => {
+    const red = await sharp({ create: { width: 100, height: 100, channels: 3, background: '#ff0000' } }).png().toBuffer();
+    // left half red, right half blue
+    const lr = await sharp({ create: { width: 200, height: 100, channels: 3, background: '#0000ff' } }).composite([{ input: red, left: 0, top: 0 }]).png().toBuffer();
+    // top half red, bottom half blue
+    const tb = await sharp({ create: { width: 100, height: 200, channels: 3, background: '#0000ff' } }).composite([{ input: red, left: 0, top: 0 }]).png().toBuffer();
+    const full = { x: 0, y: 0, width: 1, height: 1 };
+    const layer = (extra: object): DesignLayer => ({ kind: 'image', uploadPath: 'u/d/f.png', rect: full, rotation: 0, ...extra }) as DesignLayer;
+    const left = (png: Buffer) => pixel(png, 50, TEE_H / 2);
+    const top = (png: Buffer) => pixel(png, TEE_W / 2, 50);
+    expect(await left(await renderDesignPng(item, [layer({})], async () => lr))).toMatchObject({ r: 255, b: 0 });
+    expect(await left(await renderDesignPng(item, [layer({ flipX: true })], async () => lr))).toMatchObject({ r: 0, b: 255 });
+    expect(await top(await renderDesignPng(item, [layer({})], async () => tb))).toMatchObject({ r: 255, b: 0 });
+    expect(await top(await renderDesignPng(item, [layer({ flipY: true })], async () => tb))).toMatchObject({ r: 0, b: 255 });
+  });
+
   test('Urdu text layer produces real glyph pixels (not blank, not boxes)', async () => {
     const png = await renderDesignPng(item, [textLayer('علی احمد', 'rtl')], loader);
     const { count, minX, maxX } = await opaquePixels(png);

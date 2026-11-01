@@ -42,7 +42,14 @@ const rectSchema = z
   });
 
 const layerSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('image'), uploadPath: z.string().max(200), rect: rectSchema, rotation: z.number().min(-360).max(360) }),
+  z.object({
+    kind: z.literal('image'),
+    uploadPath: z.string().max(200),
+    rect: rectSchema,
+    rotation: z.number().min(-360).max(360),
+    flipX: z.boolean().optional(),
+    flipY: z.boolean().optional(),
+  }),
   z.object({
     kind: z.literal('text'),
     text: z.string().min(1).max(60),

@@ -132,6 +132,13 @@ describe('saveDesign', () => {
     expect((await store.get(d.id))!.layers).toEqual([text('Ali')]);
   });
 
+  test('flip flags on an image layer are saved, not silently dropped', async () => {
+    const d0 = await saveDesign(store, 'alice', { ...base, layers: [] });
+    const path = `alice/${d0.id}/${FILE}`;
+    const saved = await saveDesign(store, 'alice', { ...base, layers: [{ kind: 'image', uploadPath: path, rect, rotation: 90, flipX: true, flipY: false }] }, d0.id);
+    expect(saved.layers[0]).toMatchObject({ kind: 'image', rotation: 90, flipX: true, flipY: false });
+  });
+
   test('upload file names must match the server-generated format', async () => {
     const d = await saveDesign(store, 'alice', { ...base, layers: [] });
     const attempt = (name: string) =>

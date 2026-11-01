@@ -108,3 +108,10 @@ supabase/migrations database schema, access rules, private storage buckets
 assets/fonts        bundled fonts (OFL) used to print Urdu and Latin text on the server
 tests/              vitest unit/database tests; tests/e2e for Playwright
 ```
+
+## Images customers upload
+
+- Accepted: PNG, JPG and WebP, up to 10 MB and 40 megapixels. At least 300 px on the shorter side.
+- Anything smaller than the print area is **allowed**; instead the editor shows a live **Print quality** rating (Great, OK or Low, based on pixels per inch at the size the customer placed it) and warns when it may print blurry.
+- Uploads are stored upright (phone-photo rotation applied), converted from WebP to PNG, and capped at 3600 px on the longest side.
+- Tools on a selected image: flip left-right, flip top-bottom, rotate 90°. Flips and rotation are saved and applied in the printed file.

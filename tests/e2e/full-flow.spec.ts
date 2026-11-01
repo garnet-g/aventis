@@ -12,11 +12,14 @@ async function expectNoHorizontalScroll(page: Page) {
 test.describe.configure({ mode: 'serial', timeout: 180_000 });
 
 test('customer designs, passes the check, pays in test mode; admin sees the paid order and downloads both files', async ({ page, browser }) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (m) => m.type() === 'error' && consoleErrors.push(m.text()));
   const email = uniqueEmail('cust');
   await signUp(page, email);
   await addUpload(page);
   await addName(page, 'Ali');
   await expectNoHorizontalScroll(page);
+  expect(consoleErrors.filter((t) => /Cannot update a component/.test(t))).toEqual([]);
   await page.screenshot({ path: 'test-results/phone-design.png', fullPage: true });
   await page.getByTestId('continue').click();
 
@@ -138,4 +141,29 @@ test('customer API calls without a session answer 401, not a redirect or a serve
     expect(res.status(), url).toBe(401);
   }
   await anon.dispose();
+});
+
+test('everyday images upload: small logo, WhatsApp-sized photo, WebP, and a sideways phone photo', async ({ page }) => {
+  await signUp(page, uniqueEmail('imgs'));
+  await expect(page.getByTestId('upload-input')).toBeEnabled();
+  const solid = (w: number, h: number, c: string) => ({ create: { width: w, height: h, channels: 3 as const, background: c } });
+  const files = [
+    { name: 'logo.png', mimeType: 'image/png', buffer: await sharp(solid(800, 800, '#d33')).png().toBuffer() },
+    { name: 'whatsapp.jpg', mimeType: 'image/jpeg', buffer: await sharp(solid(1280, 960, '#38c')).jpeg().toBuffer() },
+    { name: 'sticker.webp', mimeType: 'image/webp', buffer: await sharp(solid(1000, 1000, '#c83')).webp().toBuffer() },
+    { name: 'sideways.jpg', mimeType: 'image/jpeg', buffer: await sharp(solid(1600, 1200, '#3a7')).jpeg().withMetadata({ orientation: 6 }).toBuffer() },
+  ];
+  for (const file of files) {
+    const done = page.waitForResponse((r) => r.url().includes('/upload'));
+    await page.getByTestId('upload-input').setInputFiles(file);
+    const res = await done;
+    expect(res.status(), file.name).toBe(200);
+    await expect(page.locator('p[role="alert"]')).toHaveCount(0); // the app's own messages (Next adds an invisible alert too)
+    await expect(page.getByTestId('continue')).toBeEnabled(); // upload finished and the image is on the canvas
+  }
+  // a tiny image still gets a clear message
+  const tiny = page.waitForResponse((r) => r.url().includes('/upload'));
+  await page.getByTestId('upload-input').setInputFiles({ name: 'tiny.png', mimeType: 'image/png', buffer: await sharp(solid(200, 200, '#000')).png().toBuffer() });
+  expect((await tiny).status()).toBe(400);
+  await expect(page.locator('p[role="alert"]')).toContainText(/300 pixels/);
 });

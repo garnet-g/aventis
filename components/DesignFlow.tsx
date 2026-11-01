@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DesignWorkbench, type WorkbenchState } from '@/components/DesignWorkbench';
 import { catalog, DELIVERY_FEE_PKR, type ProductId } from '@/lib/catalog';
+import { postFormWithProgress } from '@/lib/clientUpload';
 import { pkr } from '@/lib/labels';
 
 type Outcome = { status: 'approved' | 'pending_review' | 'rejected'; message: string };
@@ -17,6 +18,7 @@ export function DesignFlow() {
   const [product, setProduct] = useState<ProductId>('tee');
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [outcome, setOutcome] = useState<Outcome | null>(null);
 
@@ -49,11 +51,14 @@ export function DesignFlow() {
       }
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch(`/api/designs/${designId.current}/upload`, { method: 'POST', body: form });
-      const body = await res.json();
-      return res.ok ? { path: body.path } : { error: body.error ?? 'Upload failed.' };
+      setUploadProgress(0);
+      const { status, body } = await postFormWithProgress(`/api/designs/${designId.current}/upload`, form, setUploadProgress);
+      const data = (body ?? {}) as { path?: string; error?: string };
+      return status >= 200 && status < 300 && data.path ? { path: data.path } : { error: data.error ?? 'Upload failed, please try again.' };
     } catch {
       return { error: 'Upload failed, please try again.' };
+    } finally {
+      setUploadProgress(null);
     }
   }
 
@@ -94,6 +99,7 @@ export function DesignFlow() {
           setProduct(s.product);
         }}
         onUploadingChange={setUploading}
+        uploadProgress={uploadProgress}
       >
         {error && (
           <p role="alert" className="text-sm font-semibold text-vermilion">

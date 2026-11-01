@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import { expect, test, type Page } from '@playwright/test';
 
-type Layer = { kind: string; direction?: string; rect: { x: number; y: number; width: number; height: number } };
+type Layer = { kind: string; rotation?: number; flipX?: boolean; flipY?: boolean; direction?: string; rect: { x: number; y: number; width: number; height: number } };
 
 async function layers(page: Page): Promise<Layer[]> {
   return JSON.parse((await page.getByTestId('layers-json').textContent()) || '[]');
@@ -87,4 +87,31 @@ test('home and sign-in pages carry the Printly brand and fit a phone without sid
   await expect(page.getByRole('link', { name: /Start designing/ })).toBeVisible();
   await page.waitForTimeout(1200); // let the staggered fade-in finish
   await page.screenshot({ path: 'test-results/phone-home.png', fullPage: true });
+});
+
+test('flip and rotate buttons change the selected image and are saved in the layer', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await uploadPng(page);
+  await page.getByRole('button', { name: 'Flip left-right' }).click();
+  await expect.poll(async () => (await layers(page))[0].flipX).toBe(true);
+  await page.getByRole('button', { name: 'Flip top-bottom' }).click();
+  await expect.poll(async () => (await layers(page))[0].flipY).toBe(true);
+  await page.getByRole('button', { name: 'Rotate 90°' }).click();
+  await expect.poll(async () => (await layers(page))[0].rotation).toBe(90);
+  await page.getByRole('button', { name: 'Flip left-right' }).click();
+  await expect.poll(async () => (await layers(page))[0].flipX).toBe(false);
+});
+
+test('print quality is shown for the selected image and gets worse as it is enlarged', async ({ page }) => {
+  await page.goto('/dev/editor');
+  const upload = page.getByTestId('upload-input');
+  await expect(upload).toBeEnabled();
+  const big = await sharp({ create: { width: 2400, height: 2400, channels: 3, background: '#38c' } }).png().toBuffer();
+  await upload.setInputFiles({ name: 'big.png', mimeType: 'image/png', buffer: big });
+  await expect(page.getByTestId('print-quality')).toContainText('Great');
+  await page.getByRole('button', { name: 'Remove selected' }).click();
+  await expect(page.getByTestId('print-quality')).toHaveCount(0);
+  await uploadPng(page); // 400 px wide printed about 17 cm wide is far too soft
+  await expect(page.getByTestId('print-quality')).toContainText('Low');
+  await expect(page.getByTestId('print-quality')).toContainText(/blurry/i);
 });
