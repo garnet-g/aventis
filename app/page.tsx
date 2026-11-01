@@ -1,42 +1,88 @@
 import Link from 'next/link';
+import { SiteHeader } from '@/components/SiteHeader';
+import { TeeArt } from '@/components/TeeArt';
 import { catalog, DELIVERY_FEE_PKR } from '@/lib/catalog';
+import { pkr } from '@/lib/labels';
 
-const pkr = (n: number) => `PKR ${n.toLocaleString('en-PK')}`;
+const STEPS = [
+  ['1', 'Design it on the shirt'],
+  ['2', 'A person checks it'],
+  ['3', 'Pay and we deliver'],
+] as const;
 
 export default function HomePage() {
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-6 p-4 py-10">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold">Put your design on a shirt or hoodie</h1>
-        <p className="text-neutral-600">
-          Upload your art or add your name, place it on the garment, and we print and deliver it.
-        </p>
-      </header>
-
-      <ul className="grid grid-cols-2 gap-3 text-sm">
-        {Object.values(catalog).map((p) => (
-          <li key={p.label} className="rounded border p-3">
-            <p className="font-semibold">{p.label}</p>
-            <p>{pkr(p.pricePkr)}</p>
-            <p className="text-neutral-500">White or black · S to XL</p>
-          </li>
-        ))}
-      </ul>
-      <p className="-mt-3 text-xs text-neutral-500">Delivery {pkr(DELIVERY_FEE_PKR)}.</p>
-
-      <div className="flex flex-col gap-3">
-        <Link href="/design" className="rounded bg-orange-600 p-3 text-center font-semibold text-white">
-          Start designing
-        </Link>
-        <div className="flex justify-between text-sm">
+    <>
+      <SiteHeader
+        right={
           <Link className="underline" href="/login">
-            Sign in or create an account
+            Sign in
           </Link>
-          <Link className="underline" href="/orders">
-            My designs and orders
+        }
+      />
+      <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-4 pb-12">
+        <section className="rise">
+          <h1 className="font-display text-[3.1rem] font-extrabold leading-[0.95] tracking-tighter">
+            Wear your
+            <br />
+            own{' '}
+            <span className="bg-[linear-gradient(transparent_58%,var(--color-marigold)_58%_92%,transparent_92%)] px-1">name.</span>
+          </h1>
+          <p dir="rtl" className="mt-3 text-left font-urdu text-xl leading-loose text-vermilion">
+            اپنا نام، اپنی شرٹ
+          </p>
+        </section>
+
+        <section className="rise relative h-56 overflow-hidden rounded-3xl border-2 border-ink bg-paper-2" style={{ animationDelay: '80ms' }}>
+          <div className="halftone absolute inset-0 opacity-15 [mask-image:linear-gradient(120deg,#000,transparent_65%)]" />
+          <div className="absolute right-3 top-3 grid h-20 w-20 rotate-[8deg] place-items-center rounded-full border-2 border-ink bg-marigold text-center font-display text-[0.8rem] font-extrabold leading-none">
+            100%
+            <br />
+            yours
+          </div>
+          <TeeArt className="absolute left-1/2 top-1/2 w-56 -translate-x-1/2 -translate-y-[48%] -rotate-3">
+            <text x="400" y="470" textAnchor="middle" fontFamily="var(--font-bricolage)" fontWeight="800" fontSize="150" fill="#e5412a">
+              ALI
+            </text>
+            <text x="400" y="560" textAnchor="middle" fontWeight="700" fontSize="42" letterSpacing="12" fill="#16120f">
+              EST. 2026
+            </text>
+          </TeeArt>
+        </section>
+
+        <section className="rise flex flex-col gap-3" style={{ animationDelay: '160ms' }}>
+          <Link href="/design" className="btn">
+            Start designing &rarr;
           </Link>
-        </div>
-      </div>
-    </main>
+          <p className="text-center text-sm text-mute">
+            T-shirt from {pkr(catalog.tee.pricePkr)} &middot; Hoodie from {pkr(catalog.hoodie.pricePkr)}
+          </p>
+        </section>
+
+        <ol className="rise grid grid-cols-3 gap-2" style={{ animationDelay: '240ms' }}>
+          {STEPS.map(([n, label]) => (
+            <li key={n} className="border-t-[3px] border-ink pt-2 text-[0.8rem] leading-tight">
+              <b className="block font-display text-2xl text-vermilion">{n}</b>
+              {label}
+            </li>
+          ))}
+        </ol>
+
+        <ul className="rise grid grid-cols-2 gap-3" style={{ animationDelay: '320ms' }}>
+          {Object.values(catalog).map((p) => (
+            <li key={p.label} className="rounded-xl border-2 border-ink bg-[#fffaf0] p-3">
+              <p className="font-display text-lg font-extrabold">{p.label}</p>
+              <p className="text-sm">{pkr(p.pricePkr)}</p>
+              <p className="text-xs text-mute">White or black &middot; S to XL</p>
+            </li>
+          ))}
+        </ul>
+        <p className="-mt-2 text-center text-xs text-mute">Delivery {pkr(DELIVERY_FEE_PKR)}. Every design is checked by a person before it is printed.</p>
+
+        <Link className="text-center text-sm underline" href="/orders">
+          My designs and orders
+        </Link>
+      </main>
+    </>
   );
 }

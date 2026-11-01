@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { pkr } from '@/lib/labels';
 import { PROVINCES } from '@/lib/orders';
 
 export function CheckoutForm({ designId, totalPkr, testMode }: { designId: string; totalPkr: number; testMode: boolean }) {
@@ -26,31 +27,32 @@ export function CheckoutForm({ designId, totalPkr, testMode }: { designId: strin
     router.push('/orders');
   }
 
-  const field = 'rounded border p-3';
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Delivery details</h2>
-      <input name="name" required placeholder="Full name" autoComplete="name" className={field} />
-      <input name="phone" required placeholder="Mobile (03001234567)" inputMode="tel" autoComplete="tel" className={field} />
-      <input name="city" required placeholder="City" autoComplete="address-level2" className={field} />
-      <select name="province" required defaultValue="" className={field}>
-        <option value="" disabled>
-          Province
-        </option>
-        {PROVINCES.map((p) => (
-          <option key={p}>{p}</option>
-        ))}
-      </select>
-      <textarea name="address" required rows={3} placeholder="Full address" autoComplete="street-address" className={field} />
+      <h2 className="font-display text-xl font-extrabold">Delivery details</h2>
+      <input name="name" required placeholder="Full name" autoComplete="name" className="field" />
+      <input name="phone" required placeholder="Mobile (03001234567)" inputMode="tel" autoComplete="tel" className="field" />
+      <div className="flex gap-3">
+        <input name="city" required placeholder="City" autoComplete="address-level2" className="field flex-1" />
+        <select name="province" required defaultValue="" className="field flex-1">
+          <option value="" disabled>
+            Province
+          </option>
+          {PROVINCES.map((p) => (
+            <option key={p}>{p}</option>
+          ))}
+        </select>
+      </div>
+      <textarea name="address" required rows={3} placeholder="Full address" autoComplete="street-address" className="field" />
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm font-semibold text-vermilion">
           {error}
         </p>
       )}
-      <button disabled={busy} className="rounded bg-orange-600 p-3 font-semibold text-white disabled:opacity-50">
-        {busy ? 'Processing…' : `Pay PKR ${totalPkr.toLocaleString('en-PK')}`}
+      <button disabled={busy} className="btn mt-1">
+        {busy ? 'Processing…' : `Pay ${pkr(totalPkr)}`}
       </button>
-      {testMode && <p className="text-center text-xs text-neutral-500">TEST MODE: no real money is charged.</p>}
+      {testMode && <p className="text-center text-xs text-mute">TEST MODE: no real money is charged.</p>}
     </form>
   );
 }

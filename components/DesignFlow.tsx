@@ -3,13 +3,18 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DesignWorkbench, type WorkbenchState } from '@/components/DesignWorkbench';
+import { catalog, DELIVERY_FEE_PKR, type ProductId } from '@/lib/catalog';
+import { pkr } from '@/lib/labels';
 
 type Outcome = { status: 'approved' | 'pending_review' | 'rejected'; message: string };
+
+const STEPS = ['1 Design', '2 Check', '3 Pay'];
 
 export function DesignFlow() {
   const router = useRouter();
   const state = useRef<WorkbenchState>({ product: 'tee', color: 'white', size: 'M', layers: [] });
   const designId = useRef<string | null>(null);
+  const [product, setProduct] = useState<ProductId>('tee');
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -71,26 +76,48 @@ export function DesignFlow() {
     }
   }
 
+  const total = catalog[product].pricePkr + DELIVERY_FEE_PKR;
+
   return (
-    <DesignWorkbench uploadFile={uploadFile} onChange={(s) => (state.current = s)} onUploadingChange={setUploading}>
-      {error && (
-        <p role="alert" className="text-sm text-red-600">
-          {error}
-        </p>
-      )}
-      {outcome && (
-        <p role="status" data-testid="design-outcome" className="rounded border p-3 text-sm">
-          {outcome.message}
-        </p>
-      )}
-      <button
-        data-testid="continue"
-        disabled={busy || uploading}
-        onClick={onContinue}
-        className="rounded bg-orange-600 p-3 font-semibold text-white disabled:opacity-50"
+    <>
+      <ol className="mx-auto flex w-full max-w-md gap-1.5 px-4 pb-3 text-[0.7rem] font-bold uppercase tracking-[0.12em]" aria-label="Steps">
+        {STEPS.map((s, i) => (
+          <li key={s} aria-current={i === 0 ? 'step' : undefined} className={`rounded-full border-[1.5px] border-ink px-2.5 py-1 ${i === 0 ? 'bg-ink text-paper' : ''}`}>
+            {s}
+          </li>
+        ))}
+      </ol>
+      <DesignWorkbench
+        uploadFile={uploadFile}
+        onChange={(s) => {
+          state.current = s;
+          setProduct(s.product);
+        }}
+        onUploadingChange={setUploading}
       >
-        {busy ? 'Checking your design…' : uploading ? 'Uploading your image…' : 'Continue to checkout'}
-      </button>
-    </DesignWorkbench>
+        {error && (
+          <p role="alert" className="text-sm font-semibold text-vermilion">
+            {error}
+          </p>
+        )}
+        {outcome && (
+          <p role="status" data-testid="design-outcome" className={`ticket text-sm font-semibold ${outcome.status === 'pending_review' ? 'bg-marigold/30' : ''}`}>
+            {outcome.message}
+          </p>
+        )}
+      </DesignWorkbench>
+
+      <div className="fixed inset-x-0 bottom-0 z-20 bg-ink text-paper">
+        <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 pb-4 pt-3">
+          <div>
+            <small className="block text-[0.7rem] text-[#bdb2a0]">Total with delivery</small>
+            <b className="font-display text-2xl leading-none">{pkr(total)}</b>
+          </div>
+          <button data-testid="continue" disabled={busy || uploading} onClick={onContinue} className="btn btn-dock btn-sm">
+            {busy ? 'Checking…' : uploading ? 'Uploading…' : 'Continue to checkout'}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }

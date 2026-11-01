@@ -1,4 +1,4 @@
-# Custom Apparel Platform
+# Printly
 
 A phone-first web app where customers in Pakistan put a design or a name on a T-shirt or hoodie, inside a fixed print area, pass a safety check, and pay. The owners get a paid order with two files to give to their printer:
 
@@ -56,7 +56,10 @@ Non-admins get a 404 on every `/admin` page and API.
 
 ```bash
 npx vitest run          # unit and database tests (no Docker needed)
-npx playwright test     # browser tests for the design editor (starts the dev server)
+npx playwright test     # browser tests (starts its own dev server on port 3100)
+# If `npm run dev` is already running (Next.js allows one per project), test against it instead:
+#   E2E_BASE_URL=http://localhost:3000 npx playwright test
+# The full-flow tests need the local database: `npx supabase start`
 ```
 
 The database rules (row-level security, the freeze-after-order trigger, the order-matches-design trigger) are tested against a real in-process Postgres (PGlite) using the actual migration.

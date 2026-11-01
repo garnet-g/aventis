@@ -42,6 +42,7 @@ test('customer designs, passes the check, pays in test mode; admin sees the paid
 
   await admin.page.goto(`/admin/orders/${order!.id}`);
   await expect(admin.page.getByText('Status: Paid')).toBeVisible();
+  await admin.page.screenshot({ path: 'test-results/desktop-admin-order.png', fullPage: true });
   for (const file of ['mockup', 'design']) {
     const res = await admin.context.request.get(`/api/admin/orders/${order!.id}/download?file=${file}`);
     expect(res.status()).toBe(200);
@@ -78,6 +79,8 @@ test('an unsure design shows Waiting for review, payment is blocked, then the ad
 
   const admin = await adminPage(browser);
   await admin.page.goto('/admin/review');
+  await expect(admin.page.getByRole('button', { name: 'Approve' }).first()).toBeVisible();
+  await admin.page.screenshot({ path: 'test-results/desktop-admin-review.png', fullPage: true });
   await admin.page.getByRole('button', { name: 'Approve' }).first().click();
   await expect.poll(async () => (await service().from('designs').select('status').eq('id', designId).single()).data!.status).toBe('approved');
   await admin.context.close();
@@ -129,7 +132,7 @@ test('customer uploads and generated files are not publicly readable', async () 
 });
 
 test('customer API calls without a session answer 401, not a redirect or a server error', async ({ playwright }) => {
-  const anon = await playwright.request.newContext({ baseURL: 'http://localhost:3100' });
+  const anon = await playwright.request.newContext({ baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3100' });
   for (const url of ['/api/pay', '/api/designs', '/api/designs/00000000-0000-0000-0000-000000000000/submit', '/api/designs/00000000-0000-0000-0000-000000000000/upload']) {
     const res = await anon.post(url, { data: {}, maxRedirects: 0 });
     expect(res.status(), url).toBe(401);

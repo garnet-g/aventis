@@ -8,6 +8,17 @@ import { CANVAS_H, CANVAS_W, detectDirection, printAreaRect, toFraction } from '
 import { clampToPrintArea } from '@/lib/printArea';
 
 // Same families the server uses to render the print file, so the preview matches what is printed.
+/** Selection handles in the Printly palette, large enough for a finger. */
+const HANDLES = {
+  borderColor: '#e5412a',
+  cornerColor: '#ffffff',
+  cornerStrokeColor: '#16120f',
+  transparentCorners: false,
+  cornerSize: 12,
+  touchCornerSize: 30,
+  borderScaleFactor: 2,
+} as const;
+
 export const TEXT_FONT = '"Noto Sans", "Noto Nastaliq Urdu", Arial, sans-serif';
 
 type Meta = { kind: 'image'; uploadPath: string } | { kind: 'text' };
@@ -158,6 +169,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
         top: area.y + area.height / 2,
         scaleX: k,
         scaleY: k,
+        ...HANDLES,
       });
       metaRef.current.set(img, { kind: 'image', uploadPath });
       canvas.add(img);
@@ -180,6 +192,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
         fill: colorRef.current === 'black' ? '#ffffff' : '#111111',
         textAlign: 'center',
         direction: detectDirection(text),
+        ...HANDLES,
       } as ConstructorParameters<typeof Textbox>[1]);
       metaRef.current.set(t, { kind: 'text' });
       canvas.add(t);
@@ -201,12 +214,13 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
     <div
       ref={wrapRef}
       data-testid="editor-wrap"
-      className="relative mx-auto w-full max-w-[400px] overflow-hidden rounded-lg bg-neutral-200"
+      className="relative mx-auto w-full max-w-[400px] overflow-hidden rounded-2xl border-2 border-ink bg-paper-2"
     >
       <canvas ref={canvasEl} />
+      {/* Crop marks show where printing can happen; art cannot leave this box. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute border-2 border-dashed border-orange-500"
+        className="pointer-events-none absolute"
         style={{
           left: `${(area.x / CANVAS_W) * 100}%`,
           top: `${(area.y / CANVAS_H) * 100}%`,
@@ -214,7 +228,13 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
           height: `${(area.height / CANVAS_H) * 100}%`,
         }}
       >
-        <span className="absolute -top-5 left-0 text-[11px] font-medium text-orange-600">Print area</span>
+        <i className="absolute left-0 top-0 h-3.5 w-3.5 border-l-2 border-t-2 border-vermilion" />
+        <i className="absolute right-0 top-0 h-3.5 w-3.5 border-r-2 border-t-2 border-vermilion" />
+        <i className="absolute bottom-0 left-0 h-3.5 w-3.5 border-b-2 border-l-2 border-vermilion" />
+        <i className="absolute bottom-0 right-0 h-3.5 w-3.5 border-b-2 border-r-2 border-vermilion" />
+        <span className="absolute -top-[19px] left-0 whitespace-nowrap rounded-sm bg-paper/90 px-1 text-[10px] font-bold uppercase tracking-[0.1em] text-vermilion">
+          Print area &middot; {catalog[product].printArea.widthCm} &times; {catalog[product].printArea.heightCm} cm
+        </span>
       </div>
     </div>
   );

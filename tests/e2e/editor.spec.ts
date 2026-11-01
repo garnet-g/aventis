@@ -9,6 +9,7 @@ async function layers(page: Page): Promise<Layer[]> {
 
 async function uploadPng(page: Page) {
   const buffer = await sharp({ create: { width: 400, height: 400, channels: 3, background: '#d33' } }).png().toBuffer();
+  await expect(page.getByTestId('upload-input')).toBeEnabled(); // disabled until the page is interactive
   await page.getByTestId('upload-input').setInputFiles({ name: 'art.png', mimeType: 'image/png', buffer });
   await expect.poll(async () => (await layers(page)).length).toBe(1);
 }
@@ -73,4 +74,17 @@ test('the garment photo fills the canvas: a black shirt is dark where the body i
     .toBe(true);
   expect(await sample(15, 485)).toBeGreaterThan(200); // bottom-left corner: light grey background
   expect(await sample(385, 15)).toBeGreaterThan(200); // top-right corner: light grey background
+});
+
+test('home and sign-in pages carry the Printly brand and fit a phone without sideways scroll', async ({ page }) => {
+  for (const url of ['/', '/login']) {
+    await page.goto(url);
+    await expect(page.getByRole('link', { name: 'Printly' }).first()).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow, url).toBeLessThanOrEqual(0);
+  }
+  await page.goto('/');
+  await expect(page.getByRole('link', { name: /Start designing/ })).toBeVisible();
+  await page.waitForTimeout(1200); // let the staggered fade-in finish
+  await page.screenshot({ path: 'test-results/phone-home.png', fullPage: true });
 });

@@ -1,17 +1,50 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { SiteHeader } from '@/components/SiteHeader';
 import { requireUser } from '@/lib/auth';
 import { catalog } from '@/lib/catalog';
-import { buildCustomerView } from '@/lib/customerItems';
+import { buildCustomerView, type Tone } from '@/lib/customerItems';
 import { toDesign, type DesignRow } from '@/lib/designsStore';
 import type { OrderStatus } from '@/lib/orders';
 import { getServerClient } from '@/lib/supabase/server';
 
+const BADGE: Record<Tone, string> = { gold: 'badge-gold', forest: 'badge-forest', ink: 'badge-ink', red: 'badge-red' };
+const TRACK: { key: OrderStatus; label: string }[] = [
+  { key: 'paid', label: 'Paid' },
+  { key: 'at_printer', label: 'At printer' },
+  { key: 'shipped', label: 'Shipped' },
+  { key: 'delivered', label: 'Delivered' },
+];
+
 export default function MyOrdersPage() {
   return (
-    <Suspense fallback={<p className="p-4 text-sm text-neutral-500">Loading…</p>}>
-      <MyOrders />
-    </Suspense>
+    <>
+      <SiteHeader right={<Link href="/design">+ New</Link>} />
+      <Suspense fallback={<p className="p-4 text-sm text-mute">Loading…</p>}>
+        <MyOrders />
+      </Suspense>
+    </>
+  );
+}
+
+function Track({ status }: { status: OrderStatus }) {
+  const at = TRACK.findIndex((t) => t.key === status);
+  return (
+    <div className="mt-3" aria-label={`Order progress: ${TRACK[at].label}`}>
+      <div className="flex items-center">
+        {TRACK.map((t, i) => (
+          <div key={t.key} className="flex flex-1 items-center last:flex-none">
+            <i className={`h-3.5 w-3.5 flex-none rounded-full border-2 ${i <= at ? 'border-forest bg-forest' : 'border-ink bg-white'}`} />
+            {i < TRACK.length - 1 && <s className={`h-0.5 flex-1 ${i < at ? 'bg-forest' : 'bg-ink/25'}`} />}
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 flex justify-between text-[0.65rem] tracking-wide text-mute">
+        {TRACK.map((t) => (
+          <span key={t.key}>{t.label}</span>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -30,31 +63,31 @@ async function MyOrders() {
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-4 p-4">
-      <h1 className="text-2xl font-bold">My designs and orders</h1>
+    <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-12">
+      <h1 className="font-display text-3xl font-extrabold tracking-tight">Your prints</h1>
       {!view.length && (
-        <p className="text-neutral-600">
+        <p className="text-mute">
           Nothing here yet. <Link className="underline" href="/design">Start your first design</Link>.
         </p>
       )}
       <ul className="flex flex-col gap-3">
-        {view.map(({ design, state }) => (
-          <li key={design.id} className="rounded border p-3 text-sm">
-            <p className="font-semibold">
-              {catalog[design.product].label} · {design.color === 'white' ? 'White' : 'Black'} · Size {design.size}
+        {view.map(({ design, state, orderStatus }) => (
+          <li key={design.id} className="ticket">
+            <span data-testid="design-state" className={`badge ${BADGE[state.tone]}`}>
+              {state.text}
+            </span>
+            <p className="mt-2 font-display text-lg font-extrabold">
+              {catalog[design.product].label} &middot; {design.color === 'white' ? 'White' : 'Black'} &middot; {design.size}
             </p>
-            <p data-testid="design-state">{state.text}</p>
+            {orderStatus && <Track status={orderStatus} />}
             {state.action && (
-              <Link className="mt-2 inline-block rounded bg-black px-3 py-2 font-semibold text-white" href={state.action.href}>
+              <Link className="btn btn-sm mt-3" href={state.action.href}>
                 {state.action.label}
               </Link>
             )}
           </li>
         ))}
       </ul>
-      <Link className="text-sm underline" href="/design">
-        New design
-      </Link>
     </main>
   );
 }

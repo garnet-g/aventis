@@ -29,26 +29,26 @@ export function ReviewActions({ designId }: { designId: string }) {
         onChange={(e) => setReason(e.target.value)}
         placeholder="Reason if rejecting (shown to the customer)"
         maxLength={300}
-        className="rounded border p-2 text-sm"
+        className="field text-sm"
       />
       <div className="flex gap-2">
         <button
           disabled={busy}
           onClick={() => decide('approve')}
-          className="rounded bg-green-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          className="btn btn-sm bg-forest"
         >
           Approve
         </button>
         <button
           disabled={busy}
           onClick={() => decide('reject')}
-          className="rounded bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          className="btn btn-sm btn-quiet border-vermilion text-vermilion"
         >
           Reject
         </button>
       </div>
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm font-semibold text-vermilion">
           {error}
         </p>
       )}

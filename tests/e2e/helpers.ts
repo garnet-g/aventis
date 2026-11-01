@@ -42,7 +42,7 @@ export async function signIn(page: Page, email: string) {
 /** A signed-in admin in their own browser context. */
 export async function adminPage(browser: Browser) {
   const email = uniqueEmail('admin');
-  const context = await browser.newContext({ baseURL: 'http://localhost:3100', viewport: { width: 1000, height: 900 } });
+  const context = await browser.newContext({ baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3100', viewport: { width: 1000, height: 900 } });
   const page = await context.newPage();
   await signUp(page, email);
   const db = service();

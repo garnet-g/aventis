@@ -17,8 +17,7 @@ type Props = {
   children?: ReactNode;
 };
 
-const pill = (on: boolean) =>
-  `rounded-full border px-4 py-2 text-sm font-medium ${on ? 'border-black bg-black text-white' : 'border-neutral-300 bg-white'}`;
+const COLOR_SWATCH: Record<Color, string> = { white: '#f4ecdd', black: '#16120f' };
 
 export function DesignWorkbench({ uploadFile, onChange, onUploadingChange, showLayersJson, children }: Props) {
   const editor = useRef<EditorHandle>(null);
@@ -61,37 +60,58 @@ export function DesignWorkbench({ uploadFile, onChange, onUploadingChange, showL
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4">
-      <div className="flex gap-2" role="group" aria-label="Item">
-        {(Object.keys(catalog) as ProductId[]).map((p) => (
-          <button key={p} aria-pressed={p === state.product} className={pill(p === state.product)} onClick={() => update({ product: p })}>
-            {catalog[p].label}
-          </button>
-        ))}
-      </div>
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Color and size">
-        {COLORS.map((c) => (
-          <button key={c} aria-pressed={c === state.color} className={pill(c === state.color)} onClick={() => update({ color: c })}>
-            {c === 'white' ? 'White' : 'Black'}
-          </button>
-        ))}
-        <span className="mx-1 text-neutral-400">|</span>
-        {SIZES.map((s) => (
-          <button key={s} aria-pressed={s === state.size} className={pill(s === state.size)} onClick={() => update({ size: s })}>
-            {s}
-          </button>
-        ))}
-      </div>
-
+    <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-32">
       <Editor ref={editor} product={state.product} color={state.color} onChange={(layers) => update({ layers })} />
 
-      <div className="flex flex-col gap-3">
-        <label className="rounded border border-dashed border-neutral-400 p-3 text-center text-sm">
-          Upload image (PNG or JPG)
+      <section className="flex flex-col gap-3" aria-label="Item, color and size">
+        <div className="flex items-center gap-3">
+          <div className="flex flex-1 overflow-hidden rounded-[10px] border-2 border-ink" role="group" aria-label="Item">
+            {(Object.keys(catalog) as ProductId[]).map((p) => (
+              <button
+                key={p}
+                aria-pressed={p === state.product}
+                className={`flex-1 py-2.5 text-sm font-bold ${p === state.product ? 'bg-ink text-paper' : ''}`}
+                onClick={() => update({ product: p })}
+              >
+                {catalog[p].label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-3" role="group" aria-label="Color">
+            {COLORS.map((c) => (
+              <button
+                key={c}
+                aria-label={c === 'white' ? 'White' : 'Black'}
+                aria-pressed={c === state.color}
+                onClick={() => update({ color: c })}
+                className={`h-9 w-9 rounded-full border-2 border-ink ${c === state.color ? 'ring-2 ring-vermilion ring-offset-2 ring-offset-paper' : ''}`}
+                style={{ background: COLOR_SWATCH[c] }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="flex justify-between" role="group" aria-label="Size">
+          {SIZES.map((s) => (
+            <button
+              key={s}
+              aria-pressed={s === state.size}
+              onClick={() => update({ size: s })}
+              className={`grid h-11 w-[22%] place-items-center rounded-[9px] border-2 border-ink font-bold ${s === state.size ? 'bg-vermilion text-white' : ''}`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3" aria-label="Add to your design">
+        <label className="rounded-xl border-2 border-dashed border-ink bg-white/40 p-3 text-center text-sm font-bold">
+          &#8679; Upload art (PNG or JPG)
           <input data-testid="upload-input" disabled={!ready} type="file" accept="image/png,image/jpeg" className="sr-only" onChange={onFile} />
         </label>
         {error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm font-semibold text-vermilion">
             {error}
           </p>
         )}
@@ -102,16 +122,16 @@ export function DesignWorkbench({ uploadFile, onChange, onUploadingChange, showL
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Your name or text"
-            className="min-w-0 flex-1 rounded border p-3"
+            className="field min-w-0 flex-1"
           />
-          <button disabled={!ready} className="rounded bg-black px-4 font-semibold text-white disabled:opacity-50" onClick={addText}>
+          <button disabled={!ready} className="btn btn-ink btn-sm" onClick={addText}>
             Add name
           </button>
         </div>
         <button className="self-start text-sm underline" onClick={() => editor.current?.removeSelected()}>
           Remove selected
         </button>
-      </div>
+      </section>
 
       {children}
       {showLayersJson && (

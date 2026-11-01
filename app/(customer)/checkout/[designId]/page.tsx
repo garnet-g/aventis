@@ -1,19 +1,23 @@
 import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { CheckoutForm } from '@/components/CheckoutForm';
+import { SiteHeader } from '@/components/SiteHeader';
+import { TeeArt } from '@/components/TeeArt';
 import { requireUser } from '@/lib/auth';
 import { catalog, DELIVERY_FEE_PKR } from '@/lib/catalog';
 import { layersHash } from '@/lib/designs';
 import { supabaseDesignStore } from '@/lib/designsStore';
+import { pkr } from '@/lib/labels';
 import { getPaymentProvider } from '@/lib/payments';
-
-const pkr = (n: number) => `PKR ${n.toLocaleString('en-PK')}`;
 
 export default function CheckoutPage({ params }: { params: Promise<{ designId: string }> }) {
   return (
-    <Suspense fallback={<p className="p-4 text-sm text-neutral-500">Loading…</p>}>
-      <Checkout params={params} />
-    </Suspense>
+    <>
+      <SiteHeader right={<span className="eyebrow">3 Pay</span>} />
+      <Suspense fallback={<p className="p-4 text-sm text-mute">Loading…</p>}>
+        <Checkout params={params} />
+      </Suspense>
+    </>
   );
 }
 
@@ -27,23 +31,45 @@ async function Checkout({ params }: { params: Promise<{ designId: string }> }) {
 
   const product = catalog[design.product];
   const provider = getPaymentProvider();
+  const total = product.pricePkr + DELIVERY_FEE_PKR;
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-4 p-4">
-      {provider.isTestMode && (
-        <div role="note" data-testid="test-mode-banner" className="rounded bg-yellow-200 p-3 text-center text-sm font-semibold">
-          TEST MODE – no real money is charged
+    <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-4 pb-12">
+      <h1 className="font-display text-3xl font-extrabold tracking-tight">Checkout</h1>
+
+      <section className="ticket mt-2">
+        {provider.isTestMode && (
+          <div role="note" data-testid="test-mode-banner" className="stamp">
+            TEST MODE
+            <span className="sr-only"> – no real money is charged</span>
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          <div className="grid h-16 w-16 flex-none place-items-center rounded-xl border-2 border-ink bg-paper-2">
+            <TeeArt className="w-11" fill={design.color === 'black' ? '#16120f' : '#f4ecdd'} />
+          </div>
+          <div>
+            <p className="font-display text-xl font-extrabold">{product.label}</p>
+            <p className="text-sm text-mute">
+              {design.color === 'white' ? 'White' : 'Black'} &middot; Size {design.size} &middot; your design
+            </p>
+          </div>
         </div>
-      )}
-      <h1 className="text-2xl font-bold">Checkout</h1>
-      <section className="rounded border p-3 text-sm">
-        <p className="font-semibold">
-          {product.label} · {design.color === 'white' ? 'White' : 'Black'} · Size {design.size}
-        </p>
-        <p>Item: {pkr(product.pricePkr)}</p>
-        <p>Delivery: {pkr(DELIVERY_FEE_PKR)}</p>
-        <p className="mt-1 font-semibold">Total: {pkr(product.pricePkr + DELIVERY_FEE_PKR)}</p>
+        <div className="perf" />
+        <div className="flex justify-between py-0.5 text-sm">
+          <span>Item</span>
+          <span>{pkr(product.pricePkr)}</span>
+        </div>
+        <div className="flex justify-between py-0.5 text-sm">
+          <span>Delivery</span>
+          <span>{pkr(DELIVERY_FEE_PKR)}</span>
+        </div>
+        <div className="mt-1 flex items-baseline justify-between">
+          <span className="font-bold">Total</span>
+          <span className="font-display text-2xl font-extrabold">{pkr(total)}</span>
+        </div>
       </section>
-      <CheckoutForm designId={design.id} totalPkr={product.pricePkr + DELIVERY_FEE_PKR} testMode={provider.isTestMode} />
+
+      <CheckoutForm designId={design.id} totalPkr={total} testMode={provider.isTestMode} />
     </main>
   );
 }

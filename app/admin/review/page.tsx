@@ -5,7 +5,7 @@ import { getServiceClient } from '@/lib/supabase/server';
 
 export default function ReviewQueuePage() {
   return (
-    <Suspense fallback={<p className="p-4 text-sm text-neutral-500">Loading…</p>}>
+    <Suspense fallback={<p className="p-4 text-sm text-mute">Loading…</p>}>
       <ReviewQueue />
     </Suspense>
   );
@@ -21,13 +21,13 @@ async function ReviewQueue() {
 
   return (
     <main>
-      <h1 className="mb-4 text-2xl font-bold">Designs waiting for review</h1>
-      {!data?.length && <p className="text-neutral-600">Nothing is waiting for review.</p>}
+      <h1 className="mb-4 font-display text-3xl font-extrabold tracking-tight">Designs waiting for review</h1>
+      {!data?.length && <p className="text-mute">Nothing is waiting for review.</p>}
       <ul className="grid gap-4 sm:grid-cols-2">
         {data?.map((d) => (
-          <li key={d.id} className="flex flex-col gap-3 rounded border p-3">
+          <li key={d.id} className="ticket flex flex-col gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/api/admin/designs/${d.id}/preview`} alt="Design preview" className="w-full rounded bg-neutral-100" />
+            <img src={`/api/admin/designs/${d.id}/preview`} alt="Design preview" className="w-full rounded-lg border-2 border-ink bg-paper-2" />
             <p className="text-sm">
               {d.product} · {d.color} · {d.size}
             </p>

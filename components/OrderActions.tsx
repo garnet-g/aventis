@@ -32,7 +32,7 @@ export function OrderActions({
           <button
             disabled={busy}
             onClick={() => post('status')}
-            className="rounded bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="btn btn-ink btn-sm"
           >
             Mark as: {nextLabel}
           </button>
@@ -41,14 +41,14 @@ export function OrderActions({
           <button
             disabled={busy}
             onClick={() => post('regenerate')}
-            className="rounded border border-red-700 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
+            className="btn btn-quiet btn-sm border-vermilion text-vermilion"
           >
             Regenerate files
           </button>
         )}
       </div>
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm font-semibold text-vermilion">
           {error}
         </p>
       )}
