@@ -4,6 +4,7 @@ import sharp, { type OverlayOptions, type SharpOptions } from 'sharp';
 import { catalog, MIN_DPI, type Color, type ProductId } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
 import { printAreaRect } from '@/lib/editorGeometry';
+import { resolveFont } from '@/lib/fonts';
 
 export type ArtifactItem = { product: ProductId; color: Color };
 export type ImageLoader = (uploadPath: string) => Promise<Buffer>;
@@ -12,10 +13,6 @@ export interface ArtifactStorage {
   upload(path: string, data: Buffer, contentType: string): Promise<void>;
 }
 
-const FONTS = {
-  rtl: { file: 'NotoNastaliqUrdu-Regular.ttf', family: 'Noto Nastaliq Urdu' },
-  ltr: { file: 'NotoSans-Regular.ttf', family: 'Noto Sans' },
-};
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 // The garment photos are 800x1000 while the editor canvas is 400x500.
 const PHOTO_SCALE = 2;
@@ -35,7 +32,7 @@ const MAX_INPUT_PIXELS = 50_000_000;
 const PREFLIGHT_FONT_PX = 16;
 
 function textOptions(layer: Extract<DesignLayer, { kind: 'text' }>, fontPx: number, boxPx: number): SharpOptions {
-  const font = FONTS[layer.direction];
+  const font = resolveFont(layer.font, layer.direction); // an unknown or unsuitable font becomes one that fits
   // `rtl` is supported by sharp/libvips but missing from its type definitions.
   return {
     text: {

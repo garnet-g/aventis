@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import { describe, expect, test } from 'vitest';
+import { FONTS, type FontKey } from '@/lib/fonts';
 import { designPixelSize, generateArtifacts, renderDesignPng, renderMockupPng, renderTextOverlay, type ArtifactStorage } from '@/lib/artifacts';
 import type { DesignLayer } from '@/lib/designLayers';
 
@@ -38,7 +39,7 @@ const imageLayer = (rect = { x: 0.25, y: 0.25, width: 0.5, height: 0.5 }, rotati
 });
 
 const textLayer = (text: string, direction: 'ltr' | 'rtl' = 'ltr'): DesignLayer => ({
-  kind: 'text', text, font: 'x', fill: '#000000', direction, fontSize: 0.12,
+  kind: 'text', text, font: 'sans', fill: '#000000', direction, fontSize: 0.12,
   rect: { x: 0.1, y: 0.4, width: 0.8, height: 0.2 }, rotation: 0,
 });
 
@@ -102,10 +103,58 @@ describe('renderDesignPng', () => {
   });
 });
 
+/** Ink bounds and the average color of the opaque pixels. */
+async function ink(png: Buffer) {
+  const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  let n = 0, minX = info.width, maxX = 0, r = 0, g = 0, b = 0;
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+      const i = (y * info.width + x) * 4;
+      if (data[i + 3] > 200) {
+        n++; minX = Math.min(minX, x); maxX = Math.max(maxX, x); r += data[i]; g += data[i + 1]; b += data[i + 2];
+      }
+    }
+  }
+  return { n, width: maxX - minX, r: r / n, g: g / n, b: b / n };
+}
+
+const styled = (text: string, font: string, fill = '#000000', direction: 'ltr' | 'rtl' = 'ltr'): DesignLayer => ({
+  kind: 'text', text, font: font as FontKey, fill, direction, fontSize: 0.12, rect: { x: 0.05, y: 0.4, width: 0.9, height: 0.2 }, rotation: 0,
+});
+
+describe('text styling is what gets printed', () => {
+  test.each(Object.keys(FONTS) as FontKey[])('the %s font renders real glyphs', async (key) => {
+    const urdu = FONTS[key].script === 'urdu';
+    const png = await renderDesignPng(item, [styled(urdu ? 'علی احمد' : 'Ali Khan', key, '#000000', urdu ? 'rtl' : 'ltr')], loader);
+    expect((await ink(png)).n, key).toBeGreaterThan(1500);
+  });
+
+  test('a different font changes the printed shape (condensed jersey vs flowing script)', async () => {
+    const jersey = await ink(await renderDesignPng(item, [styled('Ali Khan', 'jersey')], loader));
+    const script = await ink(await renderDesignPng(item, [styled('Ali Khan', 'script')], loader));
+    expect(Math.abs(jersey.width - script.width) / Math.max(jersey.width, script.width)).toBeGreaterThan(0.1);
+  });
+
+  test('the chosen text color is the color printed', async () => {
+    const png = await renderDesignPng(item, [styled('Ali Khan', 'display', '#e5412a')], loader);
+    const c = await ink(png);
+    expect(c.r).toBeGreaterThan(200);
+    expect(c.g).toBeLessThan(110);
+    expect(c.b).toBeLessThan(90);
+  });
+
+  test('an unknown or mismatched font falls back to one that fits instead of failing', async () => {
+    const odd = await renderDesignPng(item, [styled('Ali Khan', 'Comic Papyrus')], loader);
+    expect((await ink(odd)).n).toBeGreaterThan(1500);
+    const urduInLatinFont = await renderDesignPng(item, [styled('علی احمد', 'script', '#000000', 'rtl')], loader);
+    expect((await ink(urduInLatinFont)).n).toBeGreaterThan(1500);
+  });
+});
+
 describe('renderTextOverlay stays bounded', () => {
   const { width: W, height: H } = designPixelSize('tee');
   const layer = (text: string, fontSize: number, width = 0.9): Extract<DesignLayer, { kind: 'text' }> => ({
-    kind: 'text', text, font: 'x', fill: '#000000', direction: 'ltr', fontSize,
+    kind: 'text', text, font: 'sans', fill: '#000000', direction: 'ltr', fontSize,
     rect: { x: 0.05, y: 0.05, width, height: 0.2 }, rotation: 0,
   });
 

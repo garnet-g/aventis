@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import { expect, test, type Page } from '@playwright/test';
 
-type Layer = { kind: string; rotation?: number; flipX?: boolean; flipY?: boolean; direction?: string; rect: { x: number; y: number; width: number; height: number } };
+type Layer = { kind: string; text?: string; font?: string; fill?: string; fontSize?: number; uploadPath?: string; rotation?: number; flipX?: boolean; flipY?: boolean; direction?: string; rect: { x: number; y: number; width: number; height: number } };
 
 async function layers(page: Page): Promise<Layer[]> {
   return JSON.parse((await page.getByTestId('layers-json').textContent()) || '[]');
@@ -114,4 +114,129 @@ test('print quality is shown for the selected image and gets worse as it is enla
   await uploadPng(page); // 400 px wide printed about 17 cm wide is far too soft
   await expect(page.getByTestId('print-quality')).toContainText('Low');
   await expect(page.getByTestId('print-quality')).toContainText(/blurry/i);
+});
+
+async function addName(page: Page, name: string) {
+  await expect(page.getByTestId('text-input')).toBeEnabled();
+  await page.getByTestId('text-input').fill(name);
+  await page.getByRole('button', { name: 'Add name' }).click();
+}
+
+async function setRange(page: Page, label: string, value: number) {
+  await page.getByLabel(label).evaluate((el, v) => {
+    const input = el as HTMLInputElement;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, String(v));
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, value);
+}
+
+const texts = async (page: Page) => (await layers(page)).map((l) => l.text);
+
+test('a name can be restyled: font, color and size are saved in the layer', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await addName(page, 'Ali');
+  await expect.poll(async () => (await layers(page)).length).toBe(1);
+  const before = (await layers(page))[0];
+  expect(before.font).toBe('sans');
+
+  await page.getByLabel('Font').selectOption('jersey');
+  await expect.poll(async () => (await layers(page))[0].font).toBe('jersey');
+
+  await page.getByRole('button', { name: 'Text color Red' }).click();
+  await expect.poll(async () => (await layers(page))[0].fill).toBe('#e5412a');
+
+  await setRange(page, 'Text size', 60);
+  await expect.poll(async () => (await layers(page))[0].fontSize!).toBeGreaterThan(before.fontSize! * 1.5);
+});
+
+test('the text of a name can be edited after it was added', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await addName(page, 'Ali');
+  await expect.poll(() => texts(page)).toEqual(['Ali']);
+  await page.getByLabel('Selected text').fill('Ahmed Khan');
+  await expect.poll(() => texts(page)).toEqual(['Ahmed Khan']);
+});
+
+test('Urdu text gets an Urdu font automatically and only Urdu fonts are offered', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await addName(page, 'علی');
+  await expect.poll(async () => (await layers(page))[0]?.font).toBe('nastaliq');
+  await expect(page.getByLabel('Font').locator('option')).toHaveCount(2);
+  await page.getByLabel('Font').selectOption('naskh');
+  await expect.poll(async () => (await layers(page))[0].font).toBe('naskh');
+  // typing Latin letters into the same text flips back to a Latin font
+  await page.getByLabel('Selected text').fill('Ali');
+  await expect.poll(async () => (await layers(page))[0].font).toBe('sans');
+  await expect(page.getByLabel('Font').locator('option')).toHaveCount(4);
+});
+
+test('undo and redo step back and forward through the design, images included', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+  await uploadPng(page);
+  await addName(page, 'Ali');
+  await expect.poll(async () => (await layers(page)).length).toBe(2);
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(async () => (await layers(page)).map((l) => l.kind)).toEqual(['image']);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(async () => (await layers(page)).length).toBe(0);
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Redo' }).click();
+  await expect.poll(async () => (await layers(page)).map((l) => l.kind)).toEqual(['image']);
+  await page.getByRole('button', { name: 'Redo' }).click();
+  await expect.poll(async () => (await layers(page)).map((l) => l.kind)).toEqual(['image', 'text']);
+  await expect(page.getByRole('button', { name: 'Redo' })).toBeDisabled();
+  const [image] = await layers(page);
+  expect(image.uploadPath).toBeTruthy(); // the picture came back, not an empty placeholder
+});
+
+test('making a new change after undo discards the redo steps', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await addName(page, 'A');
+  await addName(page, 'B');
+  await expect.poll(() => texts(page)).toEqual(['A', 'B']);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(() => texts(page)).toEqual(['A']);
+  await addName(page, 'C');
+  await expect.poll(() => texts(page)).toEqual(['A', 'C']);
+  await expect(page.getByRole('button', { name: 'Redo' })).toBeDisabled();
+});
+
+test('send to back and bring to front change which layer is on top', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await addName(page, 'A');
+  await addName(page, 'B');
+  await expect.poll(() => texts(page)).toEqual(['A', 'B']);
+  await page.getByRole('button', { name: 'Send to back' }).click();
+  await expect.poll(() => texts(page)).toEqual(['B', 'A']);
+  await page.getByRole('button', { name: 'Bring to front' }).click();
+  await expect.poll(() => texts(page)).toEqual(['A', 'B']);
+});
+
+test('duplicate makes an offset copy that stays inside the print area', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await addName(page, 'Ali');
+  await expect.poll(async () => (await layers(page)).length).toBe(1);
+  await page.getByRole('button', { name: 'Duplicate' }).click();
+  await expect.poll(async () => (await layers(page)).length).toBe(2);
+  const [a, b] = await layers(page);
+  expect(b.text).toBe('Ali');
+  expect(b.rect.x).toBeGreaterThan(a.rect.x);
+  expect(b.rect.x + b.rect.width).toBeLessThanOrEqual(1.001);
+  expect(b.rect.y + b.rect.height).toBeLessThanOrEqual(1.001);
+});
+
+test('text in the default ink follows the garment color, but a chosen color is kept', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await addName(page, 'Ali');
+  await expect.poll(async () => (await layers(page))[0]?.fill).toBe('#16120f');
+  await page.getByRole('button', { name: 'Black' }).click();
+  await expect.poll(async () => (await layers(page))[0].fill).toBe('#ffffff');
+  await page.getByRole('button', { name: 'Text color Red' }).click();
+  await expect.poll(async () => (await layers(page))[0].fill).toBe('#e5412a');
+  await page.getByRole('button', { name: 'White' }).click();
+  await page.waitForTimeout(300);
+  expect((await layers(page))[0].fill).toBe('#e5412a');
 });

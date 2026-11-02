@@ -46,7 +46,7 @@ describe('admin route guard', () => {
 // ---- admin logic against real designs/orders ----
 const delivery = { name: 'Ali Khan', phone: '03001234567', city: 'Lahore', province: 'Punjab', address: 'House 1, Street 2, Gulberg' };
 const text = (t: string): DesignLayer => ({
-  kind: 'text', text: t, font: 'Arial', fill: '#111111', direction: 'ltr', fontSize: 0.12,
+  kind: 'text', text: t, font: 'sans', fill: '#111111', direction: 'ltr', fontSize: 0.12,
   rect: { x: 0.1, y: 0.1, width: 0.5, height: 0.2 }, rotation: 0,
 });
 

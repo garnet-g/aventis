@@ -4,11 +4,11 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { Canvas, FabricImage, Textbox, type FabricObject } from 'fabric';
 import { catalog, type Color, type ProductId } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
-import { CANVAS_H, CANVAS_W, detectDirection, printAreaRect, toFraction } from '@/lib/editorGeometry';
+import { CANVAS_H, CANVAS_W, detectDirection, fromFraction, printAreaRect, toFraction } from '@/lib/editorGeometry';
+import { FONTS, normalizeFont, resolveFont, type FontKey } from '@/lib/fonts';
 import { clampToPrintArea } from '@/lib/printArea';
 import { printQuality, type PrintQuality } from '@/lib/quality';
 
-// Same families the server uses to render the print file, so the preview matches what is printed.
 /** Selection handles in the Printly palette, large enough for a finger. */
 const HANDLES = {
   borderColor: '#e5412a',
@@ -20,19 +20,37 @@ const HANDLES = {
   borderScaleFactor: 2,
 } as const;
 
-export const TEXT_FONT = '"Noto Sans", "Noto Nastaliq Urdu", Arial, sans-serif';
+/** Text starts in the ink that shows up on the chosen garment. */
+export const DEFAULT_TEXT_FILL: Record<Color, string> = { white: '#16120f', black: '#ffffff' };
+export const MIN_TEXT_SIZE = 14;
+export const MAX_TEXT_SIZE = 90;
+const MAX_TEXT_LENGTH = 60;
+const HISTORY_LIMIT = 60;
+const BASE_FONT_SIZE = 26;
 
-type Meta = { kind: 'image'; uploadPath: string } | { kind: 'text' };
+type Meta = { kind: 'image'; uploadPath: string } | { kind: 'text'; font: FontKey };
 
 /** What is currently selected on the canvas, so the page can show the right tools. */
-export type Selection = { kind: 'image'; quality: PrintQuality } | { kind: 'text' } | null;
+export type Selection =
+  | { kind: 'image'; quality: PrintQuality }
+  | { kind: 'text'; text: string; font: FontKey; fill: string; size: number; direction: 'ltr' | 'rtl' }
+  | null;
+
+export type TextPatch = { text?: string; font?: FontKey; fill?: string; size?: number };
+export type HistoryState = { canUndo: boolean; canRedo: boolean };
 
 export type EditorHandle = {
   addImage(url: string, uploadPath: string): Promise<void>;
   addText(text: string): Promise<void>;
+  updateSelectedText(patch: TextPatch, opts?: { coalesce?: boolean }): Promise<void>;
   removeSelected(): void;
+  duplicateSelected(): Promise<void>;
+  bringToFront(): void;
+  sendToBack(): void;
   flipSelected(axis: 'x' | 'y'): void;
   rotateSelected(degrees: number): void;
+  undo(): Promise<void>;
+  redo(): Promise<void>;
 };
 
 type Props = {
@@ -40,22 +58,38 @@ type Props = {
   color: Color;
   onChange?: (layers: DesignLayer[]) => void;
   onSelectionChange?: (selection: Selection) => void;
+  onHistoryChange?: (history: HistoryState) => void;
 };
 
-export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product, color, onChange, onSelectionChange }, ref) {
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
+async function loadFont(key: FontKey, sample: string) {
+  const f = FONTS[key];
+  await document.fonts.load(`${f.weight} 28px "${f.family}"`, sample).catch(() => undefined);
+}
+
+export const Editor = forwardRef<EditorHandle, Props>(function Editor(
+  { product, color, onChange, onSelectionChange, onHistoryChange },
+  ref,
+) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasEl = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<Canvas | null>(null);
   const areaRef = useRef(printAreaRect(product));
   const metaRef = useRef(new WeakMap<FabricObject, Meta>());
+  const urlsRef = useRef(new Map<string, string>()); // uploadPath -> browser URL, so undo can redraw images
+  const historyRef = useRef<{ stack: string[]; index: number }>({ stack: [], index: -1 });
+  const restoringRef = useRef(false);
   const onChangeRef = useRef(onChange);
+  const onSelectionRef = useRef(onSelectionChange);
+  const onHistoryRef = useRef(onHistoryChange);
   const colorRef = useRef(color);
   const productRef = useRef(product);
-  const onSelectionRef = useRef(onSelectionChange);
   onChangeRef.current = onChange;
+  onSelectionRef.current = onSelectionChange;
+  onHistoryRef.current = onHistoryChange;
   colorRef.current = color;
   productRef.current = product;
-  onSelectionRef.current = onSelectionChange;
 
   const readLayers = (): DesignLayer[] => {
     const area = areaRef.current;
@@ -74,10 +108,10 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
         {
           kind: 'text',
           text: t.text,
-          font: String(t.fontFamily),
+          font: meta.font,
           fill: String(t.fill),
           direction: detectDirection(t.text),
-          fontSize: ((t.fontSize ?? 26) * (obj.scaleY ?? 1)) / area.width,
+          fontSize: ((t.fontSize ?? BASE_FONT_SIZE) * (obj.scaleY ?? 1)) / area.width,
           rect,
           rotation,
         },
@@ -102,16 +136,117 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
     obj.setCoords();
   };
 
-  const emit = () => onChangeRef.current?.(readLayers());
+  const notifyHistory = () => {
+    const { stack, index } = historyRef.current;
+    onHistoryRef.current?.({ canUndo: index > 0, canRedo: index < stack.length - 1 });
+  };
+
+  /** Remembers the current layers as an undo step. `coalesce` replaces the last step (for sliders and typing). */
+  const record = (coalesce = false) => {
+    if (restoringRef.current) return;
+    const h = historyRef.current;
+    const snap = JSON.stringify(readLayers());
+    if (snap === h.stack[h.index]) return;
+    if (coalesce && h.index > 0) {
+      h.stack[h.index] = snap;
+    } else {
+      h.stack.splice(h.index + 1);
+      h.stack.push(snap);
+      if (h.stack.length > HISTORY_LIMIT) h.stack.shift();
+      h.index = h.stack.length - 1;
+    }
+    notifyHistory();
+  };
+
+  const emit = (coalesce = false) => {
+    if (restoringRef.current) return;
+    record(coalesce);
+    onChangeRef.current?.(readLayers());
+  };
 
   /** Tells the page what is selected and, for an image, how sharp it will print at its current size. */
   const reportSelection = () => {
     const obj = fabricRef.current?.getActiveObject();
     const meta = obj && metaRef.current.get(obj);
     if (!obj || !meta) return onSelectionRef.current?.(null);
-    if (meta.kind === 'text') return onSelectionRef.current?.({ kind: 'text' });
+    if (meta.kind === 'text') {
+      const t = obj as Textbox;
+      onSelectionRef.current?.({
+        kind: 'text',
+        text: t.text,
+        font: meta.font,
+        fill: String(t.fill),
+        size: Math.round((t.fontSize ?? BASE_FONT_SIZE) * (obj.scaleY ?? 1)),
+        direction: detectDirection(t.text),
+      });
+      return;
+    }
     const printedWidthCm = (obj.getScaledWidth() / areaRef.current.width) * catalog[productRef.current].printArea.widthCm;
     onSelectionRef.current?.({ kind: 'image', quality: printQuality((obj as FabricImage).width, printedWidthCm) });
+  };
+
+  /** Draws one saved layer onto the canvas. Used by undo/redo and duplicate (and later, resuming a saved design). */
+  const buildObject = async (layer: DesignLayer): Promise<FabricObject | null> => {
+    const area = areaRef.current;
+    const box = fromFraction(layer.rect, area);
+    const center = { left: box.x + box.width / 2, top: box.y + box.height / 2 };
+    if (layer.kind === 'image') {
+      const url = urlsRef.current.get(layer.uploadPath);
+      if (!url) return null;
+      const img = await FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
+      img.set({
+        originX: 'center',
+        originY: 'center',
+        ...center,
+        scaleX: box.width / img.width,
+        scaleY: box.height / img.height,
+        angle: layer.rotation,
+        flipX: !!layer.flipX,
+        flipY: !!layer.flipY,
+        ...HANDLES,
+      });
+      metaRef.current.set(img, { kind: 'image', uploadPath: layer.uploadPath });
+      return img;
+    }
+    const key = resolveFont(layer.font, layer.direction).key;
+    await loadFont(key, layer.text);
+    const t = new Textbox(layer.text, {
+      originX: 'center',
+      originY: 'center',
+      ...center,
+      width: box.width,
+      fontSize: layer.fontSize * area.width,
+      fontFamily: FONTS[key].family,
+      fontWeight: FONTS[key].weight,
+      fill: layer.fill,
+      textAlign: 'center',
+      direction: layer.direction,
+      angle: layer.rotation,
+      ...HANDLES,
+    } as ConstructorParameters<typeof Textbox>[1]);
+    metaRef.current.set(t, { kind: 'text', font: key });
+    return t;
+  };
+
+  /** Replaces everything on the canvas with the given layers (an undo/redo step). */
+  const restore = async (layers: DesignLayer[]) => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    restoringRef.current = true;
+    try {
+      canvas.discardActiveObject();
+      for (const o of [...canvas.getObjects()]) canvas.remove(o);
+      for (const layer of layers) {
+        const obj = await buildObject(layer);
+        if (obj) canvas.add(obj);
+      }
+      canvas.requestRenderAll();
+    } finally {
+      restoringRef.current = false;
+    }
+    onChangeRef.current?.(readLayers());
+    reportSelection();
+    notifyHistory();
   };
 
   useEffect(() => {
@@ -122,6 +257,9 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
       preserveObjectStacking: true,
     });
     fabricRef.current = canvas;
+    historyRef.current = { stack: ['[]'], index: 0 };
+    notifyHistory();
+
     const guard = (e: { target: FabricObject }) => constrain(e.target);
     canvas.on('object:moving', guard);
     canvas.on('object:scaling', guard);
@@ -132,7 +270,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
       reportSelection();
     });
     canvas.on('object:scaling', reportSelection);
-    canvas.on('object:added', emit);
+    canvas.on('object:added', () => emit());
     canvas.on('object:removed', () => {
       emit();
       reportSelection();
@@ -159,6 +297,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
   }, []);
 
   // Product or color changed: swap the garment photo and carry layers over proportionally.
+  const prevColorRef = useRef(color);
   useEffect(() => {
     const canvas = fabricRef.current;
     if (!canvas) return;
@@ -177,6 +316,23 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
       canvas.getObjects().forEach(constrain);
       emit();
     }
+    // Text still in the default ink would vanish on the other garment color, so it follows the garment.
+    if (prevColorRef.current !== color) {
+      const from = DEFAULT_TEXT_FILL[prevColorRef.current];
+      let changed = false;
+      for (const obj of canvas.getObjects()) {
+        if (metaRef.current.get(obj)?.kind === 'text' && String(obj.fill) === from) {
+          obj.set({ fill: DEFAULT_TEXT_FILL[color] });
+          changed = true;
+        }
+      }
+      prevColorRef.current = color;
+      if (changed) {
+        canvas.requestRenderAll();
+        emit();
+        reportSelection();
+      }
+    }
     FabricImage.fromURL(catalog[product].garmentImage(color)).then((img) => {
       if (cancelled || fabricRef.current !== canvas) return;
       // Fabric objects default to a centre origin; the background must sit at the canvas's top-left corner.
@@ -191,11 +347,26 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product, color]);
 
+  const activeOf = (kind?: 'image' | 'text') => {
+    const obj = fabricRef.current?.getActiveObject();
+    const meta = obj && metaRef.current.get(obj);
+    return obj && meta && (!kind || meta.kind === kind) ? { obj, meta } : null;
+  };
+
+  const step = async (dir: -1 | 1) => {
+    const h = historyRef.current;
+    const target = h.index + dir;
+    if (restoringRef.current || target < 0 || target >= h.stack.length) return;
+    h.index = target;
+    await restore(JSON.parse(h.stack[target]) as DesignLayer[]);
+  };
+
   useImperativeHandle(ref, () => ({
     async addImage(url, uploadPath) {
       const canvas = fabricRef.current!;
       const area = areaRef.current;
       const img = await FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
+      urlsRef.current.set(uploadPath, url);
       const k = Math.min(1, (area.width * 0.6) / img.width, (area.height * 0.6) / img.height);
       img.set({
         originX: 'center',
@@ -207,54 +378,74 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
         ...HANDLES,
       });
       metaRef.current.set(img, { kind: 'image', uploadPath });
+      restoringRef.current = true; // record once, after the image is placed
       canvas.add(img);
       constrain(img);
+      restoringRef.current = false;
+      emit();
       canvas.setActiveObject(img);
       canvas.requestRenderAll();
     },
+
     async addText(text) {
       const canvas = fabricRef.current!;
       const area = areaRef.current;
-      await Promise.all([document.fonts.load('28px "Noto Sans"', text), document.fonts.load('28px "Noto Nastaliq Urdu"', text)]).catch(() => undefined);
-      const t = new Textbox(text, {
+      const direction = detectDirection(text);
+      const key = resolveFont('sans', direction).key;
+      await loadFont(key, text);
+      const t = new Textbox(text.slice(0, MAX_TEXT_LENGTH), {
         originX: 'center',
         originY: 'center',
         left: area.x + area.width / 2,
         top: area.y + area.height / 2,
         width: area.width * 0.8,
-        fontSize: 26,
-        fontFamily: TEXT_FONT,
-        fill: colorRef.current === 'black' ? '#ffffff' : '#111111',
+        fontSize: BASE_FONT_SIZE,
+        fontFamily: FONTS[key].family,
+        fontWeight: FONTS[key].weight,
+        fill: DEFAULT_TEXT_FILL[colorRef.current],
         textAlign: 'center',
-        direction: detectDirection(text),
+        direction,
         ...HANDLES,
       } as ConstructorParameters<typeof Textbox>[1]);
-      metaRef.current.set(t, { kind: 'text' });
+      metaRef.current.set(t, { kind: 'text', font: key });
+      restoringRef.current = true; // record once, after the text is placed
       canvas.add(t);
       constrain(t);
+      restoringRef.current = false;
+      emit();
       canvas.setActiveObject(t);
       canvas.requestRenderAll();
     },
-    flipSelected(axis) {
+
+    async updateSelectedText(patch, opts) {
       const canvas = fabricRef.current;
-      const obj = canvas?.getActiveObject();
-      // Only images can be mirrored: mirrored text would not match what gets printed.
-      if (!canvas || !obj || metaRef.current.get(obj)?.kind !== 'image') return;
-      if (axis === 'x') obj.flipX = !obj.flipX;
-      else obj.flipY = !obj.flipY;
-      obj.setCoords();
+      const active = activeOf('text');
+      if (!canvas || !active || active.meta.kind !== 'text') return;
+      const t = active.obj as Textbox;
+      let font = active.meta.font;
+
+      if (patch.text !== undefined) t.set({ text: patch.text.slice(0, MAX_TEXT_LENGTH) });
+      const direction = detectDirection(t.text);
+      if (patch.font) font = normalizeFont(patch.font);
+      font = resolveFont(font, direction).key; // typing Urdu switches to an Urdu font, and back
+      if (font !== active.meta.font || patch.font) {
+        await loadFont(font, t.text);
+        t.set({ fontFamily: FONTS[font].family, fontWeight: FONTS[font].weight });
+        metaRef.current.set(t, { kind: 'text', font });
+      }
+      if (patch.fill) t.set({ fill: patch.fill });
+      if (patch.size !== undefined) {
+        t.set({ fontSize: clamp(Math.round(patch.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE), scaleX: 1, scaleY: 1 });
+      }
+      t.set({ direction });
+      t.initDimensions();
+      t.setCoords();
+      constrain(t);
       canvas.requestRenderAll();
-      canvas.fire('object:modified', { target: obj });
+      emit(opts?.coalesce);
+      reportSelection();
     },
-    rotateSelected(degrees) {
-      const canvas = fabricRef.current;
-      const obj = canvas?.getActiveObject();
-      if (!canvas || !obj) return;
-      obj.rotate((((obj.angle ?? 0) + degrees) % 360 + 360) % 360);
-      obj.setCoords();
-      canvas.requestRenderAll();
-      canvas.fire('object:modified', { target: obj });
-    },
+
     removeSelected() {
       const canvas = fabricRef.current;
       if (!canvas) return;
@@ -262,6 +453,70 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor({ product,
       canvas.discardActiveObject();
       canvas.requestRenderAll();
     },
+
+    async duplicateSelected() {
+      const canvas = fabricRef.current;
+      const active = activeOf();
+      if (!canvas || !active) return;
+      const layers = readLayers();
+      const index = canvas.getObjects().filter((o) => metaRef.current.has(o)).indexOf(active.obj);
+      const layer = layers[index];
+      if (!layer) return;
+      const nudge = 0.05; // offset so the copy is visible, then kept inside the print area
+      const copy = await buildObject({ ...layer, rect: { ...layer.rect, x: layer.rect.x + nudge, y: layer.rect.y + nudge } });
+      if (!copy) return;
+      restoringRef.current = true;
+      canvas.add(copy);
+      constrain(copy);
+      restoringRef.current = false;
+      emit();
+      canvas.setActiveObject(copy);
+      canvas.requestRenderAll();
+      reportSelection();
+    },
+
+    bringToFront() {
+      const canvas = fabricRef.current;
+      const active = activeOf();
+      if (!canvas || !active) return;
+      canvas.bringObjectToFront(active.obj);
+      canvas.requestRenderAll();
+      emit();
+    },
+
+    sendToBack() {
+      const canvas = fabricRef.current;
+      const active = activeOf();
+      if (!canvas || !active) return;
+      canvas.sendObjectToBack(active.obj);
+      canvas.requestRenderAll();
+      emit();
+    },
+
+    flipSelected(axis) {
+      const canvas = fabricRef.current;
+      // Only images can be mirrored: mirrored text would not match what gets printed.
+      const active = activeOf('image');
+      if (!canvas || !active) return;
+      if (axis === 'x') active.obj.flipX = !active.obj.flipX;
+      else active.obj.flipY = !active.obj.flipY;
+      active.obj.setCoords();
+      canvas.requestRenderAll();
+      canvas.fire('object:modified', { target: active.obj });
+    },
+
+    rotateSelected(degrees) {
+      const canvas = fabricRef.current;
+      const active = activeOf();
+      if (!canvas || !active) return;
+      active.obj.rotate(((((active.obj.angle ?? 0) + degrees) % 360) + 360) % 360);
+      active.obj.setCoords();
+      canvas.requestRenderAll();
+      canvas.fire('object:modified', { target: active.obj });
+    },
+
+    undo: () => step(-1),
+    redo: () => step(1),
   }));
 
   const area = printAreaRect(product);

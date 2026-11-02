@@ -1,3 +1,4 @@
+import type { FontKey } from '@/lib/fonts';
 import type { Rect } from '@/lib/printArea';
 
 /** rect values are fractions (0..1) of the print area; fontSize is a fraction of the print-area width; rotation is in degrees. */
@@ -6,7 +7,7 @@ export type DesignLayer =
   | {
       kind: 'text';
       text: string;
-      font: string;
+      font: FontKey;
       fill: string;
       direction: 'ltr' | 'rtl';
       fontSize: number;

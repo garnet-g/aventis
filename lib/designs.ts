@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { catalog, COLORS, SIZES } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
+import { normalizeFont } from '@/lib/fonts';
 import { moderateDesign } from '@/lib/moderation';
 import type { ImageSafetyProvider } from '@/lib/moderation/image';
 
@@ -53,7 +54,8 @@ const layerSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('text'),
     text: z.string().min(1).max(60),
-    font: z.string().max(200),
+    // Old designs stored a CSS font stack; anything that is not a known font key becomes the default.
+    font: z.string().max(200).transform(normalizeFont),
     fill: z.string().regex(/^#[0-9a-f]{6}$/i),
     direction: z.enum(['ltr', 'rtl']),
     fontSize: z.number().positive().max(1),

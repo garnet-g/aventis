@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { catalog, COLORS, SIZES, type Color, type ProductId, type Size } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
-import { Editor, type EditorHandle, type Selection } from '@/components/Editor';
+import { Editor, MAX_TEXT_SIZE, MIN_TEXT_SIZE, type EditorHandle, type HistoryState, type Selection } from '@/components/Editor';
+import { fontsFor } from '@/lib/fonts';
 
 export type WorkbenchState = { product: ProductId; color: Color; size: Size; layers: DesignLayer[] };
 
@@ -22,6 +23,17 @@ type Props = {
 const COLOR_SWATCH: Record<Color, string> = { white: '#f4ecdd', black: '#16120f' };
 const QUALITY_BADGE = { great: 'badge-forest', ok: 'badge-gold', low: 'badge-red' } as const;
 const QUALITY_LABEL = { great: 'Great', ok: 'OK', low: 'Low' } as const;
+// Names avoid the words White and Black, which are the garment colors.
+const TEXT_COLORS = [
+  { name: 'Ink', hex: '#16120f' },
+  { name: 'Chalk', hex: '#ffffff' },
+  { name: 'Red', hex: '#e5412a' },
+  { name: 'Gold', hex: '#f2b632' },
+  { name: 'Green', hex: '#0e5a49' },
+  { name: 'Blue', hex: '#1d4ed8' },
+  { name: 'Pink', hex: '#e8458b' },
+  { name: 'Purple', hex: '#7c3aed' },
+] as const;
 
 export function DesignWorkbench({ uploadFile, onChange, onUploadingChange, uploadProgress = null, showLayersJson, children }: Props) {
   const editor = useRef<EditorHandle>(null);
@@ -31,6 +43,13 @@ export function DesignWorkbench({ uploadFile, onChange, onUploadingChange, uploa
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [selection, setSelection] = useState<Selection>(null);
+  const [history, setHistory] = useState<HistoryState>({ canUndo: false, canRedo: false });
+  // The text box keeps its own copy while typing, so the cursor never jumps while the canvas catches up.
+  const [textDraft, setTextDraft] = useState('');
+  const selectedText = selection?.kind === 'text' ? selection.text : null;
+  useEffect(() => {
+    if (selectedText !== null) setTextDraft(selectedText);
+  }, [selectedText]);
   // The page is server-rendered first. Until React has attached its handlers, a chosen file or a typed name would be
   // silently lost, so those controls stay disabled until the page is interactive.
   const [ready, setReady] = useState(false);
@@ -61,18 +80,34 @@ export function DesignWorkbench({ uploadFile, onChange, onUploadingChange, uploa
   async function addText() {
     const t = text.trim();
     if (!t) return;
+    setText(''); // clear at once, so anything typed while the font loads is not wiped afterwards
     await editor.current?.addText(t);
-    setText('');
   }
 
   const tool = 'rounded-[9px] border-2 border-ink bg-white/50 px-3 py-2 text-sm font-bold disabled:opacity-40';
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-32">
-      <Editor ref={editor} product={state.product} color={state.color} onChange={(layers) => update({ layers })} onSelectionChange={setSelection} />
+      <Editor
+        ref={editor}
+        product={state.product}
+        color={state.color}
+        onChange={(layers) => update({ layers })}
+        onSelectionChange={setSelection}
+        onHistoryChange={setHistory}
+      />
+
+      <div className="-mt-1 flex gap-2">
+        <button className={tool} disabled={!history.canUndo} onClick={() => editor.current?.undo()}>
+          &#8630; Undo
+        </button>
+        <button className={tool} disabled={!history.canRedo} onClick={() => editor.current?.redo()}>
+          Redo &#8631;
+        </button>
+      </div>
 
       {selection && (
-        <section className="flex flex-col gap-2" aria-label="Selected item">
+        <section className="ticket flex flex-col gap-3" aria-label="Selected item">
           {selection.kind === 'image' && (
             <p data-testid="print-quality" className={`badge self-start ${QUALITY_BADGE[selection.quality.level]}`}>
               Print quality: {QUALITY_LABEL[selection.quality.level]}
@@ -80,6 +115,58 @@ export function DesignWorkbench({ uploadFile, onChange, onUploadingChange, uploa
               {selection.quality.level === 'low' && <> &mdash; may look blurry. Make it smaller or use a bigger image.</>}
             </p>
           )}
+
+          {selection.kind === 'text' && (
+            <>
+              <input
+                aria-label="Selected text"
+                className="field"
+                maxLength={60}
+                value={textDraft}
+                onChange={(e) => {
+                  setTextDraft(e.target.value);
+                  void editor.current?.updateSelectedText({ text: e.target.value }, { coalesce: true });
+                }}
+              />
+              <select
+                aria-label="Font"
+                className="field"
+                value={selection.font}
+                onChange={(e) => void editor.current?.updateSelectedText({ font: e.target.value as typeof selection.font })}
+              >
+                {fontsFor(selection.direction).map((f) => (
+                  <option key={f.key} value={f.key}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Text color">
+                {TEXT_COLORS.map((c) => (
+                  <button
+                    key={c.hex}
+                    aria-label={`Text color ${c.name}`}
+                    aria-pressed={selection.fill.toLowerCase() === c.hex}
+                    onClick={() => void editor.current?.updateSelectedText({ fill: c.hex })}
+                    className={`h-7 w-7 rounded-full border-2 border-ink ${selection.fill.toLowerCase() === c.hex ? 'ring-2 ring-vermilion ring-offset-2 ring-offset-paper' : ''}`}
+                    style={{ background: c.hex }}
+                  />
+                ))}
+              </div>
+              <label className="flex items-center gap-3 text-sm font-bold">
+                Size
+                <input
+                  type="range"
+                  aria-label="Text size"
+                  className="flex-1 accent-[#e5412a]"
+                  min={MIN_TEXT_SIZE}
+                  max={MAX_TEXT_SIZE}
+                  value={selection.size}
+                  onChange={(e) => void editor.current?.updateSelectedText({ size: Number(e.target.value) }, { coalesce: true })}
+                />
+              </label>
+            </>
+          )}
+
           <div className="flex flex-wrap gap-2">
             {selection.kind === 'image' && (
               <>
@@ -93,6 +180,15 @@ export function DesignWorkbench({ uploadFile, onChange, onUploadingChange, uploa
             )}
             <button className={tool} onClick={() => editor.current?.rotateSelected(90)}>
               Rotate 90&deg;
+            </button>
+            <button className={tool} onClick={() => void editor.current?.duplicateSelected()}>
+              Duplicate
+            </button>
+            <button className={tool} onClick={() => editor.current?.bringToFront()}>
+              Bring to front
+            </button>
+            <button className={tool} onClick={() => editor.current?.sendToBack()}>
+              Send to back
             </button>
           </div>
         </section>

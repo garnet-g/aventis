@@ -8,7 +8,7 @@ import { buildCustomerView, describeDesign } from '@/lib/customerItems';
 import { MemoryDesignStore } from './helpers/memoryStore';
 
 const text = (t: string): DesignLayer => ({
-  kind: 'text', text: t, font: 'Arial', fill: '#111111', direction: 'ltr', fontSize: 0.12,
+  kind: 'text', text: t, font: 'sans', fill: '#111111', direction: 'ltr', fontSize: 0.12,
   rect: { x: 0.1, y: 0.1, width: 0.5, height: 0.2 }, rotation: 0,
 });
 
