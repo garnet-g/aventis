@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import type { DesignLayer } from '@/lib/designLayers';
-import { saveDesign, submitDesign } from '@/lib/designs';
+import { layersHash, saveDesign, submitDesign } from '@/lib/designs';
 import { StubImageSafetyProvider } from '@/lib/moderation/image';
 import { MemoryDesignStore } from './helpers/memoryStore';
 
@@ -143,7 +143,7 @@ describe('saveDesign', () => {
     const d = await saveDesign(store, 'alice', { ...base, layers: [] });
     const attempt = (name: string) =>
       saveDesign(store, 'alice', { ...base, layers: [{ kind: 'image', uploadPath: `alice/${d.id}/${name}`, rect, rotation: 0 }] }, d.id);
-    for (const bad of ['a.png', FILE.replace('.png', '.PNG'), `${FILE}.exe`, `${FILE}%2e`, `x\\${FILE}`, ` ${FILE}`, `${FILE}\n`]) {
+    for (const bad of ['a.png', FILE.replace('.png', 'xpng'), FILE.replace('.png', '.PNG'), `${FILE}.exe`, `${FILE}%2e`, `x\\${FILE}`, ` ${FILE}`, `${FILE}\n`]) {
       await expect(attempt(bad)).rejects.toThrow(/upload/i);
     }
     await expect(attempt(FILE.replace('.png', '.jpg'))).resolves.toBeTruthy();
@@ -188,5 +188,61 @@ describe('saveDesign', () => {
     await expect(
       saveDesign(store, 'alice', { ...base, layers: Array.from({ length: 21 }, () => text('a')) }),
     ).rejects.toThrow();
+  });
+});
+
+describe('printing on the back', () => {
+  const back = (t: string) => ({ ...base, layers: [text('Front')], backLayers: [text(t)] });
+
+  test('both sides are saved with the design', async () => {
+    const d = await saveDesign(store, 'alice', back('Back'));
+    expect(d.layers).toEqual([text('Front')]);
+    expect(d.backLayers).toEqual([text('Back')]);
+  });
+
+  test('a design with nothing on the back has an empty back', async () => {
+    expect((await saveDesign(store, 'alice', { ...base, layers: [text('Ali')] })).backLayers).toEqual([]);
+  });
+
+  test('a design with only a back side can be submitted', async () => {
+    const d = await saveDesign(store, 'alice', { ...base, layers: [], backLayers: [text('Back only')] });
+    expect((await submitDesign(store, new StubImageSafetyProvider(0), d.id, 'alice')).status).toBe('approved');
+  });
+
+  test('explicit text that is only on the back is rejected', async () => {
+    const d = await saveDesign(store, 'alice', back('fuck'));
+    expect((await submitDesign(store, new StubImageSafetyProvider(0), d.id, 'alice')).status).toBe('rejected');
+  });
+
+  test('changing only the back puts an approved design back to draft and it is checked again', async () => {
+    const d = await saveDesign(store, 'alice', back('Fine'));
+    expect((await submitDesign(store, new StubImageSafetyProvider(0), d.id, 'alice')).status).toBe('approved');
+    const edited = await saveDesign(store, 'alice', back('fuck'), d.id);
+    expect(edited.status).toBe('draft');
+    expect((await submitDesign(store, new StubImageSafetyProvider(0), d.id, 'alice')).status).toBe('rejected');
+  });
+
+  test("an upload on the back must belong to this design too", async () => {
+    const d = await saveDesign(store, 'alice', back('Back'));
+    const evil: DesignLayer = { kind: 'image', uploadPath: `bob/${d.id}/${FILE}`, rect, rotation: 0 };
+    await expect(saveDesign(store, 'alice', { ...base, layers: [], backLayers: [evil] }, d.id)).rejects.toThrow(/upload/i);
+  });
+
+  test('each side is limited to 20 layers', async () => {
+    const many = Array.from({ length: 21 }, () => text('a'));
+    await expect(saveDesign(store, 'alice', { ...base, layers: [], backLayers: many })).rejects.toThrow();
+  });
+
+  test('an image on the back of a brand-new design is refused until the design exists', async () => {
+    const img: DesignLayer = { kind: 'image', uploadPath: `alice/x/${FILE}`, rect, rotation: 0 };
+    await expect(saveDesign(store, 'alice', { ...base, layers: [], backLayers: [img] })).rejects.toThrow(/upload/i);
+  });
+});
+
+describe('the moderation hash', () => {
+  test('covers both sides, so a change on either side changes it', () => {
+    expect(layersHash([text('a')], [])).not.toBe(layersHash([text('a')], [text('b')]));
+    expect(layersHash([text('a')], [text('b')])).not.toBe(layersHash([text('b')], [text('a')]));
+    expect(layersHash([text('a')], [text('b')])).toBe(layersHash([text('a')], [text('b')]));
   });
 });

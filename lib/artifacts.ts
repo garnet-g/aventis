@@ -1,12 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp, { type OverlayOptions, type SharpOptions } from 'sharp';
-import { catalog, MIN_DPI, type Color, type ProductId } from '@/lib/catalog';
+import { catalog, MIN_DPI, printAreaFor, type Color, type ProductId, type Side } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
 import { printAreaRect } from '@/lib/editorGeometry';
 import { resolveFont } from '@/lib/fonts';
+import type { ArtifactPaths } from '@/lib/orders';
 
-export type ArtifactItem = { product: ProductId; color: Color };
+/** What to draw: a garment and, optionally, which side of it (the front by default). */
+export type ArtifactItem = { product: ProductId; color: Color; side?: Side };
 export type ImageLoader = (uploadPath: string) => Promise<Buffer>;
 export interface ArtifactStorage {
   /** Must overwrite an existing file at the same path (regeneration must not duplicate files). */
@@ -17,8 +19,8 @@ const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 // The garment photos are 800x1000 while the editor canvas is 400x500.
 const PHOTO_SCALE = 2;
 
-export function designPixelSize(product: ProductId) {
-  const a = catalog[product].printArea;
+export function designPixelSize(product: ProductId, side: Side = 'front') {
+  const a = printAreaFor(product, side);
   return {
     width: Math.round((a.widthCm / 2.54) * MIN_DPI),
     height: Math.round((a.heightCm / 2.54) * MIN_DPI),
@@ -82,7 +84,7 @@ async function clipToCanvas(png: Buffer, left: number, top: number, W: number, H
 
 /** Transparent PNG of exactly the print area at MIN_DPI, with every layer placed where the customer put it. */
 export async function renderDesignPng(item: ArtifactItem, layers: DesignLayer[], loadImage: ImageLoader): Promise<Buffer> {
-  const { width: W, height: H } = designPixelSize(item.product);
+  const { width: W, height: H } = designPixelSize(item.product, item.side);
   const overlays: OverlayOptions[] = [];
 
   for (const layer of layers) {
@@ -112,8 +114,8 @@ export async function renderDesignPng(item: ArtifactItem, layers: DesignLayer[],
 
 /** The garment photo with the design placed in its print area. */
 export async function renderMockupPng(item: ArtifactItem, designPng: Buffer): Promise<Buffer> {
-  const garment = await readFile(path.join(process.cwd(), 'public', catalog[item.product].garmentImage(item.color)));
-  const area = printAreaRect(item.product);
+  const garment = await readFile(path.join(process.cwd(), 'public', catalog[item.product].garmentImage(item.color, item.side)));
+  const area = printAreaRect(item.product, item.side);
   const design = await sharp(designPng)
     .resize(Math.round(area.width * PHOTO_SCALE), Math.round(area.height * PHOTO_SCALE))
     .png()
@@ -124,19 +126,34 @@ export async function renderMockupPng(item: ArtifactItem, designPng: Buffer): Pr
     .toBuffer();
 }
 
-/** Renders both files from the given layers (callers pass the order's snapshot) and stores them under the order id. */
+/**
+ * Renders the files from the given layers (callers pass the order's snapshot) and stores them under the order id.
+ * Two files for the front; two more for the back when the back is printed.
+ */
 export async function generateArtifacts(args: {
   orderId: string;
   item: ArtifactItem;
   layers: DesignLayer[];
+  backLayers?: DesignLayer[];
   loadImage: ImageLoader;
   storage: ArtifactStorage;
-}): Promise<{ mockupPath: string; designFilePath: string }> {
-  const designPng = await renderDesignPng(args.item, args.layers, args.loadImage);
-  const mockupPng = await renderMockupPng(args.item, designPng);
-  const designFilePath = `${args.orderId}/design.png`;
-  const mockupPath = `${args.orderId}/mockup.png`;
-  await args.storage.upload(designFilePath, designPng, 'image/png');
-  await args.storage.upload(mockupPath, mockupPng, 'image/png');
-  return { mockupPath, designFilePath };
+}): Promise<ArtifactPaths> {
+  const { orderId, item, loadImage, storage } = args;
+  const front = { ...item, side: 'front' as const };
+  const frontDesign = await renderDesignPng(front, args.layers, loadImage);
+  const frontMockup = await renderMockupPng(front, frontDesign);
+  const paths: ArtifactPaths = { mockupPath: `${orderId}/mockup.png`, designFilePath: `${orderId}/design.png` };
+  await storage.upload(paths.designFilePath, frontDesign, 'image/png');
+  await storage.upload(paths.mockupPath, frontMockup, 'image/png');
+
+  if (args.backLayers?.length) {
+    const back = { ...item, side: 'back' as const };
+    const backDesign = await renderDesignPng(back, args.backLayers, loadImage);
+    const backMockup = await renderMockupPng(back, backDesign);
+    paths.backDesignFilePath = `${orderId}/back-design.png`;
+    paths.backMockupPath = `${orderId}/back-mockup.png`;
+    await storage.upload(paths.backDesignFilePath, backDesign, 'image/png');
+    await storage.upload(paths.backMockupPath, backMockup, 'image/png');
+  }
+  return paths;
 }

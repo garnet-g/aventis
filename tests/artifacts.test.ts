@@ -179,6 +179,41 @@ describe('renderTextOverlay stays bounded', () => {
   });
 });
 
+describe('the back side', () => {
+  test('the back design file has the size of the back print area', async () => {
+    const { width, height } = designPixelSize('tee', 'back');
+    const png = await renderDesignPng({ ...item, side: 'back' }, [textLayer('Back')], loader);
+    const meta = await sharp(png).metadata();
+    expect([meta.width, meta.height]).toEqual([width, height]);
+  });
+
+  test('the back mockup is drawn on the back garment photo, not the front one', async () => {
+    const png = await renderDesignPng(item, [], loader);
+    const front = await renderMockupPng(item, png);
+    const back = await renderMockupPng({ ...item, side: 'back' }, png);
+    expect(Buffer.compare(front, back)).not.toBe(0);
+    const meta = await sharp(back).metadata();
+    expect([meta.width, meta.height]).toEqual([800, 1000]);
+  });
+
+  test('generateArtifacts makes four files when there is a back side and two when there is not', async () => {
+    const files = new Map<string, Buffer>();
+    const storage: ArtifactStorage = { upload: async (p, d) => void files.set(p, d) };
+    const base = { orderId: 'o9', item, layers: [textLayer('Front')], loadImage: loader, storage };
+    const two = await generateArtifacts(base);
+    expect(two).toEqual({ mockupPath: 'o9/mockup.png', designFilePath: 'o9/design.png' });
+    expect(files.size).toBe(2);
+    const four = await generateArtifacts({ ...base, backLayers: [textLayer('Back')] });
+    expect(four).toEqual({
+      mockupPath: 'o9/mockup.png',
+      designFilePath: 'o9/design.png',
+      backMockupPath: 'o9/back-mockup.png',
+      backDesignFilePath: 'o9/back-design.png',
+    });
+    expect([...files.keys()].sort()).toEqual(['o9/back-design.png', 'o9/back-mockup.png', 'o9/design.png', 'o9/mockup.png']);
+  });
+});
+
 describe('renderMockupPng', () => {
   test("mockup PNG has the garment's dimensions and shows the design on it", async () => {
     const design = await renderDesignPng(item, [imageLayer()], loader);

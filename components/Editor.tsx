@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { Canvas, FabricImage, Textbox, type FabricObject } from 'fabric';
-import { catalog, type Color, type ProductId } from '@/lib/catalog';
+import { catalog, printAreaFor, type Color, type ProductId, type Side } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
 import { CANVAS_H, CANVAS_W, detectDirection, fromFraction, printAreaRect, toFraction } from '@/lib/editorGeometry';
 import { FONTS, normalizeFont, resolveFont, type FontKey } from '@/lib/fonts';
@@ -40,6 +40,8 @@ export type TextPatch = { text?: string; font?: FontKey; fill?: string; size?: n
 export type HistoryState = { canUndo: boolean; canRedo: boolean };
 
 export type EditorHandle = {
+  /** Draws a saved design (both sides) onto the editor; `urls` maps each uploaded image's path to a loadable link. */
+  loadDesign(design: { front: DesignLayer[]; back: DesignLayer[]; urls: Record<string, string> }): Promise<void>;
   addImage(url: string, uploadPath: string): Promise<void>;
   addText(text: string): Promise<void>;
   updateSelectedText(patch: TextPatch, opts?: { coalesce?: boolean }): Promise<void>;
@@ -56,7 +58,10 @@ export type EditorHandle = {
 type Props = {
   product: ProductId;
   color: Color;
-  onChange?: (layers: DesignLayer[]) => void;
+  /** Which side of the garment is being designed. Each side keeps its own layers and undo history. */
+  side?: Side;
+  /** Called with the layers of the side that changed. */
+  onChange?: (layers: DesignLayer[], side: Side) => void;
   onSelectionChange?: (selection: Selection) => void;
   onHistoryChange?: (history: HistoryState) => void;
 };
@@ -69,16 +74,23 @@ async function loadFont(key: FontKey, sample: string) {
 }
 
 export const Editor = forwardRef<EditorHandle, Props>(function Editor(
-  { product, color, onChange, onSelectionChange, onHistoryChange },
+  { product, color, side = 'front', onChange, onSelectionChange, onHistoryChange },
   ref,
 ) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasEl = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<Canvas | null>(null);
-  const areaRef = useRef(printAreaRect(product));
+  const sideRef = useRef<Side>(side);
+  const areaRef = useRef(printAreaRect(product, side));
+  const sidesRef = useRef<Record<Side, DesignLayer[]>>({ front: [], back: [] }); // the side that is NOT on the canvas
   const metaRef = useRef(new WeakMap<FabricObject, Meta>());
   const urlsRef = useRef(new Map<string, string>()); // uploadPath -> browser URL, so undo can redraw images
-  const historyRef = useRef<{ stack: string[]; index: number }>({ stack: [], index: -1 });
+  const historiesRef = useRef<Record<Side, { stack: string[]; index: number }>>({
+    front: { stack: ['[]'], index: 0 },
+    back: { stack: ['[]'], index: 0 },
+  });
+  const hist = () => historiesRef.current[sideRef.current];
+  const switchChain = useRef<Promise<void>>(Promise.resolve());
   const restoringRef = useRef(false);
   const onChangeRef = useRef(onChange);
   const onSelectionRef = useRef(onSelectionChange);
@@ -137,14 +149,14 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   };
 
   const notifyHistory = () => {
-    const { stack, index } = historyRef.current;
+    const { stack, index } = hist();
     onHistoryRef.current?.({ canUndo: index > 0, canRedo: index < stack.length - 1 });
   };
 
   /** Remembers the current layers as an undo step. `coalesce` replaces the last step (for sliders and typing). */
   const record = (coalesce = false) => {
     if (restoringRef.current) return;
-    const h = historyRef.current;
+    const h = hist();
     const snap = JSON.stringify(readLayers());
     if (snap === h.stack[h.index]) return;
     if (coalesce && h.index > 0) {
@@ -161,7 +173,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   const emit = (coalesce = false) => {
     if (restoringRef.current) return;
     record(coalesce);
-    onChangeRef.current?.(readLayers());
+    onChangeRef.current?.(readLayers(), sideRef.current);
   };
 
   /** Tells the page what is selected and, for an image, how sharp it will print at its current size. */
@@ -181,7 +193,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       });
       return;
     }
-    const printedWidthCm = (obj.getScaledWidth() / areaRef.current.width) * catalog[productRef.current].printArea.widthCm;
+    const printedWidthCm = (obj.getScaledWidth() / areaRef.current.width) * printAreaFor(productRef.current, sideRef.current).widthCm;
     onSelectionRef.current?.({ kind: 'image', quality: printQuality((obj as FabricImage).width, printedWidthCm) });
   };
 
@@ -244,7 +256,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     } finally {
       restoringRef.current = false;
     }
-    onChangeRef.current?.(readLayers());
+    onChangeRef.current?.(readLayers(), sideRef.current);
     reportSelection();
     notifyHistory();
   };
@@ -257,7 +269,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       preserveObjectStacking: true,
     });
     fabricRef.current = canvas;
-    historyRef.current = { stack: ['[]'], index: 0 };
+    historiesRef.current = { front: { stack: ['[]'], index: 0 }, back: { stack: ['[]'], index: 0 } };
     notifyHistory();
 
     const guard = (e: { target: FabricObject }) => constrain(e.target);
@@ -296,6 +308,36 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Draws the garment photo for the current product, color and side behind the design. */
+  const paintBackground = async (isCancelled: () => boolean = () => false) => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    const img = await FabricImage.fromURL(catalog[productRef.current].garmentImage(colorRef.current, sideRef.current));
+    if (isCancelled() || fabricRef.current !== canvas) return;
+    // Fabric objects default to a centre origin; the background must sit at the canvas's top-left corner.
+    img.set({ originX: 'left', originY: 'top', left: 0, top: 0 });
+    img.scaleToWidth(CANVAS_W);
+    canvas.backgroundImage = img;
+    canvas.requestRenderAll();
+  };
+
+  /** Puts the other side of the garment on the canvas, keeping what was on this side for when we come back. */
+  const switchSide = async (next: Side) => {
+    const canvas = fabricRef.current;
+    if (!canvas || next === sideRef.current) return;
+    sidesRef.current[sideRef.current] = readLayers();
+    sideRef.current = next;
+    areaRef.current = printAreaRect(productRef.current, next);
+    await restore(sidesRef.current[next]);
+    await paintBackground();
+  };
+
+  // The side prop changed: switch one step at a time, even if the customer taps quickly.
+  useEffect(() => {
+    switchChain.current = switchChain.current.then(() => switchSide(side)).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [side]);
+
   // Product or color changed: swap the garment photo and carry layers over proportionally.
   const prevColorRef = useRef(color);
   useEffect(() => {
@@ -303,7 +345,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     if (!canvas) return;
     let cancelled = false;
     const old = areaRef.current;
-    const next = printAreaRect(product);
+    const next = printAreaRect(product, sideRef.current);
     if (old.x !== next.x || old.y !== next.y || old.width !== next.width || old.height !== next.height) {
       const k = next.width / old.width;
       for (const obj of canvas.getObjects()) {
@@ -333,14 +375,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         reportSelection();
       }
     }
-    FabricImage.fromURL(catalog[product].garmentImage(color)).then((img) => {
-      if (cancelled || fabricRef.current !== canvas) return;
-      // Fabric objects default to a centre origin; the background must sit at the canvas's top-left corner.
-      img.set({ originX: 'left', originY: 'top', left: 0, top: 0 });
-      img.scaleToWidth(CANVAS_W);
-      canvas.backgroundImage = img;
-      canvas.requestRenderAll();
-    });
+    void paintBackground(() => cancelled);
     return () => {
       cancelled = true;
     };
@@ -354,7 +389,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   };
 
   const step = async (dir: -1 | 1) => {
-    const h = historyRef.current;
+    const h = hist();
     const target = h.index + dir;
     if (restoringRef.current || target < 0 || target >= h.stack.length) return;
     h.index = target;
@@ -362,6 +397,16 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   };
 
   useImperativeHandle(ref, () => ({
+    async loadDesign({ front, back, urls }) {
+      for (const [path, url] of Object.entries(urls)) urlsRef.current.set(path, url);
+      sidesRef.current = { front, back };
+      historiesRef.current = {
+        front: { stack: [JSON.stringify(front)], index: 0 },
+        back: { stack: [JSON.stringify(back)], index: 0 },
+      };
+      await restore(sideRef.current === 'front' ? front : back);
+    },
+
     async addImage(url, uploadPath) {
       const canvas = fabricRef.current!;
       const area = areaRef.current;
@@ -519,11 +564,13 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     redo: () => step(1),
   }));
 
-  const area = printAreaRect(product);
+  const area = printAreaRect(product, side);
+  const printArea = printAreaFor(product, side);
   return (
     <div
       ref={wrapRef}
       data-testid="editor-wrap"
+      data-side={side}
       className="relative mx-auto w-full max-w-[400px] overflow-hidden rounded-2xl border-2 border-ink bg-paper-2"
     >
       <canvas ref={canvasEl} />
@@ -543,7 +590,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         <i className="absolute bottom-0 left-0 h-3.5 w-3.5 border-b-2 border-l-2 border-vermilion" />
         <i className="absolute bottom-0 right-0 h-3.5 w-3.5 border-b-2 border-r-2 border-vermilion" />
         <span className="absolute -top-[19px] left-0 whitespace-nowrap rounded-sm bg-paper/90 px-1 text-[10px] font-bold uppercase tracking-[0.1em] text-vermilion">
-          Print area &middot; {catalog[product].printArea.widthCm} &times; {catalog[product].printArea.heightCm} cm
+          Print area &middot; {printArea.widthCm} &times; {printArea.heightCm} cm
         </span>
       </div>
     </div>

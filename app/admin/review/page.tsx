@@ -15,7 +15,7 @@ async function ReviewQueue() {
   await requireAdmin();
   const { data } = await getServiceClient()
     .from('designs')
-    .select('id, product, color, size, updated_at')
+    .select('id, product, color, size, back_layers, updated_at')
     .eq('status', 'pending_review')
     .order('updated_at', { ascending: true });
 
@@ -27,9 +27,13 @@ async function ReviewQueue() {
         {data?.map((d) => (
           <li key={d.id} className="ticket flex flex-col gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/api/admin/designs/${d.id}/preview`} alt="Design preview" className="w-full rounded-lg border-2 border-ink bg-paper-2" />
+            <img src={`/api/admin/designs/${d.id}/preview`} alt="Design preview, front" className="w-full rounded-lg border-2 border-ink bg-paper-2" />
+            {Array.isArray(d.back_layers) && d.back_layers.length > 0 && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`/api/admin/designs/${d.id}/preview?side=back`} alt="Design preview, back" className="w-full rounded-lg border-2 border-ink bg-paper-2" />
+            )}
             <p className="text-sm">
-              {d.product} · {d.color} · {d.size}
+              {d.product} · {d.color} · {d.size}{Array.isArray(d.back_layers) && d.back_layers.length > 0 ? ' · front and back' : ''}
             </p>
             <ReviewActions designId={d.id} />
           </li>

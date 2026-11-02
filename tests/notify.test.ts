@@ -75,7 +75,7 @@ describe('decideAndNotify', () => {
 describe('customer status page', () => {
   const design = (over: object) => ({
     id: 'd1', userId: 'alice', product: 'tee' as const, color: 'white' as const, size: 'M' as const,
-    layers: [text('Ali')], status: 'draft' as const, rejectReason: null, moderatedHash: null, version: '1', ...over,
+    layers: [text('Ali')], backLayers: [], status: 'draft' as const, rejectReason: null, moderatedHash: null, version: '1', ...over,
   });
 
   test('waiting for review is shown in plain words', () => {

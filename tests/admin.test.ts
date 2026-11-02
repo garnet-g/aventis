@@ -25,7 +25,7 @@ import { POST as regeneratePOST } from '../app/api/admin/orders/[id]/regenerate/
 import { POST as statusPOST } from '../app/api/admin/orders/[id]/status/route';
 import { GET as previewGET } from '../app/api/admin/designs/[id]/preview/route';
 import { POST as decisionPOST } from '../app/api/admin/designs/[id]/decision/route';
-import { advanceOrder, decideDesign, nextStatus, orderProfit, regenerateArtifacts, signedDownloadUrl } from '@/lib/admin';
+import { advanceOrder, artifactPath, decideDesign, nextStatus, orderProfit, regenerateArtifacts, signedDownloadUrl } from '@/lib/admin';
 
 const ctx = { params: Promise.resolve({ id: 'x' }) };
 const req = (body?: unknown) => new Request('http://t/x', { method: 'POST', body: JSON.stringify(body ?? {}) });
@@ -165,5 +165,26 @@ describe('money and downloads', () => {
     );
     expect(seen[0]).toEqual(o.layersSnapshot);
     expect(fresh).toMatchObject({ mockupPath: 'm.png', designFilePath: 'd.png', artifactsFailed: false });
+  });
+});
+
+describe('artifactPath', () => {
+  const order = { mockupPath: 'o/mockup.png', designFilePath: 'o/design.png', backMockupPath: null, backDesignFilePath: null } as never;
+  const withBack = { mockupPath: 'o/mockup.png', designFilePath: 'o/design.png', backMockupPath: 'o/back-mockup.png', backDesignFilePath: 'o/back-design.png' } as never;
+
+  test('picks the stored file for each download', () => {
+    expect(artifactPath(order, 'mockup')).toBe('o/mockup.png');
+    expect(artifactPath(order, 'design')).toBe('o/design.png');
+    expect(artifactPath(withBack, 'back-mockup')).toBe('o/back-mockup.png');
+    expect(artifactPath(withBack, 'back-design')).toBe('o/back-design.png');
+  });
+
+  test('is null for a back file when the order has no back print', () => {
+    expect(artifactPath(order, 'back-mockup')).toBeNull();
+    expect(artifactPath(order, 'back-design')).toBeNull();
+  });
+
+  test('is null for anything that is not a known file', () => {
+    expect(artifactPath(order, '../../etc/passwd' as never)).toBeNull();
   });
 });

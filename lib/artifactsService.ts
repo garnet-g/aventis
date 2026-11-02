@@ -20,6 +20,7 @@ export const supabaseArtifactGenerator: ArtifactGenerator = async ({ order, desi
     orderId: order.id,
     item: { product: design.product, color: design.color },
     layers: order.layersSnapshot,
+    backLayers: order.backLayersSnapshot,
     loadImage: supabaseImageLoader(order.userId, order.designId),
     storage: {
       upload: async (path, data, contentType) => {

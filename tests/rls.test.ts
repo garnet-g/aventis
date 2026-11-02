@@ -7,13 +7,13 @@ let alice: string, bob: string, admin: string;
 let aliceDesign: string;
 
 /** Orders may only be created for an approved design whose layers equal the snapshot (the DB enforces it). */
-async function insertOrder(designId: string, userId: string, opts: { approve?: boolean; snapshot?: string } = {}) {
+async function insertOrder(designId: string, userId: string, opts: { approve?: boolean; snapshot?: string; backSnapshot?: string } = {}) {
   if (opts.approve !== false) await db.query(`update designs set status = 'approved' where id = $1`, [designId]);
   await db.query(
     `insert into orders (design_id, user_id, status, cost_pkr, price_pkr, delivery_fee_pkr,
-       name, phone, city, province, address, payment_ref, layers_snapshot)
-     values ($1,$2,'paid',800,1500,250,'A','03001234567','Lahore','Punjab','1 Road',$3,$4::jsonb)`,
-    [designId, userId, `TEST-${designId}`, opts.snapshot ?? '[]'],
+       name, phone, city, province, address, payment_ref, layers_snapshot, back_layers_snapshot)
+     values ($1,$2,'paid',800,1500,250,'A','03001234567','Lahore','Punjab','1 Road',$3,$4::jsonb,$5::jsonb)`,
+    [designId, userId, `TEST-${designId}`, opts.snapshot ?? '[]', opts.backSnapshot ?? '[]'],
   );
 }
 
@@ -122,6 +122,19 @@ describe('row-level security', () => {
       db.query(`update designs set layers = '[{"x":1}]'::jsonb where id = $1`, [aliceDesign]),
     ).rejects.toThrow(/already has an order/i);
     await expect(db.query('delete from designs where id = $1', [aliceDesign])).rejects.toThrow();
+  });
+
+  test('an order must carry the same back-side layers as the design', async () => {
+    await db.query(`update designs set back_layers = '[{"x":1}]'::jsonb where id = $1`, [aliceDesign]);
+    await expect(insertOrder(aliceDesign, alice)).rejects.toThrow(/approved design/i);
+    await expect(insertOrder(aliceDesign, alice, { backSnapshot: '[{"x":2}]' })).rejects.toThrow(/approved design/i);
+    await insertOrder(aliceDesign, alice, { backSnapshot: '[{"x":1}]' });
+    expect((await db.query('select 1 from orders')).rows).toHaveLength(1);
+  });
+
+  test('once ordered, even the back side of a design cannot be edited', async () => {
+    await insertOrder(aliceDesign, alice);
+    await expect(db.query(`update designs set back_layers = '[{"x":1}]'::jsonb where id = $1`, [aliceDesign])).rejects.toThrow(/already has an order/i);
   });
 
   test('a design can only have one order', async () => {

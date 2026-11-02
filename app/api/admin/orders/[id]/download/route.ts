@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server';
-import { signedDownloadUrl } from '@/lib/admin';
+import { artifactPath, signedDownloadUrl, type ArtifactFile } from '@/lib/admin';
 import { requireAdmin } from '@/lib/auth';
 import { errorResponse } from '@/lib/http';
 import { supabaseOrderStore } from '@/lib/ordersStore';
 import { getServiceClient } from '@/lib/supabase/server';
 
-/** GET ?file=mockup|design: redirects to a 60-second signed link. The bucket itself stays private. */
+/** GET ?file=mockup|design|back-mockup|back-design: redirects to a 60-second signed link. The bucket itself stays private. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   try {
     const { id } = await params;
     const file = new URL(req.url).searchParams.get('file');
-    if (file !== 'mockup' && file !== 'design') return NextResponse.json({ error: 'Unknown file.' }, { status: 400 });
+    if (!file || !['mockup', 'design', 'back-mockup', 'back-design'].includes(file)) {
+      return NextResponse.json({ error: 'Unknown file.' }, { status: 400 });
+    }
     const order = await supabaseOrderStore().findById(id);
-    const path = file === 'mockup' ? order?.mockupPath : order?.designFilePath;
+    const path = order ? artifactPath(order, file as ArtifactFile) : null;
     if (!order || !path) return NextResponse.json({ error: 'File not found.' }, { status: 404 });
 
     const bucket = getServiceClient().storage.from('artifacts');

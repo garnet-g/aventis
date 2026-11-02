@@ -16,8 +16,11 @@ export type OrderRow = {
   address: string;
   payment_ref: string;
   layers_snapshot: Order['layersSnapshot'];
+  back_layers_snapshot: Order['backLayersSnapshot'];
   mockup_path: string | null;
   design_file_path: string | null;
+  back_mockup_path: string | null;
+  back_design_file_path: string | null;
   artifacts_failed: boolean;
 };
 
@@ -32,8 +35,11 @@ export const toOrder = (r: OrderRow): Order => ({
   delivery: { name: r.name, phone: r.phone, city: r.city, province: r.province, address: r.address },
   paymentRef: r.payment_ref,
   layersSnapshot: r.layers_snapshot,
+  backLayersSnapshot: r.back_layers_snapshot ?? [],
   mockupPath: r.mockup_path,
   designFilePath: r.design_file_path,
+  backMockupPath: r.back_mockup_path ?? null,
+  backDesignFilePath: r.back_design_file_path ?? null,
   artifactsFailed: r.artifacts_failed,
 });
 
@@ -66,6 +72,7 @@ export function supabaseOrderStore(): OrderStore {
           ...o.delivery,
           payment_ref: o.paymentRef,
           layers_snapshot: o.layersSnapshot,
+          back_layers_snapshot: o.backLayersSnapshot,
         })
         .select('*')
         .single();
@@ -76,7 +83,13 @@ export function supabaseOrderStore(): OrderStore {
       return toOrder(data as OrderRow);
     },
     async setArtifacts(id, p) {
-      const { error } = await db().from('orders').update({ mockup_path: p.mockupPath, design_file_path: p.designFilePath, artifacts_failed: false }).eq('id', id);
+      const { error } = await db().from('orders').update({
+          mockup_path: p.mockupPath,
+          design_file_path: p.designFilePath,
+          back_mockup_path: p.backMockupPath ?? null,
+          back_design_file_path: p.backDesignFilePath ?? null,
+          artifacts_failed: false,
+        }).eq('id', id);
       if (error) throw new Error(error.message);
     },
     async markArtifactsFailed(id) {

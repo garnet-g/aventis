@@ -1,5 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 // Minimal stand-in for Supabase's auth schema and roles so the real migration runs unchanged.
@@ -18,7 +18,11 @@ grant usage on schema public, auth to anon, authenticated, service_role;
 export async function newDb() {
   const db = new PGlite();
   await db.exec(AUTH_STUB);
-  await db.exec(readFileSync(path.resolve('supabase/migrations/0001_init.sql'), 'utf8'));
+  // Every migration except the storage buckets one (that needs Supabase's storage schema).
+  const dir = path.resolve('supabase/migrations');
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.sql') && !f.includes('storage')).sort()) {
+    await db.exec(readFileSync(path.join(dir, file), 'utf8'));
+  }
   return db;
 }
 

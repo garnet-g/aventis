@@ -14,7 +14,9 @@ export type Design = {
   product: keyof typeof catalog;
   color: (typeof COLORS)[number];
   size: (typeof SIZES)[number];
+  /** What is printed on the front, and on the back (empty when the back is not printed). */
   layers: DesignLayer[];
+  backLayers: DesignLayer[];
   status: DesignStatus;
   rejectReason: string | null;
   /** Hash of the layers that were last moderated; lets an unchanged resubmit skip re-moderation. */
@@ -25,7 +27,7 @@ export type Design = {
 
 export interface DesignStore {
   get(id: string): Promise<Design | null>;
-  insert(userId: string, input: Pick<Design, 'product' | 'color' | 'size' | 'layers'>): Promise<Design>;
+  insert(userId: string, input: Pick<Design, 'product' | 'color' | 'size' | 'layers' | 'backLayers'>): Promise<Design>;
   update(id: string, patch: Partial<Omit<Design, 'id' | 'userId' | 'version'>>): Promise<Design>;
   /** Applies the patch only if the design still has `version`; returns null when it changed in the meantime. */
   updateIfVersion(id: string, version: string, patch: Partial<Omit<Design, 'id' | 'userId' | 'version'>>): Promise<Design | null>;
@@ -69,13 +71,16 @@ const inputSchema = z.object({
   color: z.enum(COLORS),
   size: z.enum(SIZES),
   layers: z.array(layerSchema).max(20),
+  backLayers: z.array(layerSchema).max(20).default([]),
 });
 
 export type DesignInput = z.input<typeof inputSchema>;
 
-export const layersHash = (layers: DesignLayer[]) => createHash('sha256').update(JSON.stringify(layers)).digest('hex');
+/** One hash for the whole design: a change on either side changes it, so an approval only ever covers what was checked. */
+export const layersHash = (layers: DesignLayer[], backLayers: DesignLayer[] = []) =>
+  createHash('sha256').update(JSON.stringify({ front: layers, back: backLayers })).digest('hex');
 
-const UPLOAD_FILE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}.(png|jpg)$/;
+const UPLOAD_FILE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg)$/;
 
 /** Image layers may only reference files this server stored for this very design: `<user>/<design>/<uuid>.png|jpg`. */
 function assertUploadsOwned(userId: string, designId: string, layers: DesignLayer[]) {
@@ -95,18 +100,19 @@ const EXPLICIT_REASON = 'This design appears to contain explicit content and can
 export async function saveDesign(store: DesignStore, userId: string, input: DesignInput, id?: string): Promise<Design> {
   const parsed = inputSchema.parse(input);
   const layers = parsed.layers as DesignLayer[];
+  const backLayers = parsed.backLayers as DesignLayer[];
 
   if (!id) {
     // Uploads belong to an existing design, so a brand-new design cannot reference any yet.
-    if (layers.some((l) => l.kind === 'image')) throw new Error('Invalid upload reference.');
-    return store.insert(userId, { ...parsed, layers });
+    if ([...layers, ...backLayers].some((l) => l.kind === 'image')) throw new Error('Invalid upload reference.');
+    return store.insert(userId, { ...parsed, layers, backLayers });
   }
 
   const existing = await store.get(id);
   if (!existing || existing.userId !== userId) throw new Error(NOT_FOUND);
   if (await store.hasOrder(id)) throw new Error('This design already has an order and cannot be changed.');
-  assertUploadsOwned(userId, id, layers);
-  return store.update(id, { ...parsed, layers, status: 'draft', rejectReason: null });
+  assertUploadsOwned(userId, id, [...layers, ...backLayers]);
+  return store.update(id, { ...parsed, layers, backLayers, status: 'draft', rejectReason: null });
 }
 
 function resultFor(d: Design): { status: 'approved' | 'pending_review' | 'rejected'; message: string } {
@@ -121,17 +127,19 @@ function resultFor(d: Design): { status: 'approved' | 'pending_review' | 'reject
 export async function submitDesign(store: DesignStore, provider: ImageSafetyProvider, id: string, userId: string) {
   const d = await store.get(id);
   if (!d || d.userId !== userId) throw new Error(NOT_FOUND);
-  if (d.layers.length === 0) throw new Error('Add something to print first.');
+  if (d.layers.length === 0 && d.backLayers.length === 0) throw new Error('Add something to print first.');
 
   // Never trust what is stored: it could have been written by something other than saveDesign.
   const layers = z.array(layerSchema).max(20).parse(d.layers) as DesignLayer[];
-  assertUploadsOwned(userId, id, layers);
+  const backLayers = z.array(layerSchema).max(20).parse(d.backLayers) as DesignLayer[];
+  const everything = [...layers, ...backLayers];
+  assertUploadsOwned(userId, id, everything);
 
-  const hash = layersHash(d.layers);
+  const hash = layersHash(d.layers, d.backLayers);
   if (d.status !== 'draft' && d.moderatedHash === hash) return resultFor(d);
 
-  const texts = layers.flatMap((l) => (l.kind === 'text' ? [l.text] : []));
-  const images = await Promise.all(layers.flatMap((l) => (l.kind === 'image' ? [store.downloadUpload(l.uploadPath)] : [])));
+  const texts = everything.flatMap((l) => (l.kind === 'text' ? [l.text] : []));
+  const images = await Promise.all(everything.flatMap((l) => (l.kind === 'image' ? [store.downloadUpload(l.uploadPath)] : [])));
   const verdict = await moderateDesign({ texts, images }, provider);
 
   const status: DesignStatus = verdict === 'clear' ? 'approved' : verdict === 'unsure' ? 'pending_review' : 'rejected';

@@ -8,6 +8,7 @@ export type DesignRow = {
   color: Design['color'];
   size: Design['size'];
   layers: Design['layers'];
+  back_layers: Design['backLayers'];
   status: Design['status'];
   reject_reason: string | null;
   moderated_hash: string | null;
@@ -21,6 +22,7 @@ export const toDesign = (r: DesignRow): Design => ({
   color: r.color,
   size: r.size,
   layers: r.layers,
+  backLayers: r.back_layers ?? [],
   status: r.status,
   rejectReason: r.reject_reason,
   moderatedHash: r.moderated_hash,
@@ -32,6 +34,7 @@ const toRow = (p: Partial<Omit<Design, 'id' | 'userId' | 'version'>>) => ({
   ...(p.color && { color: p.color }),
   ...(p.size && { size: p.size }),
   ...(p.layers && { layers: p.layers }),
+  ...(p.backLayers && { back_layers: p.backLayers }),
   ...(p.status && { status: p.status }),
   ...(p.rejectReason !== undefined && { reject_reason: p.rejectReason }),
   ...(p.moderatedHash !== undefined && { moderated_hash: p.moderatedHash }),

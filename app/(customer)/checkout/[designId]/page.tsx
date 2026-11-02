@@ -4,7 +4,7 @@ import { CheckoutForm } from '@/components/CheckoutForm';
 import { SiteHeader } from '@/components/SiteHeader';
 import { TeeArt } from '@/components/TeeArt';
 import { requireUser } from '@/lib/auth';
-import { catalog, DELIVERY_FEE_PKR } from '@/lib/catalog';
+import { BACK_PRINT_PRICE_PKR, catalog, DELIVERY_FEE_PKR } from '@/lib/catalog';
 import { layersHash } from '@/lib/designs';
 import { supabaseDesignStore } from '@/lib/designsStore';
 import { pkr } from '@/lib/labels';
@@ -27,11 +27,12 @@ async function Checkout({ params }: { params: Promise<{ designId: string }> }) {
   const design = await supabaseDesignStore().get(designId);
   if (!design || design.userId !== user.id) notFound();
   // Only an approved design, approved for exactly its current layers, can reach payment.
-  if (design.status !== 'approved' || design.moderatedHash !== layersHash(design.layers)) redirect('/orders');
+  if (design.status !== 'approved' || design.moderatedHash !== layersHash(design.layers, design.backLayers)) redirect('/orders');
 
   const product = catalog[design.product];
   const provider = getPaymentProvider();
-  const total = product.pricePkr + DELIVERY_FEE_PKR;
+  const hasBack = design.backLayers.length > 0;
+  const total = product.pricePkr + (hasBack ? BACK_PRINT_PRICE_PKR : 0) + DELIVERY_FEE_PKR;
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-4 pb-12">
       <h1 className="font-display text-3xl font-extrabold tracking-tight">Checkout</h1>
@@ -50,7 +51,7 @@ async function Checkout({ params }: { params: Promise<{ designId: string }> }) {
           <div>
             <p className="font-display text-xl font-extrabold">{product.label}</p>
             <p className="text-sm text-mute">
-              {design.color === 'white' ? 'White' : 'Black'} &middot; Size {design.size} &middot; your design
+              {design.color === 'white' ? 'White' : 'Black'} &middot; Size {design.size} &middot; {hasBack ? 'front and back' : 'front'}
             </p>
           </div>
         </div>
@@ -59,6 +60,12 @@ async function Checkout({ params }: { params: Promise<{ designId: string }> }) {
           <span>Item</span>
           <span>{pkr(product.pricePkr)}</span>
         </div>
+        {hasBack && (
+          <div className="flex justify-between py-0.5 text-sm">
+            <span>Back print</span>
+            <span>{pkr(BACK_PRINT_PRICE_PKR)}</span>
+          </div>
+        )}
         <div className="flex justify-between py-0.5 text-sm">
           <span>Delivery</span>
           <span>{pkr(DELIVERY_FEE_PKR)}</span>

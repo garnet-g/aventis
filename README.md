@@ -121,3 +121,11 @@ tests/              vitest unit/database tests; tests/e2e for Playwright
 - A name or text can be restyled after it is added: edit the words, pick a font, a color from the palette, and a size. Six fonts are offered (four Latin, two Urdu); Urdu text switches to an Urdu font automatically. Each font has a web version for the editor and a print file in `assets/fonts` (all open-license), so the printed file matches the screen.
 - Text in the default ink follows the garment color (dark on white, light on black); a color the customer picked is kept.
 - Undo and redo cover every change, images included. Duplicate, Bring to front and Send to back change the stacking order; the printed file uses the same order.
+
+## Printing on the back, and saving for later
+
+- **Front and back.** The design page has Front and Back tabs. Each side has its own artwork, its own undo history, and its own garment photo and print area. Printing the back adds a fixed extra to the price and to your cost, set in `lib/catalog.ts` (`BACK_PRINT_PRICE_PKR` PKR 500, `BACK_PRINT_COST_PKR` PKR 400): **placeholders, confirm with your printer**, as are the back print-area sizes (`backPrintArea`) and the garment back photos in `public/garments/*-back-*.png`.
+- **One check covers both sides.** Safety review, approval and payment all apply to front and back together; changing either side sends an approved design back to draft.
+- **Orders keep both sides.** The admin order page then offers four downloads (front and back mockup, front and back design file).
+- **Saved as you go.** A design is saved automatically about a second after each change, once it has anything on it, and also when the page is hidden. **Save for later** saves and goes to My prints, where a draft has a **Continue designing** link that reopens it with its pictures and text. A design that is waiting for review, or already ordered, cannot be reopened for editing.
+- **Existing databases:** apply the new migration with `npx supabase migration up` (it adds `back_layers` and the back columns on orders).

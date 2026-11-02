@@ -23,7 +23,9 @@ async function OrderDetail({ params }: { params: Promise<{ id: string }> }) {
   if (!order) notFound();
   const design = await supabaseDesignStore().get(order.designId);
   const next = nextStatus(order.status);
-  const filesReady = !order.artifactsFailed && order.mockupPath && order.designFilePath;
+  const hasBack = order.backLayersSnapshot.length > 0;
+  const filesReady =
+    !order.artifactsFailed && order.mockupPath && order.designFilePath && (!hasBack || (order.backMockupPath && order.backDesignFilePath));
 
   return (
     <main className="flex flex-col gap-4">
@@ -33,6 +35,7 @@ async function OrderDetail({ params }: { params: Promise<{ id: string }> }) {
       <section className="ticket text-sm">
         <h2 className="mb-1 font-semibold">Item</h2>
         <p>{design ? `${catalog[design.product].label} · ${design.color === 'white' ? 'White' : 'Black'} · size ${design.size}` : '—'}</p>
+        <p className="text-mute">{hasBack ? 'Printed on the front and the back' : 'Printed on the front only'}</p>
       </section>
 
       <section className="ticket text-sm">
@@ -72,6 +75,16 @@ async function OrderDetail({ params }: { params: Promise<{ id: string }> }) {
             >
               Download design file
             </a>
+            {hasBack && (
+              <>
+                <a className="btn btn-ink btn-sm" href={`/api/admin/orders/${order.id}/download?file=back-mockup`}>
+                  Download back mockup
+                </a>
+                <a className="btn btn-ink btn-sm" href={`/api/admin/orders/${order.id}/download?file=back-design`}>
+                  Download back design file
+                </a>
+              </>
+            )}
           </div>
         ) : (
           <p className="font-semibold text-vermilion">The files are missing. Use &ldquo;Regenerate files&rdquo;.</p>

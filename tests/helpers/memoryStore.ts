@@ -14,8 +14,8 @@ export class MemoryDesignStore implements DesignStore {
     return this.designs.get(id) ?? null;
   }
 
-  async insert(userId: string, input: Pick<Design, 'product' | 'color' | 'size' | 'layers'>) {
-    const d: Design = { id: randomUUID(), userId, status: 'draft', rejectReason: null, moderatedHash: null, version: '0', ...input };
+  async insert(userId: string, input: Pick<Design, 'product' | 'color' | 'size' | 'layers'> & { backLayers?: Design['backLayers'] }) {
+    const d: Design = { id: randomUUID(), userId, status: 'draft', rejectReason: null, moderatedHash: null, version: '0', backLayers: [], ...input };
     this.designs.set(d.id, d);
     return d;
   }

@@ -1,4 +1,4 @@
-import { catalog, type ProductId } from '@/lib/catalog';
+import { printAreaFor, type ProductId, type Side } from '@/lib/catalog';
 import type { Rect } from '@/lib/printArea';
 
 // The editor canvas shows the 800x1000 garment photo at half size.
@@ -10,8 +10,8 @@ const PX_PER_CM = 4.4;
 const COLLAR_Y = 60;
 
 /** The fixed print area in canvas pixels, centered on the garment. */
-export function printAreaRect(product: ProductId): Rect {
-  const a = catalog[product].printArea;
+export function printAreaRect(product: ProductId, side: Side = 'front'): Rect {
+  const a = printAreaFor(product, side);
   const width = a.widthCm * PX_PER_CM;
   return {
     x: (CANVAS_W - width) / 2,

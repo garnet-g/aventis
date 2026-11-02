@@ -167,3 +167,77 @@ test('everyday images upload: small logo, WhatsApp-sized photo, WebP, and a side
   expect((await tiny).status()).toBe(400);
   await expect(page.locator('p[role="alert"]')).toContainText(/300 pixels/);
 });
+
+test('a front-and-back design costs more, and the admin gets four files', async ({ page, browser }) => {
+  const email = uniqueEmail('back');
+  await signUp(page, email);
+  await addName(page, 'Front');
+  await page.getByRole('tab', { name: /Back/ }).click();
+  await addName(page, 'Back');
+  await page.getByTestId('continue').click();
+
+  await page.waitForURL('**/checkout/**');
+  await expect(page.getByText('Back print', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Pay PKR 2,250/ })).toBeVisible(); // 1,500 + 500 + 250
+  await fillDeliveryAndPay(page);
+  await page.waitForURL('**/orders');
+
+  const designId = await designIdFor(email);
+  const { data: order } = await service()
+    .from('orders')
+    .select('id, price_pkr, cost_pkr, artifacts_failed, back_mockup_path, back_design_file_path, back_layers_snapshot')
+    .eq('design_id', designId)
+    .single();
+  expect(order).toMatchObject({ price_pkr: 2000, cost_pkr: 1200, artifacts_failed: false });
+  expect(order!.back_mockup_path).toBeTruthy();
+  expect(order!.back_design_file_path).toBeTruthy();
+  expect(order!.back_layers_snapshot).toHaveLength(1);
+
+  const admin = await adminPage(browser);
+  await admin.page.goto(`/admin/orders/${order!.id}`);
+  for (const label of ['Download mockup', 'Download design file', 'Download back mockup', 'Download back design file']) {
+    await expect(admin.page.getByRole('link', { name: label })).toBeVisible();
+  }
+  for (const file of ['back-mockup', 'back-design']) {
+    const res = await admin.context.request.get(`/api/admin/orders/${order!.id}/download?file=${file}`);
+    expect(res.status(), file).toBe(200);
+    expect([...(await res.body()).subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  }
+  await admin.context.close();
+});
+
+test('a design is saved as you go, and can be resumed later with its image and text', async ({ page }) => {
+  const email = uniqueEmail('resume');
+  await signUp(page, email);
+  await addUpload(page);
+  await addName(page, 'Resume me');
+  await expect(page.getByTestId('save-status')).toContainText('Saved');
+
+  await page.goto('/orders');
+  const resume = page.getByRole('link', { name: 'Continue designing' });
+  await expect(resume).toBeVisible();
+  await resume.click();
+  await page.waitForURL('**/design?d=*');
+
+  // what was saved comes back: two things on the front...
+  await expect(page.getByRole('tab', { name: /Front/ })).toContainText('(2)');
+  // ...and the picture is really drawn again (a red square from the signed link), not just counted
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const c = document.querySelector('canvas.lower-canvas') as HTMLCanvasElement;
+        const s = c.width / 400;
+        const d = c.getContext('2d')!.getImageData(Math.round(175 * s), Math.round(135 * s), 1, 1).data;
+        return d[0] > 180 && d[1] < 90 && d[2] < 90;
+      }),
+    )
+    .toBe(true);
+});
+
+test('Save for later keeps the design and goes to My prints', async ({ page }) => {
+  await signUp(page, uniqueEmail('later'));
+  await addName(page, 'Later');
+  await page.getByRole('button', { name: 'Save for later' }).click();
+  await page.waitForURL('**/orders');
+  await expect(page.getByTestId('design-state').first()).toHaveText('Draft');
+});

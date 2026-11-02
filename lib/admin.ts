@@ -61,10 +61,38 @@ export async function regenerateArtifacts(
   try {
     const paths = await deps.artifacts({ order, design });
     await deps.orders.setArtifacts(order.id, paths);
-    return { ...order, ...paths, artifactsFailed: false };
+    return {
+      ...order,
+      mockupPath: paths.mockupPath,
+      designFilePath: paths.designFilePath,
+      backMockupPath: paths.backMockupPath ?? null,
+      backDesignFilePath: paths.backDesignFilePath ?? null,
+      artifactsFailed: false,
+    };
   } catch (e) {
     await deps.orders.markArtifactsFailed(order.id).catch(() => undefined);
     throw e;
+  }
+}
+
+export type ArtifactFile = 'mockup' | 'design' | 'back-mockup' | 'back-design';
+
+/** The stored path for one of an order's files, or null when it does not exist (or is not a known file). */
+export function artifactPath(
+  order: Pick<Order, 'mockupPath' | 'designFilePath' | 'backMockupPath' | 'backDesignFilePath'>,
+  file: ArtifactFile,
+): string | null {
+  switch (file) {
+    case 'mockup':
+      return order.mockupPath;
+    case 'design':
+      return order.designFilePath;
+    case 'back-mockup':
+      return order.backMockupPath;
+    case 'back-design':
+      return order.backDesignFilePath;
+    default:
+      return null;
   }
 }
 

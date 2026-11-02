@@ -15,9 +15,9 @@ export function describeDesign(design: Design, orderStatus: OrderStatus | null):
       return { text: 'Waiting for review', tone: 'gold' };
     case 'approved':
       // Approval counts only for the exact layers that were checked.
-      return design.moderatedHash === layersHash(design.layers)
+      return design.moderatedHash === layersHash(design.layers, design.backLayers)
         ? { text: 'Approved: ready to pay', tone: 'forest', action: { href: `/checkout/${design.id}`, label: 'Pay now' } }
-        : { text: 'Changed since it was checked', tone: 'gold', action: { href: '/design', label: 'Submit again' } };
+        : { text: 'Changed since it was checked', tone: 'gold', action: { href: `/design?d=${design.id}`, label: 'Submit again' } };
     case 'rejected':
       return {
         text: `Rejected: ${design.rejectReason ?? 'This design cannot be printed.'}`,
@@ -25,7 +25,7 @@ export function describeDesign(design: Design, orderStatus: OrderStatus | null):
         action: { href: '/design', label: 'Start a new design' },
       };
     default:
-      return { text: 'Draft', tone: 'ink', action: { href: '/design', label: 'Continue designing' } };
+      return { text: 'Draft', tone: 'ink', action: { href: `/design?d=${design.id}`, label: 'Continue designing' } };
   }
 }
 

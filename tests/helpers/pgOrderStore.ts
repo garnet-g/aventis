@@ -21,8 +21,11 @@ const toOrder = (r: Row): Order => ({
   },
   paymentRef: r.payment_ref as string,
   layersSnapshot: r.layers_snapshot as Order['layersSnapshot'],
+  backLayersSnapshot: r.back_layers_snapshot as Order['backLayersSnapshot'],
   mockupPath: (r.mockup_path as string) ?? null,
   designFilePath: (r.design_file_path as string) ?? null,
+  backMockupPath: (r.back_mockup_path as string) ?? null,
+  backDesignFilePath: (r.back_design_file_path as string) ?? null,
   artifactsFailed: r.artifacts_failed as boolean,
 });
 
@@ -44,9 +47,9 @@ export function pgOrderStore(db: PGlite): OrderStore {
     async insert(o: NewOrder) {
       try {
         const r = await db.query<Row>(
-          `insert into orders (design_id, user_id, cost_pkr, price_pkr, delivery_fee_pkr, name, phone, city, province, address, payment_ref, layers_snapshot)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb) returning *`,
-          [o.designId, o.userId, o.costPkr, o.pricePkr, o.deliveryFeePkr, o.delivery.name, o.delivery.phone, o.delivery.city, o.delivery.province, o.delivery.address, o.paymentRef, JSON.stringify(o.layersSnapshot)],
+          `insert into orders (design_id, user_id, cost_pkr, price_pkr, delivery_fee_pkr, name, phone, city, province, address, payment_ref, layers_snapshot, back_layers_snapshot)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb) returning *`,
+          [o.designId, o.userId, o.costPkr, o.pricePkr, o.deliveryFeePkr, o.delivery.name, o.delivery.phone, o.delivery.city, o.delivery.province, o.delivery.address, o.paymentRef, JSON.stringify(o.layersSnapshot), JSON.stringify(o.backLayersSnapshot)],
         );
         return toOrder(r.rows[0]);
       } catch (e) {
@@ -55,7 +58,10 @@ export function pgOrderStore(db: PGlite): OrderStore {
       }
     },
     async setArtifacts(id, p) {
-      await db.query('update orders set mockup_path = $2, design_file_path = $3, artifacts_failed = false where id = $1', [id, p.mockupPath, p.designFilePath]);
+      await db.query(
+        'update orders set mockup_path = $2, design_file_path = $3, back_mockup_path = $4, back_design_file_path = $5, artifacts_failed = false where id = $1',
+        [id, p.mockupPath, p.designFilePath, p.backMockupPath ?? null, p.backDesignFilePath ?? null],
+      );
     },
     async markArtifactsFailed(id) {
       await db.query('update orders set artifacts_failed = true where id = $1', [id]);

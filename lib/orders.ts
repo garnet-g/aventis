@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { catalog, DELIVERY_FEE_PKR } from '@/lib/catalog';
+import { BACK_PRINT_COST_PKR, BACK_PRINT_PRICE_PKR, catalog, DELIVERY_FEE_PKR } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
 import { layersHash, type Design, type DesignStore } from '@/lib/designs';
 import type { PaymentProvider } from '@/lib/payments';
@@ -39,14 +39,21 @@ export type Order = {
   delivery: DeliveryDetails;
   paymentRef: string;
   layersSnapshot: DesignLayer[];
+  /** The back side as it was when paid (empty when the back is not printed). */
+  backLayersSnapshot: DesignLayer[];
   mockupPath: string | null;
   designFilePath: string | null;
+  backMockupPath: string | null;
+  backDesignFilePath: string | null;
   artifactsFailed: boolean;
 };
 
+/** The files made for an order. The back pair exists only when the back is printed. */
+export type ArtifactPaths = { mockupPath: string; designFilePath: string; backMockupPath?: string; backDesignFilePath?: string };
+
 export type NewOrder = Pick<
   Order,
-  'designId' | 'userId' | 'costPkr' | 'pricePkr' | 'deliveryFeePkr' | 'delivery' | 'paymentRef' | 'layersSnapshot'
+  'designId' | 'userId' | 'costPkr' | 'pricePkr' | 'deliveryFeePkr' | 'delivery' | 'paymentRef' | 'layersSnapshot' | 'backLayersSnapshot'
 >;
 
 export interface OrderStore {
@@ -56,12 +63,12 @@ export interface OrderStore {
   setStatus(id: string, from: OrderStatus, to: OrderStatus): Promise<Order | null>;
   /** Must throw DuplicateOrderError when the design already has an order (unique design_id / payment_ref). */
   insert(order: NewOrder): Promise<Order>;
-  setArtifacts(orderId: string, paths: { mockupPath: string; designFilePath: string }): Promise<void>;
+  setArtifacts(orderId: string, paths: ArtifactPaths): Promise<void>;
   markArtifactsFailed(orderId: string): Promise<void>;
 }
 
 /** Renders and stores the mockup and design file for a paid order, from the order's own snapshot. */
-export type ArtifactGenerator = (args: { order: Order; design: Design }) => Promise<{ mockupPath: string; designFilePath: string }>;
+export type ArtifactGenerator = (args: { order: Order; design: Design }) => Promise<ArtifactPaths>;
 
 export class DuplicateOrderError extends Error {
   constructor() {
@@ -91,12 +98,16 @@ export async function createPaidOrder(
   const existing = await deps.orders.findByDesign(design.id);
   if (existing) return existing; // paying twice never charges twice
   // Approved AND the approval must be for exactly these layers (never pay for art that was not checked).
-  if (design.status !== 'approved' || design.moderatedHash !== layersHash(design.layers)) {
+  if (design.status !== 'approved' || design.moderatedHash !== layersHash(design.layers, design.backLayers)) {
     throw new HttpError(403, 'This design has not been approved for payment.');
   }
 
   const product = catalog[design.product];
-  const paid = await deps.provider.charge({ amountPkr: product.pricePkr + DELIVERY_FEE_PKR, reference: design.id });
+  // Printing the back costs extra, for the customer and for us. Decided here, never by the browser.
+  const hasBack = design.backLayers.length > 0;
+  const pricePkr = product.pricePkr + (hasBack ? BACK_PRINT_PRICE_PKR : 0);
+  const costPkr = product.costPkr + (hasBack ? BACK_PRINT_COST_PKR : 0);
+  const paid = await deps.provider.charge({ amountPkr: pricePkr + DELIVERY_FEE_PKR, reference: design.id });
   if (!paid.ok) throw new HttpError(402, `Payment failed: ${paid.reason}`);
 
   let order: Order;
@@ -104,12 +115,13 @@ export async function createPaidOrder(
     order = await deps.orders.insert({
       designId: design.id,
       userId: design.userId,
-      costPkr: product.costPkr,
-      pricePkr: product.pricePkr,
+      costPkr,
+      pricePkr,
       deliveryFeePkr: DELIVERY_FEE_PKR,
       delivery,
       paymentRef: paid.paymentRef,
       layersSnapshot: design.layers, // artifacts are always rendered from this copy, never from the editable design
+      backLayersSnapshot: design.backLayers,
     });
   } catch (e) {
     if (e instanceof DuplicateOrderError) {
@@ -125,7 +137,14 @@ export async function createPaidOrder(
   try {
     const paths = await deps.artifacts({ order, design });
     await deps.orders.setArtifacts(order.id, paths);
-    return { ...order, ...paths, artifactsFailed: false };
+    return {
+      ...order,
+      mockupPath: paths.mockupPath,
+      designFilePath: paths.designFilePath,
+      backMockupPath: paths.backMockupPath ?? null,
+      backDesignFilePath: paths.backDesignFilePath ?? null,
+      artifactsFailed: false,
+    };
   } catch (e) {
     console.error('artifact generation failed for order', order.id, e);
     await deps.orders.markArtifactsFailed(order.id).catch(() => undefined);

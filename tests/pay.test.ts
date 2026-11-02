@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import type { PGlite } from '@electric-sql/pglite';
-import { catalog, DELIVERY_FEE_PKR } from '@/lib/catalog';
+import { BACK_PRINT_COST_PKR, BACK_PRINT_PRICE_PKR, catalog, DELIVERY_FEE_PKR } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
 import { saveDesign, submitDesign } from '@/lib/designs';
 import { StubImageSafetyProvider } from '@/lib/moderation/image';
@@ -32,13 +32,19 @@ let alice: string;
 let bob: string;
 
 /** Saves a design, runs moderation with the given text, and mirrors it into the real schema for the order FK. */
-async function makeDesign(owner: string, content: string, product: 'tee' | 'hoodie' = 'tee') {
-  const d = await saveDesign(designs, owner, { product, color: 'white', size: 'M', layers: [text(content)] });
+async function makeDesign(owner: string, content: string, product: 'tee' | 'hoodie' = 'tee', opts: { back?: string } = {}) {
+  const d = await saveDesign(designs, owner, {
+    product,
+    color: 'white',
+    size: 'M',
+    layers: [text(content)],
+    backLayers: opts.back ? [text(opts.back)] : [],
+  });
   await submitDesign(designs, new StubImageSafetyProvider(0), d.id, owner);
   const current = (await designs.get(d.id))!;
   await db.query(
-    `insert into designs (id, user_id, product, color, size, layers, status) values ($1,$2,$3,$4,$5,$6::jsonb,$7)`,
-    [d.id, owner, product, 'white', 'M', JSON.stringify(current.layers), current.status],
+    `insert into designs (id, user_id, product, color, size, layers, back_layers, status) values ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8)`,
+    [d.id, owner, product, 'white', 'M', JSON.stringify(current.layers), JSON.stringify(current.backLayers), current.status],
   );
   return current;
 }
@@ -154,6 +160,39 @@ describe('createPaidOrder', () => {
     const failing: PaymentProvider = { name: 'f', isTestMode: false, charge: async () => ({ ok: false, reason: 'card declined' }) };
     await expect(createPaidOrder({ ...deps(), provider: failing }, { designId: d.id, userId: alice, delivery })).rejects.toMatchObject({ status: 402 });
     expect((await db.query('select 1 from orders')).rows).toHaveLength(0);
+  });
+});
+
+describe('printing on the back', () => {
+  test('a back print adds its extra price and extra cost, charged on the server', async () => {
+    const d = await makeDesign(alice, 'Ali', 'tee', { back: 'Back' });
+    const provider = new SpyProvider();
+    const order = await createPaidOrder({ ...deps(), provider }, { designId: d.id, userId: alice, delivery });
+    expect(provider.charges[0].amountPkr).toBe(catalog.tee.pricePkr + BACK_PRINT_PRICE_PKR + DELIVERY_FEE_PKR);
+    expect(order.pricePkr).toBe(catalog.tee.pricePkr + BACK_PRINT_PRICE_PKR);
+    expect(order.costPkr).toBe(catalog.tee.costPkr + BACK_PRINT_COST_PKR);
+  });
+
+  test('a front-only design pays no back extra', async () => {
+    const d = await makeDesign(alice, 'Ali');
+    const order = await createPaidOrder({ ...deps(), provider: new SpyProvider() }, { designId: d.id, userId: alice, delivery });
+    expect(order.pricePkr).toBe(catalog.tee.pricePkr);
+    expect(order.costPkr).toBe(catalog.tee.costPkr);
+  });
+
+  test('the order keeps a snapshot of both sides', async () => {
+    const d = await makeDesign(alice, 'Ali', 'tee', { back: 'Back' });
+    const order = await createPaidOrder({ ...deps(), provider: new SpyProvider() }, { designId: d.id, userId: alice, delivery });
+    expect(order.layersSnapshot).toEqual(d.layers);
+    expect(order.backLayersSnapshot).toEqual(d.backLayers);
+  });
+
+  test('a back side added after approval cannot be paid for (the approval covered the old design)', async () => {
+    const d = await makeDesign(alice, 'Ali');
+    await designs.update(d.id, { backLayers: [text('Sneaked in')] }); // status stays approved, as after a bad write
+    const provider = new SpyProvider();
+    await expect(createPaidOrder({ ...deps(), provider }, { designId: d.id, userId: alice, delivery })).rejects.toMatchObject({ status: 403 });
+    expect(provider.charges).toHaveLength(0);
   });
 });
 

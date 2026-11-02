@@ -7,6 +7,10 @@ async function layers(page: Page): Promise<Layer[]> {
   return JSON.parse((await page.getByTestId('layers-json').textContent()) || '[]');
 }
 
+async function backLayers(page: Page): Promise<Layer[]> {
+  return JSON.parse((await page.getByTestId('back-layers-json').textContent()) || '[]');
+}
+
 async function uploadPng(page: Page) {
   const buffer = await sharp({ create: { width: 400, height: 400, channels: 3, background: '#d33' } }).png().toBuffer();
   await expect(page.getByTestId('upload-input')).toBeEnabled(); // disabled until the page is interactive
@@ -239,4 +243,51 @@ test('text in the default ink follows the garment color, but a chosen color is k
   await page.getByRole('button', { name: 'White' }).click();
   await page.waitForTimeout(300);
   expect((await layers(page))[0].fill).toBe('#e5412a');
+});
+
+test('front and back keep separate layers and show separate garment photos', async ({ page }) => {
+  await page.goto('/dev/editor');
+  const wrap = page.getByTestId('editor-wrap');
+  await expect(wrap).toHaveAttribute('data-side', 'front');
+  await addName(page, 'Front one');
+  await expect.poll(async () => (await layers(page)).length).toBe(1);
+
+  await page.getByRole('tab', { name: /Back/ }).click();
+  await expect(wrap).toHaveAttribute('data-side', 'back');
+  expect(await backLayers(page)).toHaveLength(0);
+  await addName(page, 'Back one');
+  await expect.poll(async () => (await backLayers(page)).map((l) => l.text)).toEqual(['Back one']);
+  expect((await layers(page)).map((l) => l.text)).toEqual(['Front one']); // the front was not touched
+
+  await page.getByRole('tab', { name: /Front/ }).click();
+  await expect(wrap).toHaveAttribute('data-side', 'front');
+  await addName(page, 'Front two');
+  await expect.poll(async () => (await layers(page)).map((l) => l.text)).toEqual(['Front one', 'Front two']);
+  expect((await backLayers(page)).map((l) => l.text)).toEqual(['Back one']);
+});
+
+test('undo history is kept separately for each side', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await addName(page, 'A');
+  await expect.poll(async () => (await layers(page)).length).toBe(1);
+  await page.getByRole('tab', { name: /Back/ }).click();
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled(); // nothing done on the back yet
+  await addName(page, 'B');
+  await expect.poll(async () => (await backLayers(page)).length).toBe(1);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(async () => (await backLayers(page)).length).toBe(0);
+  await page.getByRole('tab', { name: /Front/ }).click();
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(async () => (await layers(page)).length).toBe(0);
+});
+
+test('the tabs show how much is on each side, and the extra price for printing the back', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await expect(page.getByRole('tab', { name: /Back/ })).not.toContainText('PKR');
+  await page.getByRole('tab', { name: /Back/ }).click();
+  await addName(page, 'Back one');
+  await expect(page.getByRole('tab', { name: /Back/ })).toContainText('(1)');
+  await expect(page.getByRole('tab', { name: /Back/ })).toContainText('+PKR 500');
+  await expect(page.getByRole('tab', { name: /Front/ })).toContainText('(0)');
 });

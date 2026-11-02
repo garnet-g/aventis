@@ -1,14 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { catalog, COLORS, SIZES, type Color, type ProductId, type Size } from '@/lib/catalog';
+import { BACK_PRINT_PRICE_PKR, catalog, COLORS, SIZES, type Color, type ProductId, type Side, type Size } from '@/lib/catalog';
+import { pkr } from '@/lib/labels';
 import type { DesignLayer } from '@/lib/designLayers';
 import { Editor, MAX_TEXT_SIZE, MIN_TEXT_SIZE, type EditorHandle, type HistoryState, type Selection } from '@/components/Editor';
 import { fontsFor } from '@/lib/fonts';
 
-export type WorkbenchState = { product: ProductId; color: Color; size: Size; layers: DesignLayer[] };
+/** `layers` is the front of the garment, `backLayers` the back. */
+export type WorkbenchState = { product: ProductId; color: Color; size: Size; layers: DesignLayer[]; backLayers: DesignLayer[] };
+
+/** A saved design to resume; `urls` maps each uploaded image's stored path to a link the browser can load. */
+export type InitialDesign = WorkbenchState & { urls: Record<string, string> };
 
 type Props = {
+  initial?: InitialDesign;
   /** Uploads the file to the server and returns the stored path, or an error message to show the customer. */
   uploadFile?: (file: File) => Promise<{ path: string } | { error: string }>;
   onChange?: (state: WorkbenchState) => void;
@@ -35,9 +41,14 @@ const TEXT_COLORS = [
   { name: 'Purple', hex: '#7c3aed' },
 ] as const;
 
-export function DesignWorkbench({ uploadFile, onChange, onUploadingChange, uploadProgress = null, showLayersJson, children }: Props) {
+export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChange, uploadProgress = null, showLayersJson, children }: Props) {
   const editor = useRef<EditorHandle>(null);
-  const [state, setState] = useState<WorkbenchState>({ product: 'tee', color: 'white', size: 'M', layers: [] });
+  const [state, setState] = useState<WorkbenchState>(
+    initial
+      ? { product: initial.product, color: initial.color, size: initial.size, layers: initial.layers, backLayers: initial.backLayers }
+      : { product: 'tee', color: 'white', size: 'M', layers: [], backLayers: [] },
+  );
+  const [side, setSide] = useState<Side>('front');
   // Always the latest state, so updates never have to call other components from inside a state updater.
   const stateRef = useRef(state);
   const [text, setText] = useState('');
@@ -54,6 +65,12 @@ export function DesignWorkbench({ uploadFile, onChange, onUploadingChange, uploa
   // silently lost, so those controls stay disabled until the page is interactive.
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
+
+  // Resuming a saved design: draw what was saved (the editor itself starts empty).
+  useEffect(() => {
+    if (initial) void editor.current?.loadDesign({ front: initial.layers, back: initial.backLayers, urls: initial.urls });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const update = (patch: Partial<WorkbenchState>) => {
     const next = { ...stateRef.current, ...patch };
@@ -88,11 +105,30 @@ export function DesignWorkbench({ uploadFile, onChange, onUploadingChange, uploa
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-32">
+      <div role="tablist" aria-label="Side of the garment" className="flex overflow-hidden rounded-[10px] border-2 border-ink">
+        {(['front', 'back'] as const).map((s) => {
+          const count = s === 'front' ? state.layers.length : state.backLayers.length;
+          return (
+            <button
+              key={s}
+              role="tab"
+              aria-selected={side === s}
+              onClick={() => setSide(s)}
+              className={`flex-1 py-2.5 text-sm font-bold ${side === s ? 'bg-ink text-paper' : ''}`}
+            >
+              {s === 'front' ? 'Front' : 'Back'} ({count})
+              {s === 'back' && count > 0 && <span className="ml-1 text-[0.7rem] font-semibold opacity-80">· +{pkr(BACK_PRINT_PRICE_PKR)}</span>}
+            </button>
+          );
+        })}
+      </div>
+
       <Editor
         ref={editor}
         product={state.product}
         color={state.color}
-        onChange={(layers) => update({ layers })}
+        side={side}
+        onChange={(layers, changed) => update(changed === 'back' ? { backLayers: layers } : { layers })}
         onSelectionChange={setSelection}
         onHistoryChange={setHistory}
       />
@@ -288,9 +324,14 @@ export function DesignWorkbench({ uploadFile, onChange, onUploadingChange, uploa
 
       {children}
       {showLayersJson && (
-        <pre data-testid="layers-json" className="hidden">
-          {JSON.stringify(state.layers)}
-        </pre>
+        <>
+          <pre data-testid="layers-json" className="hidden">
+            {JSON.stringify(state.layers)}
+          </pre>
+          <pre data-testid="back-layers-json" className="hidden">
+            {JSON.stringify(state.backLayers)}
+          </pre>
+        </>
       )}
     </div>
   );
