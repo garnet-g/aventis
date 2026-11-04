@@ -7,6 +7,7 @@ import type { DesignLayer } from '@/lib/designLayers';
 import { CANVAS_H, CANVAS_W, detectDirection, fromFraction, printAreaRect, toFraction } from '@/lib/editorGeometry';
 import { FONTS, normalizeFont, resolveFont, type FontKey } from '@/lib/fonts';
 import { clampToPrintArea } from '@/lib/printArea';
+import type { Rect } from '@/lib/printArea';
 import { printQuality, type PrintQuality } from '@/lib/quality';
 
 /** Selection handles in the Printly palette, large enough for a finger. */
@@ -44,6 +45,10 @@ export type EditorHandle = {
   loadDesign(design: { front: DesignLayer[]; back: DesignLayer[]; urls: Record<string, string> }): Promise<void>;
   addImage(url: string, uploadPath: string): Promise<void>;
   addText(text: string): Promise<void>;
+  /** The selected picture's link and stored path, or null when no picture is selected. */
+  selectedImage(): { url: string; uploadPath: string } | null;
+  /** Swaps the selected picture for an edited version (cropped, background removed) at the same place and pixel scale. */
+  replaceSelectedImage(url: string, uploadPath: string, crop?: Rect): Promise<void>;
   updateSelectedText(patch: TextPatch, opts?: { coalesce?: boolean }): Promise<void>;
   removeSelected(): void;
   duplicateSelected(): Promise<void>;
@@ -425,6 +430,57 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       metaRef.current.set(img, { kind: 'image', uploadPath });
       restoringRef.current = true; // record once, after the image is placed
       canvas.add(img);
+      constrain(img);
+      restoringRef.current = false;
+      emit();
+      canvas.setActiveObject(img);
+      canvas.requestRenderAll();
+    },
+
+    selectedImage() {
+      const active = activeOf('image');
+      if (!active || active.meta.kind !== 'image') return null;
+      const url = urlsRef.current.get(active.meta.uploadPath);
+      return url ? { url, uploadPath: active.meta.uploadPath } : null;
+    },
+
+    async replaceSelectedImage(url, uploadPath, crop) {
+      const canvas = fabricRef.current;
+      const active = activeOf('image');
+      if (!canvas || !active) return;
+      const old = active.obj as FabricImage;
+      const img = await FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
+      urlsRef.current.set(uploadPath, url);
+      // Same centre, rotation, mirroring and pixel scale: a crop then keeps the kept part exactly where it was.
+      const scaleX = old.scaleX ?? 1;
+      const scaleY = old.scaleY ?? 1;
+      const angle = old.angle ?? 0;
+      let { x: left, y: top } = old.getCenterPoint();
+      if (crop) {
+        // The kept part's centre sits off the old picture's centre; move there so it stays where it was on the shirt.
+        const dx = (crop.x + crop.width / 2 - 0.5) * old.width * scaleX * (old.flipX ? -1 : 1);
+        const dy = (crop.y + crop.height / 2 - 0.5) * old.height * scaleY * (old.flipY ? -1 : 1);
+        const rad = (angle * Math.PI) / 180;
+        left += dx * Math.cos(rad) - dy * Math.sin(rad);
+        top += dx * Math.sin(rad) + dy * Math.cos(rad);
+      }
+      img.set({
+        originX: 'center',
+        originY: 'center',
+        left,
+        top,
+        scaleX,
+        scaleY,
+        angle,
+        flipX: !!old.flipX,
+        flipY: !!old.flipY,
+        ...HANDLES,
+      });
+      metaRef.current.set(img, { kind: 'image', uploadPath });
+      const index = canvas.getObjects().indexOf(old);
+      restoringRef.current = true; // record once, after the swap
+      canvas.remove(old);
+      canvas.insertAt(index, img);
       constrain(img);
       restoringRef.current = false;
       emit();

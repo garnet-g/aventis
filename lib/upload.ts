@@ -3,8 +3,9 @@ import sharp, { type Metadata } from 'sharp';
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 /** A small PNG can decompress to gigabytes; cap the decoded size. */
 export const MAX_UPLOAD_PIXELS = 40_000_000;
-/** Below this on the shorter side there is nothing sensible to print. Sharpness is shown to the customer instead. */
-export const MIN_UPLOAD_SIDE_PX = 300;
+import { MIN_UPLOAD_SIDE_PX } from '@/lib/uploadLimits';
+
+export { MIN_UPLOAD_SIDE_PX };
 /** Print areas are at most ~1,900 px at 150 DPI, so anything beyond this only costs storage and memory. */
 export const MAX_STORED_SIDE_PX = 3600;
 const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp'];

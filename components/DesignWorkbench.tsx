@@ -5,7 +5,10 @@ import { BACK_PRINT_PRICE_PKR, catalog, COLORS, SIZES, type Color, type ProductI
 import { pkr } from '@/lib/labels';
 import type { DesignLayer } from '@/lib/designLayers';
 import { Editor, MAX_TEXT_SIZE, MIN_TEXT_SIZE, type EditorHandle, type HistoryState, type Selection } from '@/components/Editor';
+import { CropDialog } from '@/components/CropDialog';
 import { fontsFor } from '@/lib/fonts';
+import { cropToBlob, removeBackgroundToBlob } from '@/lib/imageEdit';
+import type { Rect } from '@/lib/printArea';
 
 /** `layers` is the front of the garment, `backLayers` the back. */
 export type WorkbenchState = { product: ProductId; color: Color; size: Size; layers: DesignLayer[]; backLayers: DesignLayer[] };
@@ -66,6 +69,8 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
   // The page is server-rendered first. Until React has attached its handlers, a chosen file or a typed name would be
   // silently lost, so those controls stay disabled until the page is interactive.
   const [ready, setReady] = useState(false);
+  const [cropping, setCropping] = useState<{ url: string; uploadPath: string; natural: { width: number; height: number } } | null>(null);
+  const [editStatus, setEditStatus] = useState('');
   useEffect(() => setReady(true), []);
 
   // Resuming a saved design: draw what was saved (the editor itself starts empty).
@@ -94,6 +99,55 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
     } finally {
       onUploadingChange?.(false);
     }
+  }
+
+  /** Sends an edited picture (cropped, background removed) to the server and swaps it in for the selected one. */
+  async function applyEdit(make: (url: string) => Promise<Blob>, crop?: Rect) {
+    const current = editor.current?.selectedImage();
+    if (!current) return;
+    setError('');
+    onUploadingChange?.(true);
+    try {
+      const blob = await make(current.url);
+      const file = new File([blob], blob.type === 'image/jpeg' ? 'edited.jpg' : 'edited.png', { type: blob.type });
+      const result = uploadFile ? await uploadFile(file) : { path: URL.createObjectURL(file) };
+      if ('error' in result) return setError(result.error);
+      await editor.current?.replaceSelectedImage(URL.createObjectURL(blob), result.path, crop);
+    } catch (e) {
+      console.error('picture edit failed', e);
+      setError('Could not edit that picture. Please try again.');
+    } finally {
+      setEditStatus('');
+      onUploadingChange?.(false);
+    }
+  }
+
+  async function startCrop() {
+    const current = editor.current?.selectedImage();
+    if (!current) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = current.url;
+    try {
+      await img.decode();
+    } catch {
+      return setError('Could not open that picture. Please try again.');
+    }
+    setCropping({ url: current.url, uploadPath: current.uploadPath, natural: { width: img.naturalWidth, height: img.naturalHeight } });
+  }
+
+  async function finishCrop(crop: Rect) {
+    const c = cropping;
+    setCropping(null);
+    if (!c) return;
+    const type = c.uploadPath.endsWith('.jpg') ? 'image/jpeg' : 'image/png';
+    setEditStatus('Cropping…');
+    await applyEdit((url) => cropToBlob(url, crop, type), crop);
+  }
+
+  async function removeBackground() {
+    setEditStatus('Getting ready…');
+    await applyEdit((url) => removeBackgroundToBlob(url, setEditStatus));
   }
 
   async function addText() {
@@ -143,6 +197,13 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
           Redo &#8631;
         </button>
       </div>
+
+      {cropping && <CropDialog url={cropping.url} natural={cropping.natural} onCancel={() => setCropping(null)} onApply={(crop) => void finishCrop(crop)} />}
+      {editStatus && (
+        <p role="status" data-testid="edit-status" className="ticket text-sm font-semibold">
+          {editStatus}
+        </p>
+      )}
 
       {selection && (
         <section className="ticket flex flex-col gap-3" aria-label="Selected item">
@@ -208,6 +269,12 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
           <div className="flex flex-wrap gap-2">
             {selection.kind === 'image' && (
               <>
+                <button className={tool} disabled={!!editStatus} onClick={() => void startCrop()}>
+                  Crop
+                </button>
+                <button className={tool} disabled={!!editStatus} onClick={() => void removeBackground()}>
+                  Remove background
+                </button>
                 <button className={tool} onClick={() => editor.current?.flipSelected('x')}>
                   Flip left-right
                 </button>

@@ -348,3 +348,38 @@ test('a resumed design is drawn exactly once (no duplicate layers)', async ({ pa
   const { data } = await service().from('designs').select('layers').eq('id', await designIdFor(email)).single();
   expect((data!.layers as { text: string }[]).map((l) => l.text)).toEqual(['Only one', 'Second']);
 });
+
+test('a cropped picture with its background removed is stored, checked and can be paid for', async ({ page }) => {
+  test.setTimeout(300_000);
+  const email = uniqueEmail('crop');
+  await signUp(page, email);
+  await addUpload(page);
+  const edited = page.getByRole('region', { name: 'Selected item' });
+  await expect(edited).toBeVisible();
+
+  await edited.getByRole('button', { name: 'Crop' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Crop', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByTestId('continue')).toBeEnabled(); // the edited picture finished uploading
+  await expect(page.getByTestId('edit-status')).toHaveCount(0);
+
+  await edited.getByRole('button', { name: 'Remove background' }).click();
+  await expect(page.getByTestId('edit-status')).toBeVisible();
+  await expect(page.getByTestId('edit-status')).toHaveCount(0, { timeout: 200_000 });
+  await expect(page.getByTestId('continue')).toBeEnabled();
+
+  await page.getByTestId('continue').click();
+  await page.waitForURL('**/cart');
+  const { data } = await service().from('designs').select('layers, status').eq('id', await designIdFor(email)).single();
+  expect(data!.status).toBe('approved');
+  const layers = data!.layers as { kind: string; uploadPath: string }[];
+  expect(layers).toHaveLength(1);
+  // the stored picture is the edited one: smaller than the 1800 px original and with a see-through background
+  const { data: file } = await service().storage.from('uploads').download(layers[0].uploadPath);
+  const meta = await sharp(Buffer.from(await file!.arrayBuffer())).metadata();
+  expect(meta.hasAlpha).toBe(true);
+  expect(meta.width).toBeLessThan(1800);
+  await goToCheckout(page);
+  await fillDeliveryAndPay(page);
+  await page.waitForURL('**/orders');
+});

@@ -291,3 +291,60 @@ test('the tabs show how much is on each side, and the extra price for printing t
   await expect(page.getByRole('tab', { name: /Back/ })).toContainText('+PKR 500');
   await expect(page.getByRole('tab', { name: /Front/ })).toContainText('(0)');
 });
+
+test('cropping keeps the chosen part where it was, at the same size on the shirt', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await uploadPng(page);
+  const before = (await layers(page))[0];
+  await page.getByRole('button', { name: 'Crop' }).click();
+  await expect(page.getByRole('dialog', { name: 'Crop picture' })).toBeVisible();
+  await expect(page.getByTestId('crop-size')).toHaveText(/320 × 320 px/); // the default box is the middle 80% of 400 x 400
+  await page.getByRole('dialog').getByRole('button', { name: 'Crop', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await expect.poll(async () => (await layers(page))[0].uploadPath).not.toBe(before.uploadPath);
+  const after = (await layers(page))[0];
+  expect(after.rect.width).toBeCloseTo(before.rect.width * 0.8, 2);
+  expect(after.rect.height).toBeCloseTo(before.rect.height * 0.8, 2);
+  // the middle part of the picture is still centred where the picture was
+  expect(after.rect.x + after.rect.width / 2).toBeCloseTo(before.rect.x + before.rect.width / 2, 2);
+  expect(after.rect.y + after.rect.height / 2).toBeCloseTo(before.rect.y + before.rect.height / 2, 2);
+  expect((await layers(page)).length).toBe(1);
+
+  await page.getByRole('button', { name: 'Undo' }).click(); // a crop is one undoable step
+  await expect.poll(async () => (await layers(page))[0].uploadPath).toBe(before.uploadPath);
+});
+
+test('dragging a corner changes the crop, and a box too small to print cannot be applied', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await uploadPng(page);
+  await page.getByRole('button', { name: 'Crop' }).click();
+  const frame = (await page.getByTestId('crop-frame').boundingBox())!;
+  const se = (await page.getByTestId('crop-se').boundingBox())!;
+  const from = { x: se.x + se.width / 2, y: se.y + se.height / 2 };
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x - frame.width * 0.3, from.y - frame.height * 0.3, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.getByTestId('crop-size')).toHaveText(/200 × 200 px: too small/);
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Crop', exact: true })).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Square' }).click();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect((await layers(page)).length).toBe(1); // cancelling changes nothing
+});
+
+test('removing the background replaces the picture with an edited copy (needs internet the first time)', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.goto('/dev/editor');
+  await uploadPng(page);
+  const before = (await layers(page))[0];
+  await page.getByRole('button', { name: 'Remove background' }).click();
+  await expect(page.getByTestId('edit-status')).toBeVisible();
+  await expect.poll(async () => (await layers(page))[0].uploadPath, { timeout: 200_000 }).not.toBe(before.uploadPath);
+  await expect(page.getByTestId('edit-status')).toHaveCount(0);
+  const after = (await layers(page))[0];
+  expect(after.rect.width).toBeCloseTo(before.rect.width, 2); // same size and place
+  expect(after.rect.height).toBeCloseTo(before.rect.height, 2);
+});
