@@ -46,3 +46,8 @@ next-env.d.ts
 !.env.local.example
 test-results/
 playwright-report/
+
+# local tooling and test output
+.claude/
+test-results/
+playwright-report/
