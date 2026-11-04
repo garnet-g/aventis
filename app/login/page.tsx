@@ -20,9 +20,18 @@ export default function LoginPage() {
       mode === 'signin'
         ? await supabase.auth.signInWithPassword({ email, password })
         : await supabase.auth.signUp({ email, password });
-    setBusy(false);
-    if (error) return setError(error.message);
-    window.location.href = '/design';
+    if (error) {
+      setBusy(false);
+      return setError(error.message);
+    }
+    // Admins land in the admin area; everyone else starts designing. (A new account is never an admin.)
+    let destination = '/design';
+    if (mode === 'signin') {
+      const { data: auth } = await supabase.auth.getUser();
+      const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', auth.user?.id ?? '').maybeSingle();
+      if (profile?.is_admin) destination = '/admin/orders';
+    }
+    window.location.href = destination;
   }
 
   return (
