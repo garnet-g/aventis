@@ -528,7 +528,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       if (patch.text !== undefined) t.set({ text: patch.text.slice(0, MAX_TEXT_LENGTH) });
       const direction = detectDirection(t.text);
       if (patch.font) font = normalizeFont(patch.font);
-      font = resolveFont(font, direction).key; // typing Urdu switches to an Urdu font, and back
+      font = resolveFont(font, direction).key; // typing Arabic-script text switches to the Arabic font, and back
       if (font !== active.meta.font || patch.font) {
         await loadFont(font, t.text);
         t.set({ fontFamily: FONTS[font].family, fontWeight: FONTS[font].weight });

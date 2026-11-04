@@ -96,7 +96,7 @@ Implement `PaymentProvider` in `lib/payments/` (see `lib/payments/index.ts`) and
 
 - **Hosting body limit:** serverless hosts such as Vercel cap request bodies (around 4.5 MB), below the app's 10 MB upload limit. Before deploying there, switch uploads to direct-to-storage signed URLs or lower the limit.
 - **Rendering runs inside the web server.** During testing, one full test run had a native crash (heap corruption) in the image library that I could not reproduce again in 13 further runs or 1,400 stress renders. Before real traffic, move mockup/design-file rendering into a separate worker process so a crash cannot take down the website, and queue it for bursts of orders.
-- Emails are English only; the app UI is English only (Urdu names on garments are supported).
+- Emails are English only; the app UI is English only (Arabic-script text on garments is supported).
 - If a customer edits a design in the few moments between paying and the order being recorded, the order is refused and that payment has to be refunded by hand (no unchecked art can reach the printer: the database re-checks approval when the order is written).
 - One design per order (several pieces of it via quantity); no guest checkout; a single admin role; no refunds screen.
 - Local development uses a permissive stand-in for the image-safety check when no key is set; do not run that way in production.
@@ -108,7 +108,7 @@ app/                customer pages (design, checkout, orders), admin pages, API 
 components/         Editor (Fabric canvas), DesignWorkbench, DesignFlow, checkout and admin widgets
 lib/                catalog, moderation, designs, orders, payments, artifacts (rendering), admin logic
 supabase/migrations database schema, access rules, private storage buckets
-assets/fonts        bundled fonts (OFL) used to print Urdu and Latin text on the server
+assets/fonts        bundled fonts (OFL) used to print Latin and Arabic-script text on the server
 tests/              vitest unit/database tests; tests/e2e for Playwright
 ```
 
@@ -121,7 +121,7 @@ tests/              vitest unit/database tests; tests/e2e for Playwright
 
 ## Text and layers
 
-- A name or text can be restyled after it is added: edit the words, pick a font, a color from the palette, and a size. Six fonts are offered (four Latin, two Urdu); Urdu text switches to an Urdu font automatically. Each font has a web version for the editor and a print file in `assets/fonts` (all open-license), so the printed file matches the screen.
+- A name or text can be restyled after it is added: edit the words, pick a font, a color from the palette, and a size. Five fonts are offered (four Latin, one Arabic); Arabic-script text switches to the Arabic font automatically. Each font has a web version for the editor and a print file in `assets/fonts` (all open-license), so the printed file matches the screen.
 - Text in the default ink follows the garment color (dark on white, light on black); a color the customer picked is kept.
 - Undo and redo cover every change, images included. Duplicate, Bring to front and Send to back change the stacking order; the printed file uses the same order.
 
@@ -164,4 +164,10 @@ tests/              vitest unit/database tests; tests/e2e for Playwright
 
 ## Kenya
 
-The shop is set up for Nairobi: amounts are in Kenya shillings (KES), delivery addresses use the 47 counties, and phone numbers must be Kenyan mobiles (`0712345678`, `0112345678`, `+254712345678`). Migration `0008_kenya.sql` renames the database columns (`*_pkr` to `*_kes`, `province` to `county`) and the saved price keys; it does not convert amounts. The starting prices in `lib/catalog.ts` are the same numbers as before, now read as shillings, so set your real selling prices, print costs and delivery fee on the Prices page. The Urdu fonts remain in the editor and are harmless; they can be removed from `lib/fonts.ts` if you do not want them.
+The shop is set up for Nairobi: amounts are in Kenya shillings (KES), delivery addresses use the 47 counties, and phone numbers must be Kenyan mobiles (`0712345678`, `0112345678`, `+254712345678`). Migration `0008_kenya.sql` renames the database columns (`*_pkr` to `*_kes`, `province` to `county`) and the saved price keys; it does not convert amounts. The starting prices in `lib/catalog.ts` are the same numbers as before, now read as shillings, so set your real selling prices, print costs and delivery fee on the Prices page. The Urdu Nastaliq font has been removed; one Arabic-script font stays so that Arabic text still prints correctly.
+
+## Bulk prices
+
+Customers pay less per piece when they order more of the same design. The owner sets up to five bulk prices on the admin Prices page ("Order 10 or more and save 10%"); the biggest one a line reaches applies to every piece on that line, garment and back print alike. The starting set is 5+ save 5%, 10+ save 10%, 25+ save 15%. Bulk prices lower what the customer pays but not what the printer charges, so profit on those orders is smaller. The paid order keeps the discounted price. Customers see the offer on the home page and the catalogue design page, and a "Bulk price" badge on the cart line once it applies.
+
+The header shows an Admin link to signed-in admins.

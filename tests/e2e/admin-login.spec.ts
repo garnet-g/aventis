@@ -11,6 +11,9 @@ test('signing in as an admin opens the admin area; a customer goes to the design
     await page.getByRole('button', { name: 'Sign in' }).click();
     await page.waitForURL('**/admin/orders');
     await expect(page.getByTestId('count-new orders')).toBeVisible();
+    // the shop's header shows an Admin link to admins
+    await page.goto('/catalogue');
+    await expect(page.getByTestId('admin-link')).toBeVisible();
     await page.goto('/admin');
     await page.waitForURL('**/admin/orders');
   } finally {
@@ -26,6 +29,9 @@ test('signing in as an admin opens the admin area; a customer goes to the design
   await cp.getByPlaceholder(/password/i).fill('e2e-password-123');
   await cp.getByRole('button', { name: 'Sign up' }).click();
   await cp.waitForURL('**/design');
+  await cp.goto('/catalogue');
+  await expect(cp.getByRole('heading', { name: 'The catalogue' })).toBeVisible();
+  await expect(cp.getByTestId('admin-link')).toHaveCount(0);
   await cp.goto('/admin/orders');
   await expect(cp.getByText(/could not be found|404/i).first()).toBeVisible();
   await customer.close();

@@ -4,10 +4,10 @@ import { describe, expect, test } from 'vitest';
 import { DEFAULT_FONT, FONT_KEYS, FONTS, fontsFor, normalizeFont, resolveFont } from '@/lib/fonts';
 
 describe('font registry', () => {
-  test('offers six fonts: four Latin and two Urdu', () => {
-    expect(FONT_KEYS).toEqual(['sans', 'display', 'jersey', 'script', 'nastaliq', 'naskh']);
+  test('offers five fonts: four Latin and one Arabic', () => {
+    expect(FONT_KEYS).toEqual(['sans', 'display', 'jersey', 'script', 'arabic']);
     expect(Object.values(FONTS).filter((f) => f.script === 'latin')).toHaveLength(4);
-    expect(Object.values(FONTS).filter((f) => f.script === 'urdu')).toHaveLength(2);
+    expect(Object.values(FONTS).filter((f) => f.script === 'arabic')).toHaveLength(1);
   });
 
   test('every font has its print file on disk', () => {
@@ -38,18 +38,18 @@ describe('normalizeFont', () => {
 });
 
 describe('fonts by writing direction', () => {
-  test('left-to-right text offers Latin fonts, right-to-left offers Urdu fonts', () => {
+  test('left-to-right text offers Latin fonts, right-to-left offers the Arabic font', () => {
     expect(fontsFor('ltr').map((f) => f.key)).toEqual(['sans', 'display', 'jersey', 'script']);
-    expect(fontsFor('rtl').map((f) => f.key)).toEqual(['nastaliq', 'naskh']);
+    expect(fontsFor('rtl').map((f) => f.key)).toEqual(['arabic']);
   });
 
   test('a font that does not fit the text is swapped for one that does', () => {
-    expect(resolveFont('script', 'rtl').key).toBe('nastaliq');
-    expect(resolveFont('naskh', 'ltr').key).toBe('sans');
+    expect(resolveFont('script', 'rtl').key).toBe('arabic');
+    expect(resolveFont('arabic', 'ltr').key).toBe('sans');
   });
 
   test('a fitting font is kept', () => {
     expect(resolveFont('jersey', 'ltr').key).toBe('jersey');
-    expect(resolveFont('naskh', 'rtl').key).toBe('naskh');
+    expect(resolveFont('arabic', 'rtl').key).toBe('arabic');
   });
 });

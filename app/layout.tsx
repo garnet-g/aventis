@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import { SiteFooter } from "@/components/SiteFooter";
-import "@fontsource/noto-nastaliq-urdu/400.css";
 import "@fontsource/noto-sans/700.css";
 import "@fontsource/bricolage-grotesque/800.css";
 import "@fontsource/bebas-neue/400.css";

@@ -38,7 +38,7 @@ test('dragging an uploaded image beyond the dashed box leaves it inside the box'
   expect(l.rect.x + l.rect.width).toBeGreaterThan(0.95);
 });
 
-test('entering an Urdu name creates a right-to-left text layer', async ({ page }) => {
+test('entering Arabic-script text creates a right-to-left text layer', async ({ page }) => {
   await page.goto('/dev/editor');
   await page.getByTestId('text-input').fill('علی احمد');
   await page.getByRole('button', { name: 'Add name' }).click();
@@ -161,13 +161,11 @@ test('the text of a name can be edited after it was added', async ({ page }) => 
   await expect.poll(() => texts(page)).toEqual(['Ahmed Khan']);
 });
 
-test('Urdu text gets an Urdu font automatically and only Urdu fonts are offered', async ({ page }) => {
+test('Arabic-script text gets the Arabic font automatically and only that font is offered', async ({ page }) => {
   await page.goto('/dev/editor');
   await addName(page, 'علی');
-  await expect.poll(async () => (await layers(page))[0]?.font).toBe('nastaliq');
-  await expect(page.getByLabel('Font').locator('option')).toHaveCount(2);
-  await page.getByLabel('Font').selectOption('naskh');
-  await expect.poll(async () => (await layers(page))[0].font).toBe('naskh');
+  await expect.poll(async () => (await layers(page))[0]?.font).toBe('arabic');
+  await expect(page.getByLabel('Font').locator('option')).toHaveCount(1);
   // typing Latin letters into the same text flips back to a Latin font
   await page.getByLabel('Selected text').fill('Ali');
   await expect.poll(async () => (await layers(page))[0].font).toBe('sans');

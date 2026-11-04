@@ -81,7 +81,7 @@ describe('renderDesignPng', () => {
     expect(await top(await renderDesignPng(item, [layer({ flipY: true })], async () => tb))).toMatchObject({ r: 0, b: 255 });
   });
 
-  test('Urdu text layer produces real glyph pixels (not blank, not boxes)', async () => {
+  test('Arabic-script text layer produces real glyph pixels (not blank, not boxes)', async () => {
     const png = await renderDesignPng(item, [textLayer('علی احمد', 'rtl')], loader);
     const { count, minX, maxX } = await opaquePixels(png);
     expect(count).toBeGreaterThan(2000);
@@ -124,8 +124,8 @@ const styled = (text: string, font: string, fill = '#000000', direction: 'ltr' |
 
 describe('text styling is what gets printed', () => {
   test.each(Object.keys(FONTS) as FontKey[])('the %s font renders real glyphs', async (key) => {
-    const urdu = FONTS[key].script === 'urdu';
-    const png = await renderDesignPng(item, [styled(urdu ? 'علی احمد' : 'Wanjiku Mwangi', key, '#000000', urdu ? 'rtl' : 'ltr')], loader);
+    const rtl = FONTS[key].script === 'arabic';
+    const png = await renderDesignPng(item, [styled(rtl ? 'مرحبا' : 'Wanjiku Mwangi', key, '#000000', rtl ? 'rtl' : 'ltr')], loader);
     expect((await ink(png)).n, key).toBeGreaterThan(1500);
   });
 
@@ -146,8 +146,8 @@ describe('text styling is what gets printed', () => {
   test('an unknown or mismatched font falls back to one that fits instead of failing', async () => {
     const odd = await renderDesignPng(item, [styled('Wanjiku Mwangi', 'Comic Papyrus')], loader);
     expect((await ink(odd)).n).toBeGreaterThan(1500);
-    const urduInLatinFont = await renderDesignPng(item, [styled('علی احمد', 'script', '#000000', 'rtl')], loader);
-    expect((await ink(urduInLatinFont)).n).toBeGreaterThan(1500);
+    const arabicInLatinFont = await renderDesignPng(item, [styled('علی احمد', 'script', '#000000', 'rtl')], loader);
+    expect((await ink(arabicInLatinFont)).n).toBeGreaterThan(1500);
   });
 });
 
