@@ -71,14 +71,14 @@ async function MyOrders() {
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-12">
+    <main className="shell flex flex-col gap-6 py-8">
       <h1 className="font-display text-3xl font-extrabold tracking-tight">Your prints</h1>
       {!view.length && (
         <p className="text-mute">
           Nothing here yet. <Link className="underline" href="/design">Start your first design</Link>.
         </p>
       )}
-      <ul className="flex flex-col gap-3">
+      <ul className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {view.map(({ design, state, orderStatus, quantity }) => (
           <li key={design.id} className="ticket">
             <span data-testid="design-state" className={`badge ${BADGE[state.tone]}`}>

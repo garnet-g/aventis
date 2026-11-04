@@ -6,17 +6,23 @@ import { getServiceClient } from '@/lib/supabase/server';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 pb-12">
-      <nav className="mb-5 flex items-center gap-5 border-b-2 border-ink py-4 text-sm font-bold">
-        <Logo />
-        <Suspense fallback={<NavLinks />}>
-          <CountedNavLinks />
+    <>
+      <div className="bg-ink text-white">
+        <nav aria-label="Admin" className="shell flex flex-wrap items-center gap-x-6 gap-y-2 py-3 text-sm font-bold [&_a:hover]:text-marigold">
+          <Logo />
+          <span className="rounded bg-marigold px-1.5 py-0.5 text-[0.65rem] uppercase tracking-widest text-ink">Admin</span>
+          <Suspense fallback={<NavLinks />}>
+            <CountedNavLinks />
+          </Suspense>
+        </nav>
+        <div className="tape" aria-hidden />
+      </div>
+      <div className="shell py-8">
+        <Suspense fallback={<p className="p-4 text-sm text-mute">Loading…</p>}>
+          <AdminGate>{children}</AdminGate>
         </Suspense>
-      </nav>
-      <Suspense fallback={<p className="p-4 text-sm text-mute">Loading…</p>}>
-        <AdminGate>{children}</AdminGate>
-      </Suspense>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -28,7 +34,7 @@ async function AdminGate({ children }: { children: React.ReactNode }) {
 
 function Count({ n, label }: { n: number; label: string }) {
   return n > 0 ? (
-    <span data-testid={`count-${label}`} aria-label={`${n} ${label}`} className="ml-1.5 rounded-full bg-vermilion px-1.5 py-0.5 text-[0.65rem] text-paper">
+    <span data-testid={`count-${label}`} aria-label={`${n} ${label}`} className="ml-1.5 rounded-full bg-marigold px-1.5 py-0.5 text-[0.65rem] text-ink">
       {n}
     </span>
   ) : null;
@@ -45,6 +51,7 @@ function NavLinks({ reviews = 0, newOrders = 0 }: { reviews?: number; newOrders?
         Orders
         <Count n={newOrders} label="new orders" />
       </Link>
+      <Link href="/admin/catalogue">Catalogue</Link>
       <Link href="/admin/settings">Prices</Link>
     </>
   );

@@ -1,4 +1,4 @@
-# Printly
+# VybeCrew
 
 A phone-first web app where customers in Pakistan put a design or a name on a T-shirt or hoodie, inside a fixed print area, pass a safety check, and pay. The owners get a paid order with two files to give to their printer:
 
@@ -151,3 +151,11 @@ tests/              vitest unit/database tests; tests/e2e for Playwright
 - **Remove background:** runs inside the customer's browser, so photos never go to a third party. It uses the Apache-2.0 `Xenova/modnet` model (about 7 MB; `BACKGROUND_MODEL` in `lib/imageEdit.ts`) through `@huggingface/transformers`. The first use downloads the model from huggingface.co and the ONNX runtime from cdn.jsdelivr.net, then the browser keeps them.
 - **Know the limit:** MODNet is trained on **people**. It cuts out portraits well and logos or objects poorly. If customers mostly upload artwork, swap in a general model (`onnx-community/BiRefNet_lite-ONNX` is MIT but about 115 MB; RMBG models need a commercial licence from Bria) or an outside service.
 - Edited pictures are new uploads, so the safety check runs on them like any other picture.
+
+## VybeCrew brand, layout and catalogue
+
+- **Brand:** the shop is called VybeCrew. Colours are black, yellow (`#ffd60a`) and white; they are defined once in `app/globals.css`. Errors keep a red so they stand out. The logo is in `public/brand/` (`vybecrew-mark.svg` tile, `vybecrew-logo.svg` tile and name, with PNG copies) and the browser icon is `app/icon.svg`. The in-page logo is the `Logo` component in `components/SiteHeader.tsx`.
+- **Layout:** every page uses the `.shell` width (full width on phones, wide with generous margins on computers). The design page puts the editor beside its controls on large screens; the cart and checkout use two columns.
+- **Catalogue** (`/catalogue`): ready-made designs. Admins post them at `/admin/catalogue` (title, T-shirt or hoodie, colours, a front and/or back picture; the picture is centred in the print area as large as it fits and a preview is rendered for each colour). New designs start hidden until published; hiding or deleting removes them from the shop but never affects orders already placed.
+- **Ordering from the catalogue:** a customer picks colour, size and quantity and adds it to the cart, or opens it in the editor with "Customise this design". Each order copies the pictures into the customer's own folder, so the printer files are produced the same way as for any design. Catalogue art is treated as trusted (an admin posted it), so it skips the customer safety check; look at what you post.
+- **Existing databases:** apply `npx supabase migration up` (adds `catalogue_items` and a public `catalogue` storage bucket). Selling prices come from the Prices page, the same as custom designs.

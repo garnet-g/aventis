@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Instrument_Sans } from "next/font/google";
 import "./globals.css";
+import { SiteFooter } from "@/components/SiteFooter";
 import "@fontsource/noto-nastaliq-urdu/400.css";
 import "@fontsource/noto-sans/700.css";
 import "@fontsource/bricolage-grotesque/800.css";
@@ -20,14 +21,16 @@ const instrument = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Printly",
-  description: "Put your own name or art on a shirt or hoodie. We print it and deliver it.",
+  title: { default: "VybeCrew", template: "%s | VybeCrew" },
+  description: "Shop VybeCrew drops or put your own name or art on a shirt or hoodie. We print it and deliver it.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${bricolage.variable} ${instrument.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">{children}
+        <SiteFooter />
+      </body>
     </html>
   );
 }

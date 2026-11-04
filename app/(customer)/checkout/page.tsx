@@ -30,10 +30,11 @@ async function Checkout() {
   const provider = getPaymentProvider();
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-4 pb-12">
+    <main className="shell flex flex-col gap-6 py-8">
       <h1 className="font-display text-3xl font-extrabold tracking-tight">Checkout</h1>
 
-      <section className="ticket mt-2">
+      <div className="grid items-start gap-8 lg:grid-cols-2">
+      <section className="ticket mt-2 lg:order-2">
         {provider.isTestMode && (
           <div role="note" data-testid="test-mode-banner" className="stamp">
             TEST MODE
@@ -72,7 +73,10 @@ async function Checkout() {
         </div>
       </section>
 
-      <CheckoutForm totalPkr={cart.totalPkr} testMode={provider.isTestMode} />
+      <div className="lg:order-1">
+        <CheckoutForm totalPkr={cart.totalPkr} testMode={provider.isTestMode} />
+      </div>
+      </div>
     </main>
   );
 }

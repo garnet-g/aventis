@@ -11,7 +11,7 @@ const backShapes = {
   tee: `M300 120 Q400 140 500 120 L690 200 L750 380 L640 410 L620 360 L620 900 L180 900 L180 360 L160 410 L50 380 L110 200 Z`,
   hoodie: shapes.hoodie,
 };
-const colors = { white: { fill: '#F4ECDD', stroke: '#16120F' }, black: { fill: '#1b1b1d', stroke: '#050505' } };
+const colors = { white: { fill: '#FFFFFF', stroke: '#0A0A0A' }, black: { fill: '#1b1b1d', stroke: '#050505' } };
 
 function collar(p, side, fill, stroke) {
   if (p === 'hoodie') {
@@ -28,7 +28,7 @@ for (const side of ['front', 'back']) {
   for (const p of Object.keys(shapes)) {
     const d = (side === 'front' ? shapes : backShapes)[p];
     for (const [c, { fill, stroke }] of Object.entries(colors)) {
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect width="100%" height="100%" fill="#E9DDC6"/><path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="4" stroke-linejoin="round"/>${collar(p, side, fill, stroke)}</svg>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect width="100%" height="100%" fill="#F0F0EC"/><path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="4" stroke-linejoin="round"/>${collar(p, side, fill, stroke)}</svg>`;
       const name = side === 'front' ? `${p}-${c}.png` : `${p}-back-${c}.png`;
       await sharp(Buffer.from(svg)).png().toFile(`public/garments/${name}`);
     }

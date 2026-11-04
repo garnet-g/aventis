@@ -1,14 +1,16 @@
 @import "tailwindcss";
 
-/* Printly: screen-print studio. Paper stock, black ink, one hot vermilion. */
+/* VybeCrew: black, yellow and white. Hard shadows and bold type, like a street-wear drop. */
 @theme inline {
-  --color-paper: #f4ecdd;
-  --color-paper-2: #e9ddc6;
-  --color-ink: #16120f;
-  --color-vermilion: #e5412a;
-  --color-marigold: #f2b632;
-  --color-forest: #0e5a49;
-  --color-mute: #6b6256;
+  --color-paper: #ffffff;
+  --color-paper-2: #f0f0ec;
+  --color-ink: #0a0a0a;
+  --color-marigold: #ffd60a;
+  --color-marigold-deep: #e6bd00;
+  /* Errors and "remove" actions keep a red so they cannot be mistaken for anything else. */
+  --color-vermilion: #d92d20;
+  --color-forest: #1c1c1c;
+  --color-mute: #6a6a66;
   --font-display: var(--font-bricolage), system-ui, sans-serif;
   --font-sans: var(--font-instrument), system-ui, sans-serif;
   --font-urdu: "Noto Nastaliq Urdu", serif;
@@ -25,14 +27,32 @@ body {
 }
 
 @layer components {
-  /* Primary action: ink outline plus a second offset "ink pass", like a slightly misregistered print. */
+  /* The page content width on every screen: full width on phones, wide and centred with generous margins on computers. */
+  .shell {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 82rem;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 640px) {
+    .shell {
+      padding-inline: 2rem;
+    }
+  }
+  @media (min-width: 1280px) {
+    .shell {
+      padding-inline: 3rem;
+    }
+  }
+
+  /* Primary action: yellow with a black outline and a hard black shadow that presses flat. */
   .btn {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    background: var(--color-vermilion);
-    color: #fff;
+    background: var(--color-marigold);
+    color: var(--color-ink);
     border: 2px solid var(--color-ink);
     border-radius: 10px;
     padding: 0.9rem 1.1rem;
@@ -41,17 +61,17 @@ body {
     font-size: 1.05rem;
     letter-spacing: 0.01em;
     text-transform: uppercase;
-    box-shadow: 3px 3px 0 var(--color-ink), 6px 6px 0 var(--color-marigold);
+    box-shadow: 4px 4px 0 var(--color-ink);
     transition: transform 0.08s ease, box-shadow 0.08s ease;
     cursor: pointer;
   }
   .btn:hover:not(:disabled) {
     transform: translate(-1px, -1px);
-    box-shadow: 4px 4px 0 var(--color-ink), 7px 7px 0 var(--color-marigold);
+    box-shadow: 5px 5px 0 var(--color-ink);
   }
   .btn:active:not(:disabled) {
-    transform: translate(3px, 3px);
-    box-shadow: 0 0 0 var(--color-ink), 0 0 0 var(--color-marigold);
+    transform: translate(4px, 4px);
+    box-shadow: 0 0 0 var(--color-ink);
   }
   .btn:disabled {
     opacity: 0.55;
@@ -60,7 +80,11 @@ body {
   }
   .btn-ink {
     background: var(--color-ink);
-    box-shadow: 3px 3px 0 var(--color-vermilion);
+    color: var(--color-marigold);
+    box-shadow: 4px 4px 0 var(--color-marigold);
+  }
+  .btn-ink:hover:not(:disabled) {
+    box-shadow: 5px 5px 0 var(--color-marigold);
   }
   .btn-quiet {
     background: transparent;
@@ -80,14 +104,13 @@ body {
     width: 100%;
     border: 2px solid var(--color-ink);
     border-radius: 10px;
-    background: rgb(255 255 255 / 0.55);
+    background: #fff;
     padding: 0.75rem;
     font-size: 0.95rem;
   }
   .field:focus {
     outline: 3px solid var(--color-marigold);
     outline-offset: 1px;
-    background: #fff;
   }
   .field:disabled {
     opacity: 0.6;
@@ -103,10 +126,11 @@ body {
 
   .ticket {
     position: relative;
-    background: #fffaf0;
+    background: #fff;
     border: 2px solid var(--color-ink);
     border-radius: 14px;
     padding: 0.9rem;
+    box-shadow: 4px 4px 0 var(--color-marigold);
   }
   .perf {
     position: relative;
@@ -138,9 +162,9 @@ body {
     right: 0.6rem;
     top: -0.9rem;
     transform: rotate(7deg);
-    border: 3px solid var(--color-vermilion);
-    color: var(--color-vermilion);
-    background: var(--color-paper);
+    border: 3px solid var(--color-ink);
+    color: var(--color-ink);
+    background: var(--color-marigold);
     border-radius: 8px;
     padding: 0.15rem 0.6rem;
     font-family: var(--font-display);
@@ -168,7 +192,7 @@ body {
   }
   .badge-ink {
     background: var(--color-ink);
-    color: var(--color-paper);
+    color: var(--color-marigold);
   }
   .badge-red {
     background: var(--color-vermilion);
@@ -178,6 +202,12 @@ body {
   .halftone {
     background-image: radial-gradient(circle, var(--color-ink) 1.1px, transparent 1.6px);
     background-size: 7px 7px;
+  }
+
+  /* Diagonal hazard-tape strip used as a divider on dark sections. */
+  .tape {
+    background: repeating-linear-gradient(-45deg, var(--color-marigold) 0 14px, var(--color-ink) 14px 28px);
+    height: 0.6rem;
   }
 
   @keyframes rise {

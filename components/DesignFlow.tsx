@@ -194,7 +194,7 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
 
   return (
     <>
-      <div className="mx-auto flex w-full max-w-md items-center justify-between gap-2 px-4 pb-3">
+      <div className="shell flex items-center justify-between gap-2 py-4">
         <ol className="flex gap-1.5 text-[0.7rem] font-bold uppercase tracking-[0.12em]" aria-label="Steps">
           {STEPS.map((s, i) => (
             <li key={s} aria-current={i === 0 ? 'step' : undefined} className={`rounded-full border-[1.5px] border-ink px-2.5 py-1 ${i === 0 ? 'bg-ink text-paper' : ''}`}>
@@ -237,12 +237,12 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
       </DesignWorkbench>
 
       <div className="fixed inset-x-0 bottom-0 z-20 bg-ink text-paper">
-        <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 pb-4 pt-3">
+        <div className="shell flex items-center justify-between gap-3 pb-4 pt-3">
           <div>
             <small className="block text-[0.7rem] text-[#bdb2a0]">Total with delivery{hasBack ? ', incl. back print' : ''}</small>
             <b className="font-display text-2xl leading-none">{pkr(total)}</b>
           </div>
-          <button data-testid="continue" disabled={busy || uploading} onClick={onContinue} className="btn btn-dock btn-sm">
+          <button data-testid="continue" disabled={busy || uploading} onClick={onContinue} className="btn btn-dock btn-sm sm:min-w-56">
             {busy ? 'Working…' : uploading ? 'Uploading…' : 'Add to cart'}
           </button>
         </div>

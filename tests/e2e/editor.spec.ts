@@ -80,10 +80,10 @@ test('the garment photo fills the canvas: a black shirt is dark where the body i
   expect(await sample(385, 15)).toBeGreaterThan(200); // top-right corner: light grey background
 });
 
-test('home and sign-in pages carry the Printly brand and fit a phone without sideways scroll', async ({ page }) => {
+test('home and sign-in pages carry the VybeCrew brand and fit a phone without sideways scroll', async ({ page }) => {
   for (const url of ['/', '/login']) {
     await page.goto(url);
-    await expect(page.getByRole('link', { name: 'Printly' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'VybeCrew' }).first()).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow, url).toBeLessThanOrEqual(0);
   }

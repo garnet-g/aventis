@@ -65,11 +65,11 @@ describe('new-order alerts', () => {
 
   test('every admin is emailed once, with a link to the orders', async () => {
     const { sent, email } = capture();
-    await notifyNewOrder(email, 'https://printly.pk', { to: ['a@x.pk', 'b@x.pk'], orderCount: 2, totalPkr: 6250 });
+    await notifyNewOrder(email, 'https://vybecrew.pk', { to: ['a@x.pk', 'b@x.pk'], orderCount: 2, totalPkr: 6250 });
     expect(sent.map((m) => m.to)).toEqual(['a@x.pk', 'b@x.pk']);
     expect(sent[0].subject).toBe('New order: 2 new orders');
     expect(sent[0].text).toContain('PKR 6,250');
-    expect(sent[0].text).toContain('https://printly.pk/admin/orders');
+    expect(sent[0].text).toContain('https://vybecrew.pk/admin/orders');
   });
   test('a single order reads naturally', async () => {
     const { sent, email } = capture();

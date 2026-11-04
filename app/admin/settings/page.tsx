@@ -14,7 +14,7 @@ export default function SettingsPage() {
 async function Settings() {
   await requireAdmin();
   return (
-    <main className="flex max-w-md flex-col gap-4">
+    <main className="flex max-w-xl flex-col gap-4">
       <h1 className="font-display text-3xl font-extrabold tracking-tight">Prices</h1>
       <p className="text-sm text-mute">
         &ldquo;Customer pays&rdquo; is what is charged. &ldquo;Printer charges&rdquo; is what it costs you, and drives the profit shown on orders. A change

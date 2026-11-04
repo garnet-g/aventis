@@ -10,11 +10,11 @@ import { clampToPrintArea } from '@/lib/printArea';
 import type { Rect } from '@/lib/printArea';
 import { printQuality, type PrintQuality } from '@/lib/quality';
 
-/** Selection handles in the Printly palette, large enough for a finger. */
+/** Selection handles in the VybeCrew palette, large enough for a finger. */
 const HANDLES = {
-  borderColor: '#e5412a',
-  cornerColor: '#ffffff',
-  cornerStrokeColor: '#16120f',
+  borderColor: '#0a0a0a',
+  cornerColor: '#ffd60a',
+  cornerStrokeColor: '#0a0a0a',
   transparentCorners: false,
   cornerSize: 12,
   touchCornerSize: 30,
@@ -299,7 +299,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     // Phone-first: shrink the canvas display to the available width (drawing coordinates stay 400x500).
     const fit = () => {
       const w = wrapRef.current?.clientWidth ?? CANVAS_W;
-      const s = Math.min(1, w / CANVAS_W);
+      const s = Math.min(1.3, w / CANVAS_W);
       canvas.setDimensions({ width: CANVAS_W * s, height: CANVAS_H * s }, { cssOnly: true });
     };
     fit();
@@ -627,7 +627,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       ref={wrapRef}
       data-testid="editor-wrap"
       data-side={side}
-      className="relative mx-auto w-full max-w-[400px] overflow-hidden rounded-2xl border-2 border-ink bg-paper-2"
+      className="relative mx-auto w-full max-w-[400px] lg:max-w-[520px] overflow-hidden rounded-2xl border-2 border-ink bg-paper-2"
     >
       <canvas ref={canvasEl} />
       {/* Crop marks show where printing can happen; art cannot leave this box. */}
@@ -641,11 +641,11 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           height: `${(area.height / CANVAS_H) * 100}%`,
         }}
       >
-        <i className="absolute left-0 top-0 h-3.5 w-3.5 border-l-2 border-t-2 border-vermilion" />
-        <i className="absolute right-0 top-0 h-3.5 w-3.5 border-r-2 border-t-2 border-vermilion" />
-        <i className="absolute bottom-0 left-0 h-3.5 w-3.5 border-b-2 border-l-2 border-vermilion" />
-        <i className="absolute bottom-0 right-0 h-3.5 w-3.5 border-b-2 border-r-2 border-vermilion" />
-        <span className="absolute -top-[19px] left-0 whitespace-nowrap rounded-sm bg-paper/90 px-1 text-[10px] font-bold uppercase tracking-[0.1em] text-vermilion">
+        <i className="absolute left-0 top-0 h-3.5 w-3.5 border-l-2 border-t-2 border-ink" />
+        <i className="absolute right-0 top-0 h-3.5 w-3.5 border-r-2 border-t-2 border-ink" />
+        <i className="absolute bottom-0 left-0 h-3.5 w-3.5 border-b-2 border-l-2 border-ink" />
+        <i className="absolute bottom-0 right-0 h-3.5 w-3.5 border-b-2 border-r-2 border-ink" />
+        <span className="absolute -top-[19px] left-0 whitespace-nowrap rounded-sm bg-paper/90 px-1 text-[10px] font-bold uppercase tracking-[0.1em] text-ink">
           Print area &middot; {printArea.widthCm} &times; {printArea.heightCm} cm
         </span>
       </div>

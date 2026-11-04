@@ -26,7 +26,7 @@ async function Cart() {
   const cart = await loadCart({ designs: supabaseDesignStore(), cart: supabaseCartStore(), prices: await supabasePriceStore().get() }, user.id);
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-12">
+    <main className="shell flex flex-col gap-6 py-8">
       <h1 className="font-display text-3xl font-extrabold tracking-tight">Your cart</h1>
 
       {cart.lines.length === 0 ? (
@@ -34,8 +34,8 @@ async function Cart() {
           Your cart is empty. <Link className="underline" href="/design">Start a design</Link>.
         </p>
       ) : (
-        <>
-          <ul className="flex flex-col gap-3">
+        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]">
+          <ul className="flex flex-col gap-4">
             {cart.lines.map((l) => (
               <li key={l.designId} data-testid="cart-line" className="ticket">
                 <div className="flex gap-3">
@@ -43,7 +43,7 @@ async function Cart() {
                   <img
                     src={`/api/designs/${l.designId}/preview`}
                     alt="Your design"
-                    className="h-28 w-[5.6rem] flex-none rounded-lg border-2 border-ink bg-paper-2 object-cover"
+                    className="h-28 w-[5.6rem] flex-none sm:h-36 sm:w-28 rounded-lg border-2 border-ink bg-paper-2 object-cover"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="font-display text-lg font-extrabold">{catalog[l.design.product].label}</p>
@@ -63,6 +63,7 @@ async function Cart() {
             ))}
           </ul>
 
+          <aside className="flex flex-col gap-4 lg:sticky lg:top-6">
           <section className="ticket text-sm">
             <div className="flex justify-between py-0.5">
               <span>Items</span>
@@ -92,7 +93,8 @@ async function Cart() {
           <Link className="text-center text-sm underline" href="/design">
             Add another design
           </Link>
-        </>
+          </aside>
+        </div>
       )}
     </main>
   );

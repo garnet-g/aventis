@@ -28,7 +28,7 @@ export default function LoginPage() {
   return (
     <>
       <SiteHeader />
-      <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-4 pb-12 pt-4">
+      <main className="shell flex max-w-lg flex-col gap-5 py-12">
         <div>
           <p className="eyebrow">{mode === 'signin' ? 'Welcome back' : 'New here'}</p>
           <h1 className="font-display text-4xl font-extrabold tracking-tight">{mode === 'signin' ? 'Sign in' : 'Create account'}</h1>

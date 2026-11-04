@@ -24,6 +24,8 @@ vi.mock('@/lib/supabase/server', () => ({ getServerClient: async () => ({}), get
 import { GET as downloadGET } from '../app/api/admin/orders/[id]/download/route';
 import { POST as regeneratePOST } from '../app/api/admin/orders/[id]/regenerate/route';
 import { PUT as notePUT } from '../app/api/admin/orders/[id]/note/route';
+import { POST as cataloguePOST } from '../app/api/admin/catalogue/route';
+import { DELETE as catalogueDELETE, PATCH as cataloguePATCH } from '../app/api/admin/catalogue/[id]/route';
 import { PUT as pricesPUT } from '../app/api/admin/prices/route';
 import { POST as statusPOST } from '../app/api/admin/orders/[id]/status/route';
 import { GET as previewGET } from '../app/api/admin/designs/[id]/preview/route';
@@ -41,6 +43,9 @@ describe('admin route guard', () => {
       () => regeneratePOST(req(), ctx),
       () => notePUT(req({ note: 'x' }), ctx),
       () => pricesPUT(req({})),
+      () => cataloguePOST(req({})),
+      () => cataloguePATCH(req({ published: true }), ctx),
+      () => catalogueDELETE(req(), ctx),
       () => downloadGET(new Request('http://t/x?file=mockup'), ctx),
       () => previewGET(new Request('http://t/x'), ctx),
     ];
