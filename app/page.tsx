@@ -5,14 +5,14 @@ import { TeeArt } from '@/components/TeeArt';
 import { catalog } from '@/lib/catalog';
 import { previewKey } from '@/lib/catalogueItems';
 import { cataloguePictureUrl, supabaseCatalogueStore } from '@/lib/catalogueStore';
-import { pkr } from '@/lib/labels';
+import { kes } from '@/lib/labels';
 import { DEFAULT_PRICES } from '@/lib/prices';
 import { supabasePriceStore } from '@/lib/pricesStore';
 
 const STEPS = [
-  ['1', 'Pick a drop or build your own', 'Choose a ready-made design from the catalogue, or put your own name and art on the shirt.'],
+  ['1', 'Pick a drop or build your own', 'Choose a ready-made design from the catalogue, or upload your own art and design it exactly how you like.'],
   ['2', 'A person checks it', 'Every design is looked at before printing, so what reaches you is clean and printable.'],
-  ['3', 'Pay and we deliver', 'Pay securely, we print with our partner and post it to your door anywhere in Pakistan.'],
+  ['3', 'Pay and we deliver', 'Pay securely, we print with our partner and post it to your door anywhere in Kenya.'],
 ] as const;
 
 export default function HomePage() {
@@ -32,17 +32,13 @@ export default function HomePage() {
       <section className="bg-ink text-white">
         <div className="shell grid items-center gap-10 py-12 lg:grid-cols-2 lg:py-20">
           <div className="rise">
-            <p className="mb-4 inline-block rounded bg-marigold px-2 py-1 text-xs font-extrabold uppercase tracking-[0.18em] text-ink">Printed in Pakistan</p>
             <h1 className="font-display text-5xl font-extrabold leading-[0.95] tracking-tighter sm:text-6xl lg:text-7xl">
               Wear your
               <br />
               own <span className="text-marigold">vybe.</span>
             </h1>
-            <p dir="rtl" className="mt-4 text-left font-urdu text-2xl leading-loose text-marigold">
-              اپنا نام، اپنی شرٹ
-            </p>
-            <p className="mt-2 max-w-xl text-lg text-white/80">
-              Shop ready-made VybeCrew drops, or put your own name and art on a T-shirt or hoodie. We print it and deliver it.
+            <p className="mt-5 max-w-xl text-lg text-white/80">
+              Shop ready-made VybeCrew drops, or design your own T-shirt or hoodie with your pictures, text and ideas. We print it and deliver it.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <Link href="/catalogue" className="btn sm:min-w-56">
@@ -66,10 +62,10 @@ export default function HomePage() {
             </div>
             <TeeArt className="relative w-60 -rotate-3 sm:w-72 lg:w-80" fill="#ffffff">
               <text x="400" y="470" textAnchor="middle" fontFamily="var(--font-bricolage)" fontWeight="800" fontSize="150" fill="#0a0a0a">
-                ALI
+                YOUR
               </text>
               <text x="400" y="560" textAnchor="middle" fontWeight="700" fontSize="42" letterSpacing="12" fill="#0a0a0a">
-                EST. 2026
+                DESIGN
               </text>
               <rect x="330" y="600" width="140" height="18" fill="#ffd60a" />
             </TeeArt>
@@ -104,7 +100,7 @@ export default function HomePage() {
                 <li key={id} className="ticket flex items-center justify-between gap-4">
                   <div>
                     <p className="font-display text-2xl font-extrabold">{catalog[id].label}</p>
-                    <Suspense fallback={<p>{pkr(DEFAULT_PRICES[id].pricePkr)}</p>}>
+                    <Suspense fallback={<p>{kes(DEFAULT_PRICES[id].priceKes)}</p>}>
                       <LiveProductPrice id={id} />
                     </Suspense>
                     <p className="text-sm text-mute">White or black &middot; S to XL &middot; front and back printing</p>
@@ -115,7 +111,7 @@ export default function HomePage() {
                 </li>
               ))}
             </ul>
-            <Suspense fallback={<DeliveryLine fee={DEFAULT_PRICES.deliveryFeePkr} />}>
+            <Suspense fallback={<DeliveryLine fee={DEFAULT_PRICES.deliveryFeeKes} />}>
               <LiveDeliveryLine />
             </Suspense>
           </div>
@@ -139,16 +135,16 @@ export default function HomePage() {
 // The owner can change prices at any time, so they are read when the page is requested.
 const PriceLine = ({ prices }: { prices: typeof DEFAULT_PRICES }) => (
   <p className="mt-6 text-sm text-white/70">
-    T-shirt from {pkr(prices.tee.pricePkr)} &middot; Hoodie from {pkr(prices.hoodie.pricePkr)}
+    T-shirt from {kes(prices.tee.priceKes)} &middot; Hoodie from {kes(prices.hoodie.priceKes)}
   </p>
 );
 const DeliveryLine = ({ fee }: { fee: number }) => (
-  <p className="mt-6 text-sm text-mute">Delivery {pkr(fee)}. Every design is checked by a person before it is printed.</p>
+  <p className="mt-6 text-sm text-mute">Delivery {kes(fee)}. Every design is checked by a person before it is printed.</p>
 );
 const LivePriceLine = async () => <PriceLine prices={await supabasePriceStore().get()} />;
-const LiveDeliveryLine = async () => <DeliveryLine fee={(await supabasePriceStore().get()).deliveryFeePkr} />;
+const LiveDeliveryLine = async () => <DeliveryLine fee={(await supabasePriceStore().get()).deliveryFeeKes} />;
 const LiveProductPrice = async ({ id }: { id: 'tee' | 'hoodie' }) => (
-  <p className="text-lg font-bold">{pkr((await supabasePriceStore().get())[id].pricePkr)}</p>
+  <p className="text-lg font-bold">{kes((await supabasePriceStore().get())[id].priceKes)}</p>
 );
 
 /** The newest published catalogue designs; renders nothing until the first one is posted. */

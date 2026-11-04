@@ -3,15 +3,15 @@ import { filterOrders, saveOrderNote, type OrderListRow, type OrderNoteStore } f
 import { adminAlertRecipients, notifyNewOrder, type EmailSender } from '@/lib/notify';
 import type { Order, OrderStore } from '@/lib/orders';
 import { DEFAULT_PRICES, parsePrices, pricesFromStored, savePrices, type PriceStore } from '@/lib/prices';
-import { checkoutTotals, lineTotals, unitCostPkr, unitPricePkr } from '@/lib/pricing';
+import { checkoutTotals, lineTotals, unitCostKes, unitPriceKes } from '@/lib/pricing';
 
-const order = (id: string, status: Order['status'], name: string, city = 'Lahore', phone = '03001234567'): Order =>
-  ({ id, status, delivery: { name, phone, city, province: 'Punjab', address: 'House 1' } }) as Order;
+const order = (id: string, status: Order['status'], name: string, city = 'Nairobi', phone = '0712345678'): Order =>
+  ({ id, status, delivery: { name, phone, city, county: 'Nairobi', address: 'House 1' } }) as Order;
 
 const rows: OrderListRow[] = [
-  { order: order('aaaa1111', 'paid', 'Ali Khan'), item: 'tee · white · M', note: '' },
-  { order: order('bbbb2222', 'shipped', 'Sara Ahmed', 'Karachi', '03331112222'), item: 'hoodie · black · L × 3', note: 'Call before delivery' },
-  { order: order('cccc3333', 'paid', 'Bilal Raza', 'Karachi'), item: 'hoodie · white · S', note: '' },
+  { order: order('aaaa1111', 'paid', 'Wanjiku Mwangi'), item: 'tee · white · M', note: '' },
+  { order: order('bbbb2222', 'shipped', 'Amina Hassan', 'Mombasa', '0733111222'), item: 'hoodie · black · L × 3', note: 'Call before delivery' },
+  { order: order('cccc3333', 'paid', 'Brian Otieno', 'Mombasa'), item: 'hoodie · white · S', note: '' },
 ];
 const ids = (r: OrderListRow[]) => r.map((x) => x.order.id);
 
@@ -20,16 +20,16 @@ describe('filtering the order list', () => {
   test('by status', () => expect(ids(filterOrders(rows, { status: 'paid' }))).toEqual(['aaaa1111', 'cccc3333']));
   test('an unknown status is ignored rather than hiding every order', () => expect(filterOrders(rows, { status: 'bogus' })).toHaveLength(3));
   test('search ignores case and looks in name, phone, city, order id, item and note', () => {
-    expect(ids(filterOrders(rows, { q: 'SARA' }))).toEqual(['bbbb2222']);
-    expect(ids(filterOrders(rows, { q: '0333111' }))).toEqual(['bbbb2222']);
-    expect(ids(filterOrders(rows, { q: 'karachi' }))).toEqual(['bbbb2222', 'cccc3333']);
+    expect(ids(filterOrders(rows, { q: 'AMINA' }))).toEqual(['bbbb2222']);
+    expect(ids(filterOrders(rows, { q: '0733111' }))).toEqual(['bbbb2222']);
+    expect(ids(filterOrders(rows, { q: 'mombasa' }))).toEqual(['bbbb2222', 'cccc3333']);
     expect(ids(filterOrders(rows, { q: 'aaaa' }))).toEqual(['aaaa1111']);
     expect(ids(filterOrders(rows, { q: 'hoodie' }))).toEqual(['bbbb2222', 'cccc3333']);
     expect(ids(filterOrders(rows, { q: 'call before' }))).toEqual(['bbbb2222']);
   });
   test('every word must match, and search combines with status', () => {
-    expect(ids(filterOrders(rows, { q: 'karachi hoodie', status: 'paid' }))).toEqual(['cccc3333']);
-    expect(filterOrders(rows, { q: 'karachi lahore' })).toHaveLength(0);
+    expect(ids(filterOrders(rows, { q: 'mombasa hoodie', status: 'paid' }))).toEqual(['cccc3333']);
+    expect(filterOrders(rows, { q: 'mombasa nairobi' })).toHaveLength(0);
   });
 });
 
@@ -65,15 +65,15 @@ describe('new-order alerts', () => {
 
   test('every admin is emailed once, with a link to the orders', async () => {
     const { sent, email } = capture();
-    await notifyNewOrder(email, 'https://vybecrew.pk', { to: ['a@x.pk', 'b@x.pk'], orderCount: 2, totalPkr: 6250 });
+    await notifyNewOrder(email, 'https://vybecrew.pk', { to: ['a@x.pk', 'b@x.pk'], orderCount: 2, totalKes: 6250 });
     expect(sent.map((m) => m.to)).toEqual(['a@x.pk', 'b@x.pk']);
     expect(sent[0].subject).toBe('New order: 2 new orders');
-    expect(sent[0].text).toContain('PKR 6,250');
+    expect(sent[0].text).toContain('KES 6,250');
     expect(sent[0].text).toContain('https://vybecrew.pk/admin/orders');
   });
   test('a single order reads naturally', async () => {
     const { sent, email } = capture();
-    await notifyNewOrder(email, 'http://s', { to: ['a@x.pk'], orderCount: 1, totalPkr: 100 });
+    await notifyNewOrder(email, 'http://s', { to: ['a@x.pk'], orderCount: 1, totalKes: 100 });
     expect(sent[0].subject).toBe('New order: 1 new order');
   });
   test('ADMIN_ALERT_EMAILS wins; otherwise every admin account is used', async () => {
@@ -84,7 +84,7 @@ describe('new-order alerts', () => {
 });
 
 describe('editable prices', () => {
-  const good = { tee: { pricePkr: 1800, costPkr: 900 }, hoodie: { pricePkr: 2600, costPkr: 1400 }, backPricePkr: 700, backCostPkr: 450, deliveryFeePkr: 300 };
+  const good = { tee: { priceKes: 1800, costKes: 900 }, hoodie: { priceKes: 2600, costKes: 1400 }, backPriceKes: 700, backCostKes: 450, deliveryFeeKes: 300 };
 
   test('valid prices are accepted and saved', async () => {
     let stored = DEFAULT_PRICES;
@@ -99,10 +99,10 @@ describe('editable prices', () => {
         throw new Error('should not save');
       },
     };
-    const bads = [null, {}, { ...good, deliveryFeePkr: -1 }, { ...good, tee: { pricePkr: 1.5, costPkr: 1 } }, { ...good, backPricePkr: '700' }, { ...good, hoodie: { pricePkr: 2e9, costPkr: 1 } }, { ...good, deliveryFeePkr: null }];
+    const bads = [null, {}, { ...good, deliveryFeeKes: -1 }, { ...good, tee: { priceKes: 1.5, costKes: 1 } }, { ...good, backPriceKes: '700' }, { ...good, hoodie: { priceKes: 2e9, costKes: 1 } }, { ...good, deliveryFeeKes: null }];
     for (const bad of bads) await expect(savePrices(store, bad)).rejects.toMatchObject({ status: 400 });
   });
-  test('free delivery (0) is allowed', () => expect(parsePrices({ ...good, deliveryFeePkr: 0 }).deliveryFeePkr).toBe(0));
+  test('free delivery (0) is allowed', () => expect(parsePrices({ ...good, deliveryFeeKes: 0 }).deliveryFeeKes).toBe(0));
   test('something broken in the database falls back to the defaults', () => {
     expect(pricesFromStored({ tee: 1 })).toEqual(DEFAULT_PRICES);
     expect(pricesFromStored(null)).toEqual(DEFAULT_PRICES);
@@ -111,11 +111,11 @@ describe('editable prices', () => {
   test('pricing uses the prices it is given, the back extra only when the back is printed', () => {
     const front = { product: 'hoodie' as const, backLayers: [] };
     const both = { product: 'hoodie' as const, backLayers: [{}] };
-    expect(unitPricePkr(front, good)).toBe(2600);
-    expect(unitPricePkr(both, good)).toBe(3300);
-    expect(unitCostPkr(both, good)).toBe(1850);
-    expect(lineTotals(both, 2, good)).toEqual({ pricePkr: 6600, costPkr: 3700 });
-    expect(checkoutTotals([{ pricePkr: 6600 }], good)).toEqual({ subtotalPkr: 6600, deliveryFeePkr: 300, totalPkr: 6900 });
-    expect(checkoutTotals([], good).deliveryFeePkr).toBe(0);
+    expect(unitPriceKes(front, good)).toBe(2600);
+    expect(unitPriceKes(both, good)).toBe(3300);
+    expect(unitCostKes(both, good)).toBe(1850);
+    expect(lineTotals(both, 2, good)).toEqual({ priceKes: 6600, costKes: 3700 });
+    expect(checkoutTotals([{ priceKes: 6600 }], good)).toEqual({ subtotalKes: 6600, deliveryFeeKes: 300, totalKes: 6900 });
+    expect(checkoutTotals([], good).deliveryFeeKes).toBe(0);
   });
 });

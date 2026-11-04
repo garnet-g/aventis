@@ -10,9 +10,9 @@ let aliceDesign: string;
 async function insertOrder(designId: string, userId: string, opts: { approve?: boolean; snapshot?: string; backSnapshot?: string } = {}) {
   if (opts.approve !== false) await db.query(`update designs set status = 'approved' where id = $1`, [designId]);
   await db.query(
-    `insert into orders (design_id, user_id, status, cost_pkr, price_pkr, delivery_fee_pkr,
-       name, phone, city, province, address, payment_ref, layers_snapshot, back_layers_snapshot)
-     values ($1,$2,'paid',800,1500,250,'A','03001234567','Lahore','Punjab','1 Road',$3,$4::jsonb,$5::jsonb)`,
+    `insert into orders (design_id, user_id, status, cost_kes, price_kes, delivery_fee_kes,
+       name, phone, city, county, address, payment_ref, layers_snapshot, back_layers_snapshot)
+     values ($1,$2,'paid',800,1500,250,'A','0712345678','Nairobi','Nairobi','1 Road',$3,$4::jsonb,$5::jsonb)`,
     [designId, userId, `TEST-${designId}`, opts.snapshot ?? '[]', opts.backSnapshot ?? '[]'],
   );
 }
@@ -100,8 +100,8 @@ describe('row-level security', () => {
   test('order stores an immutable snapshot of the design layers', async () => {
     await db.query(`update designs set layers = '[{"x":1}]'::jsonb, status = 'approved' where id = $1`, [aliceDesign]);
     await db.query(
-      `insert into orders (design_id, user_id, cost_pkr, price_pkr, delivery_fee_pkr, name, phone, city, province, address, payment_ref, layers_snapshot)
-       values ($1,$2,800,1500,250,'A','03001234567','Lahore','Punjab','1 Road',$3,'[{"x":1}]'::jsonb)`,
+      `insert into orders (design_id, user_id, cost_kes, price_kes, delivery_fee_kes, name, phone, city, county, address, payment_ref, layers_snapshot)
+       values ($1,$2,800,1500,250,'A','0712345678','Nairobi','Nairobi','1 Road',$3,'[{"x":1}]'::jsonb)`,
       [aliceDesign, alice, `TEST-${aliceDesign}`],
     );
     const r = await db.query<{ layers_snapshot: unknown }>('select layers_snapshot from orders where design_id = $1', [aliceDesign]);
@@ -144,9 +144,9 @@ describe('row-level security', () => {
 });
 
 describe('carts and checkouts', () => {
-  const delivery = JSON.stringify({ name: 'A', phone: '03001234567', city: 'Lahore', province: 'Punjab', address: '1 Road' });
+  const delivery = JSON.stringify({ name: 'A', phone: '0712345678', city: 'Nairobi', county: 'Nairobi', address: '1 Road' });
   const items = (ids: string[], quantity = 2) =>
-    JSON.stringify(ids.map((id) => ({ design_id: id, quantity, price_pkr: 3000, cost_pkr: 1600 })));
+    JSON.stringify(ids.map((id) => ({ design_id: id, quantity, price_kes: 3000, cost_kes: 1600 })));
   const checkout = (user: string, ref: string, ids: string[], quantity = 2) =>
     db.query('select * from create_checkout($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)', [user, ref, `PAY-${ref}`, 6250, 250, delivery, items(ids, quantity)]);
 
@@ -174,7 +174,7 @@ describe('carts and checkouts', () => {
     expect(rows).toHaveLength(2);
     expect(new Set(rows.map((o) => (o as { payment_ref: string }).payment_ref))).toEqual(new Set(['PAY-REF-1']));
     expect(rows.map((o) => (o as { quantity: number }).quantity)).toEqual([2, 2]);
-    expect(rows.map((o) => (o as { delivery_fee_pkr: number }).delivery_fee_pkr)).toEqual([250, 0]);
+    expect(rows.map((o) => (o as { delivery_fee_kes: number }).delivery_fee_kes)).toEqual([250, 0]);
     expect(rows.map((o) => (o as { position: number }).position)).toEqual([1, 2]);
     expect((await db.query('select 1 from checkouts')).rows).toHaveLength(1);
   });

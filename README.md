@@ -1,6 +1,6 @@
 # VybeCrew
 
-A phone-first web app where customers in Pakistan put a design or a name on a T-shirt or hoodie, inside a fixed print area, pass a safety check, and pay. The owners get a paid order with two files to give to their printer:
+A phone-first web app where customers in Kenya put a design or a name on a T-shirt or hoodie, inside a fixed print area, pass a safety check, and pay. The owners get a paid order with two files to give to their printer:
 
 - the **mockup** (the garment with the design on it), and
 - the **design file** (the artwork alone, a transparent PNG at print resolution).
@@ -70,23 +70,25 @@ These are **placeholders** I could not know. Each lives in one place:
 
 | What | Where |
 |---|---|
-| Selling prices (PKR 1,500 tee / 2,200 hoodie) and the delivery fee (PKR 250) | `lib/catalog.ts` |
+| Selling prices (KES 1,500 tee / 2,200 hoodie) and the delivery fee (KES 250) | `lib/catalog.ts` |
 | Print-area size in cm (tee 28×32, hoodie 25×28) and the minimum print resolution (150 DPI) | `lib/catalog.ts`. **Confirm with your printer**, along with file format and whether black garments need a white underlayer |
 | How the print area lines up on the garment photos (`PX_PER_CM`, collar position) | `lib/editorGeometry.ts` |
 | Garment photos (simple drawn placeholders now) | `public/garments/` (800×1000 PNG per product and color) |
 | The banned-word list | `lib/moderation/banned-words.json` |
 
-Your known print costs (hoodie PKR 1,300, tee PKR 800) are already in `lib/catalog.ts`; the admin order page shows profit as *price + delivery − cost*.
+Your known print costs (hoodie KES 1,300, tee KES 800) are already in `lib/catalog.ts`; the admin order page shows profit as *price + delivery − cost*.
 
 ## Safety checks: what they do and don't catch
 
-- **Text** is matched against a word list in English, Roman Urdu and Urdu script, after removing invisible characters and accents and mapping look-alike letters. Words that are also names (for example "Dick") go to human review instead of being rejected. It does **not** catch masked spellings such as `f*ck` or slang that is not on the list. Add words as real cases appear.
+- **Text** is matched against a word list in English, Swahili, Roman Urdu and Urdu script, after removing invisible characters and accents and mapping look-alike letters. Words that are also names (for example "Dick") go to human review instead of being rejected. It does **not** catch masked spellings such as `f*ck` or slang that is not on the list. Add words as real cases appear.
 - **Images** are scored by OpenAI's moderation model (`OPENAI_API_KEY`). Unsure scores go to human review; a failed check always goes to human review, never straight to payment.
 - Anything unusual (mixed alphabets inside one word, odd Latin letters) is sent to human review.
 
 Treat the text filter as a first line, not a guarantee. Review the queue regularly.
 
 ## Adding a real payment provider
+
+For Kenya the natural choice is M-Pesa (Safaricom Daraja STK push, or an aggregator such as Pesapal or Flutterwave that also takes cards). Amounts are whole Kenya shillings (KES); phone numbers are Kenyan mobiles (07xx, 01xx or +254) and delivery addresses use the 47 counties.
 
 Implement `PaymentProvider` in `lib/payments/` (see `lib/payments/index.ts`) and add it to `getPaymentProvider()`. The provider **must** treat `reference` (a fingerprint of the cart) as an idempotency key, so a retry or a double click can never charge a customer twice. The same cart can only ever be paid once. Until a real provider is added, checkout shows a **TEST MODE** banner and no money moves.
 
@@ -125,7 +127,7 @@ tests/              vitest unit/database tests; tests/e2e for Playwright
 
 ## Printing on the back, and saving for later
 
-- **Front and back.** The design page has Front and Back tabs. Each side has its own artwork, its own undo history, and its own garment photo and print area. Printing the back adds a fixed extra to the price and to your cost, set in `lib/catalog.ts` (`BACK_PRINT_PRICE_PKR` PKR 500, `BACK_PRINT_COST_PKR` PKR 400): **placeholders, confirm with your printer**, as are the back print-area sizes (`backPrintArea`) and the garment back photos in `public/garments/*-back-*.png`.
+- **Front and back.** The design page has Front and Back tabs. Each side has its own artwork, its own undo history, and its own garment photo and print area. Printing the back adds a fixed extra to the price and to your cost, set in `lib/catalog.ts` (`BACK_PRINT_PRICE_KES` KES 500, `BACK_PRINT_COST_KES` KES 400): **placeholders, confirm with your printer**, as are the back print-area sizes (`backPrintArea`) and the garment back photos in `public/garments/*-back-*.png`.
 - **One check covers both sides.** Safety review, approval and payment all apply to front and back together; changing either side sends an approved design back to draft.
 - **Orders keep both sides.** The admin order page then offers four downloads (front and back mockup, front and back design file).
 - **Saved as you go.** A design is saved automatically about a second after each change, once it has anything on it, and also when the page is hidden. **Save for later** saves and goes to My prints, where a draft has a **Continue designing** link that reopens it with its pictures and text. A design that is waiting for review, or already ordered, cannot be reopened for editing.
@@ -159,3 +161,7 @@ tests/              vitest unit/database tests; tests/e2e for Playwright
 - **Catalogue** (`/catalogue`): ready-made designs. Admins post them at `/admin/catalogue` (title, T-shirt or hoodie, colours, a front and/or back picture; the picture is centred in the print area as large as it fits and a preview is rendered for each colour). New designs start hidden until published; hiding or deleting removes them from the shop but never affects orders already placed.
 - **Ordering from the catalogue:** a customer picks colour, size and quantity and adds it to the cart, or opens it in the editor with "Customise this design". Each order copies the pictures into the customer's own folder, so the printer files are produced the same way as for any design. Catalogue art is treated as trusted (an admin posted it), so it skips the customer safety check; look at what you post.
 - **Existing databases:** apply `npx supabase migration up` (adds `catalogue_items` and a public `catalogue` storage bucket). Selling prices come from the Prices page, the same as custom designs.
+
+## Kenya
+
+The shop is set up for Nairobi: amounts are in Kenya shillings (KES), delivery addresses use the 47 counties, and phone numbers must be Kenyan mobiles (`0712345678`, `0112345678`, `+254712345678`). Migration `0008_kenya.sql` renames the database columns (`*_pkr` to `*_kes`, `province` to `county`) and the saved price keys; it does not convert amounts. The starting prices in `lib/catalog.ts` are the same numbers as before, now read as shillings, so set your real selling prices, print costs and delivery fee on the Prices page. The Urdu fonts remain in the editor and are harmless; they can be removed from `lib/fonts.ts` if you do not want them.

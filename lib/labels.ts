@@ -7,4 +7,4 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   delivered: 'Delivered',
 };
 
-export const pkr = (n: number) => `PKR ${n.toLocaleString('en-PK')}`;
+export const kes = (n: number) => `KES ${n.toLocaleString('en-KE')}`;

@@ -11,24 +11,66 @@ export { HttpError } from '@/lib/errors';
 
 export type OrderStatus = 'paid' | 'at_printer' | 'shipped' | 'delivered';
 
-export const PROVINCES = [
-  'Punjab',
-  'Sindh',
-  'Khyber Pakhtunkhwa',
-  'Balochistan',
-  'Islamabad Capital Territory',
-  'Gilgit-Baltistan',
-  'Azad Jammu and Kashmir',
+/** Kenya's 47 counties, for the delivery address. */
+export const COUNTIES = [
+  "Baringo",
+  "Bomet",
+  "Bungoma",
+  "Busia",
+  "Elgeyo-Marakwet",
+  "Embu",
+  "Garissa",
+  "Homa Bay",
+  "Isiolo",
+  "Kajiado",
+  "Kakamega",
+  "Kericho",
+  "Kiambu",
+  "Kilifi",
+  "Kirinyaga",
+  "Kisii",
+  "Kisumu",
+  "Kitui",
+  "Kwale",
+  "Laikipia",
+  "Lamu",
+  "Machakos",
+  "Makueni",
+  "Mandera",
+  "Marsabit",
+  "Meru",
+  "Migori",
+  "Mombasa",
+  "Murang'a",
+  "Nairobi",
+  "Nakuru",
+  "Nandi",
+  "Narok",
+  "Nyamira",
+  "Nyandarua",
+  "Nyeri",
+  "Samburu",
+  "Siaya",
+  "Taita-Taveta",
+  "Tana River",
+  "Tharaka-Nithi",
+  "Trans Nzoia",
+  "Turkana",
+  "Uasin Gishu",
+  "Vihiga",
+  "Wajir",
+  "West Pokot",
 ] as const;
 
 export const deliverySchema = z.object({
   name: z.string().trim().min(2, 'Enter your full name.').max(80),
   phone: z
     .string()
-    .transform((s) => s.replace(/[\s\-()]/g, ''))
-    .pipe(z.string().regex(/^(03\d{9}|\+923\d{9})$/, 'Enter a Pakistani mobile number like 03001234567.')),
+    // "254712345678" and "+254 712 345 678" are both stored as "+254712345678"
+    .transform((s) => s.replace(/[\s\-()]/g, '').replace(/^254/, '+254'))
+    .pipe(z.string().regex(/^(0[17]\d{8}|\+254[17]\d{8})$/, 'Enter a Kenyan mobile number like 0712345678.')),
   city: z.string().trim().min(2, 'Enter your city.').max(60),
-  province: z.enum(PROVINCES, { message: 'Choose your province.' }),
+  county: z.enum(COUNTIES, { message: 'Choose your county.' }),
   address: z.string().trim().min(5, 'Enter your full address.').max(200),
 });
 export type DeliveryDetails = z.output<typeof deliverySchema>;
@@ -41,10 +83,10 @@ export type Order = {
   status: OrderStatus;
   /** How many pieces to print. Prices and costs below are for all of them. */
   quantity: number;
-  costPkr: number;
-  pricePkr: number;
+  costKes: number;
+  priceKes: number;
   /** The delivery fee of the whole checkout sits on its first order; the others carry 0. */
-  deliveryFeePkr: number;
+  deliveryFeeKes: number;
   delivery: DeliveryDetails;
   paymentRef: string;
   layersSnapshot: DesignLayer[];
@@ -66,10 +108,10 @@ export type NewCheckout = {
   reference: string;
   /** What the payment provider answered with. */
   paymentRef: string;
-  totalPkr: number;
-  deliveryFeePkr: number;
+  totalKes: number;
+  deliveryFeeKes: number;
   delivery: DeliveryDetails;
-  items: { designId: string; quantity: number; pricePkr: number; costPkr: number }[];
+  items: { designId: string; quantity: number; priceKes: number; costKes: number }[];
 };
 
 export interface OrderStore {
@@ -107,7 +149,7 @@ export async function placeCheckout(
   const items = await deps.cart.list(args.userId);
   if (items.length === 0) throw new HttpError(400, 'Your cart is empty.');
 
-  const lines: { design: Design; quantity: number; pricePkr: number; costPkr: number }[] = [];
+  const lines: { design: Design; quantity: number; priceKes: number; costKes: number }[] = [];
   for (const item of items) {
     const design = await deps.designs.get(item.designId);
     if (!design || design.userId !== args.userId) throw new HttpError(404, 'Design not found.');
@@ -119,7 +161,7 @@ export async function placeCheckout(
     lines.push({ design, quantity, ...lineTotals(design, quantity, prices) });
   }
 
-  const { deliveryFeePkr, totalPkr } = checkoutTotals(lines, prices);
+  const { deliveryFeeKes, totalKes } = checkoutTotals(lines, prices);
   const reference = cartFingerprint(items);
 
   const settle = async (orders: Order[]) => {
@@ -131,7 +173,7 @@ export async function placeCheckout(
   const existing = await deps.orders.findCheckoutOrders(reference);
   if (existing) return settle(existing);
 
-  const paid = await deps.provider.charge({ amountPkr: totalPkr, reference });
+  const paid = await deps.provider.charge({ amountKes: totalKes, reference });
   if (!paid.ok) throw new HttpError(402, `Payment failed: ${paid.reason}`);
 
   let orders: Order[];
@@ -140,10 +182,10 @@ export async function placeCheckout(
       userId: args.userId,
       reference,
       paymentRef: paid.paymentRef,
-      totalPkr,
-      deliveryFeePkr,
+      totalKes,
+      deliveryFeeKes,
       delivery,
-      items: lines.map((l) => ({ designId: l.design.id, quantity: l.quantity, pricePkr: l.pricePkr, costPkr: l.costPkr })),
+      items: lines.map((l) => ({ designId: l.design.id, quantity: l.quantity, priceKes: l.priceKes, costKes: l.costKes })),
     });
   } catch (e) {
     if (e instanceof DuplicateCheckoutError) {

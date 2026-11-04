@@ -107,7 +107,7 @@ test('an explicit design is rejected and cannot be paid; the customer can start 
   const add = await page.request.post('/api/cart', { data: { designId } });
   expect(add.status()).toBe(403); // a rejected design cannot go in the cart
   const pay = await page.request.post('/api/pay', {
-    data: { delivery: { name: 'Ali Khan', phone: '03001234567', city: 'Lahore', province: 'Punjab', address: 'House 1, Street 2' } },
+    data: { delivery: { name: 'Wanjiku Mwangi', phone: '0712345678', city: 'Nairobi', county: 'Nairobi', address: 'House 1, Street 2' } },
   });
   expect(pay.status()).toBe(400); // and there is nothing to pay for
 
@@ -180,17 +180,17 @@ test('a front-and-back design costs more, and the admin gets four files', async 
 
   await goToCheckout(page);
   await expect(page.getByText(/front and back/i).first()).toBeVisible(); // the back print is part of the line's price
-  await expect(page.getByRole('button', { name: /^Pay PKR 2,250/ })).toBeVisible(); // 1,500 + 500 + 250
+  await expect(page.getByRole('button', { name: /^Pay KES 2,250/ })).toBeVisible(); // 1,500 + 500 + 250
   await fillDeliveryAndPay(page);
   await page.waitForURL('**/orders');
 
   const designId = await designIdFor(email);
   const { data: order } = await service()
     .from('orders')
-    .select('id, price_pkr, cost_pkr, artifacts_failed, back_mockup_path, back_design_file_path, back_layers_snapshot')
+    .select('id, price_kes, cost_kes, artifacts_failed, back_mockup_path, back_design_file_path, back_layers_snapshot')
     .eq('design_id', designId)
     .single();
-  expect(order).toMatchObject({ price_pkr: 2000, cost_pkr: 1200, artifacts_failed: false });
+  expect(order).toMatchObject({ price_kes: 2000, cost_kes: 1200, artifacts_failed: false });
   expect(order!.back_mockup_path).toBeTruthy();
   expect(order!.back_design_file_path).toBeTruthy();
   expect(order!.back_layers_snapshot).toHaveLength(1);
@@ -265,22 +265,22 @@ test('a cart holds several designs with quantities; one payment makes one order 
   await first.getByRole('button', { name: 'Increase quantity' }).click();
   await expect(first.getByTestId('quantity')).toHaveText('3');
   // 3 x 1,500 + 1 x 1,500 + 250 delivery, charged once
-  await expect(page.getByTestId('cart-total')).toHaveText('PKR 6,250');
+  await expect(page.getByTestId('cart-total')).toHaveText('KES 6,250');
 
   await page.getByRole('link', { name: /^Checkout/ }).click();
   await page.waitForURL('**/checkout');
-  await expect(page.getByRole('button', { name: /^Pay PKR 6,250/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Pay KES 6,250/ })).toBeVisible();
   await fillDeliveryAndPay(page);
   await page.waitForURL('**/orders');
 
   const { data: orders } = await service()
     .from('orders')
-    .select('id, quantity, price_pkr, delivery_fee_pkr, payment_ref, position, artifacts_failed')
+    .select('id, quantity, price_kes, delivery_fee_kes, payment_ref, position, artifacts_failed')
     .eq('user_id', await userId(email))
     .order('position');
   expect(orders!.map((o) => o.quantity)).toEqual([3, 1]);
-  expect(orders!.map((o) => o.price_pkr)).toEqual([4500, 1500]);
-  expect(orders!.map((o) => o.delivery_fee_pkr)).toEqual([250, 0]);
+  expect(orders!.map((o) => o.price_kes)).toEqual([4500, 1500]);
+  expect(orders!.map((o) => o.delivery_fee_kes)).toEqual([250, 0]);
   expect(new Set(orders!.map((o) => o.payment_ref)).size).toBe(1);
   expect(orders!.every((o) => !o.artifacts_failed)).toBe(true);
 

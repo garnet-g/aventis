@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { BACK_PRINT_COST_PKR, BACK_PRINT_PRICE_PKR, catalog, COLORS, printAreaFor, SIZES } from '@/lib/catalog';
+import { BACK_PRINT_COST_KES, BACK_PRINT_PRICE_KES, catalog, COLORS, printAreaFor, SIZES } from '@/lib/catalog';
 
 describe('catalog', () => {
   test('has exactly tee and hoodie', () => {
@@ -15,8 +15,8 @@ describe('catalog', () => {
   });
 
   test('cost is 800 for tee and 1300 for hoodie', () => {
-    expect(catalog.tee.costPkr).toBe(800);
-    expect(catalog.hoodie.costPkr).toBe(1300);
+    expect(catalog.tee.costKes).toBe(800);
+    expect(catalog.hoodie.costKes).toBe(1300);
   });
 
   test('every product has positive print area dimensions', () => {
@@ -41,7 +41,7 @@ describe('catalog', () => {
   });
 
   test('printing on the back adds a price that is more than what it costs', () => {
-    expect(BACK_PRINT_PRICE_PKR).toBeGreaterThan(BACK_PRINT_COST_PKR);
-    expect(BACK_PRINT_COST_PKR).toBeGreaterThan(0);
+    expect(BACK_PRINT_PRICE_KES).toBeGreaterThan(BACK_PRINT_COST_KES);
+    expect(BACK_PRINT_COST_KES).toBeGreaterThan(0);
   });
 });

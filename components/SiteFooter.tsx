@@ -8,7 +8,7 @@ export function SiteFooter() {
       <div className="shell flex flex-col gap-6 py-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Logo />
-          <p className="mt-2 text-sm text-white/60">Custom and ready-made T-shirts and hoodies, printed and delivered across Pakistan.</p>
+          <p className="mt-2 text-sm text-white/60">Custom and ready-made T-shirts and hoodies, printed and delivered across Kenya.</p>
         </div>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2 text-sm font-bold [&_a:hover]:text-marigold">
           <Link href="/catalogue">Catalogue</Link>

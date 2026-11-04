@@ -77,10 +77,10 @@ export async function notifyOrderStatus(
 export async function notifyNewOrder(
   email: EmailSender,
   siteUrl: string,
-  args: { to: string[]; orderCount: number; totalPkr: number },
+  args: { to: string[]; orderCount: number; totalKes: number },
 ): Promise<void> {
   const what = args.orderCount === 1 ? '1 new order' : `${args.orderCount} new orders`;
-  const text = `${what} just came in (PKR ${args.totalPkr.toLocaleString('en-US')} paid).
+  const text = `${what} just came in (KES ${args.totalKes.toLocaleString('en-US')} paid).
 
 Open the orders: ${siteUrl}/admin/orders`;
   await Promise.all(args.to.map((to) => email.send({ to, subject: `New order: ${what}`, text })));

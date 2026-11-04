@@ -7,13 +7,13 @@ export type OrderRow = {
   user_id: string;
   status: Order['status'];
   quantity: number;
-  cost_pkr: number;
-  price_pkr: number;
-  delivery_fee_pkr: number;
+  cost_kes: number;
+  price_kes: number;
+  delivery_fee_kes: number;
   name: string;
   phone: string;
   city: string;
-  province: Order['delivery']['province'];
+  county: Order['delivery']['county'];
   address: string;
   payment_ref: string;
   layers_snapshot: Order['layersSnapshot'];
@@ -31,10 +31,10 @@ export const toOrder = (r: OrderRow): Order => ({
   userId: r.user_id,
   status: r.status,
   quantity: r.quantity ?? 1,
-  costPkr: r.cost_pkr,
-  pricePkr: r.price_pkr,
-  deliveryFeePkr: r.delivery_fee_pkr,
-  delivery: { name: r.name, phone: r.phone, city: r.city, province: r.province, address: r.address },
+  costKes: r.cost_kes,
+  priceKes: r.price_kes,
+  deliveryFeeKes: r.delivery_fee_kes,
+  delivery: { name: r.name, phone: r.phone, city: r.city, county: r.county, address: r.address },
   paymentRef: r.payment_ref,
   layersSnapshot: r.layers_snapshot,
   backLayersSnapshot: r.back_layers_snapshot ?? [],
@@ -74,10 +74,10 @@ export function supabaseOrderStore(): OrderStore {
         p_user: c.userId,
         p_reference: c.reference,
         p_payment_ref: c.paymentRef,
-        p_total_pkr: c.totalPkr,
-        p_delivery_fee_pkr: c.deliveryFeePkr,
+        p_total_kes: c.totalKes,
+        p_delivery_fee_kes: c.deliveryFeeKes,
         p_delivery: c.delivery,
-        p_items: c.items.map((i) => ({ design_id: i.designId, quantity: i.quantity, price_pkr: i.pricePkr, cost_pkr: i.costPkr })),
+        p_items: c.items.map((i) => ({ design_id: i.designId, quantity: i.quantity, price_kes: i.priceKes, cost_kes: i.costKes })),
       });
       if (error) {
         if (error.code === '23505') throw new DuplicateCheckoutError();

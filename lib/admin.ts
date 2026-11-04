@@ -8,8 +8,8 @@ const SIGNED_URL_SECONDS = 60;
 
 export const nextStatus = (current: OrderStatus): OrderStatus | null => FLOW[FLOW.indexOf(current) + 1] ?? null;
 
-export const orderProfit = (o: Pick<Order, 'pricePkr' | 'deliveryFeePkr' | 'costPkr'>) =>
-  o.pricePkr + o.deliveryFeePkr - o.costPkr;
+export const orderProfit = (o: Pick<Order, 'priceKes' | 'deliveryFeeKes' | 'costKes'>) =>
+  o.priceKes + o.deliveryFeeKes - o.costKes;
 
 /** Approve or reject a design that is waiting for review. Approval is only valid for the layers that were checked. */
 export async function decideDesign(

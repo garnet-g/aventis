@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { filterOrders, ORDER_STATUSES, orderProfit, type OrderListRow } from '@/lib/admin';
 import { requireAdmin } from '@/lib/auth';
-import { ORDER_STATUS_LABEL, pkr } from '@/lib/labels';
+import { ORDER_STATUS_LABEL, kes } from '@/lib/labels';
 import { toOrder, type OrderRow } from '@/lib/ordersStore';
 import { getServiceClient } from '@/lib/supabase/server';
 
@@ -92,7 +92,7 @@ async function Orders({ searchParams }: { searchParams: SearchParams }) {
                     <span className="text-mute">{order.delivery.phone}</span>
                   </td>
                   <td className="p-2">{ORDER_STATUS_LABEL[order.status]}</td>
-                  <td className="p-2">{pkr(orderProfit(order))}</td>
+                  <td className="p-2">{kes(orderProfit(order))}</td>
                   <td className="p-2">
                     {order.artifactsFailed || !order.designFilePath ? (
                       <span className="font-semibold text-vermilion">Missing</span>

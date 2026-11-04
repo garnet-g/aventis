@@ -66,7 +66,7 @@ test('an admin posts a design; it stays hidden until published; a customer order
     await page.waitForURL('**/cart');
     await expect(page.getByTestId('cart-line')).toHaveCount(1);
     await expect(page.getByTestId('cart-line').getByTestId('quantity')).toHaveText('2');
-    await expect(page.getByTestId('cart-total')).toHaveText('PKR 3,250'); // 2 x 1,500 + 250 delivery
+    await expect(page.getByTestId('cart-total')).toHaveText('KES 3,250'); // 2 x 1,500 + 250 delivery
 
     await goToCheckout(page);
     await fillDeliveryAndPay(page);

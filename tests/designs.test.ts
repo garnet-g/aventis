@@ -152,7 +152,7 @@ describe('saveDesign', () => {
   test('saving changed layers on an approved design resets status to draft', async () => {
     const d = await saveDesign(store, 'alice', { ...base, layers: [text('Ali')] });
     await submitDesign(store, new StubImageSafetyProvider(0), d.id, 'alice');
-    const saved = await saveDesign(store, 'alice', { ...base, layers: [text('Ali Khan')] }, d.id);
+    const saved = await saveDesign(store, 'alice', { ...base, layers: [text('Wanjiku Mwangi')] }, d.id);
     expect(saved.status).toBe('draft');
   });
 

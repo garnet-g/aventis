@@ -5,7 +5,7 @@ import { CatalogueOrder } from '@/components/CatalogueOrder';
 import { SiteHeader } from '@/components/SiteHeader';
 import { catalog } from '@/lib/catalog';
 import { cataloguePictureUrl, supabaseCatalogueStore } from '@/lib/catalogueStore';
-import { pkr } from '@/lib/labels';
+import { kes } from '@/lib/labels';
 import { supabasePriceStore } from '@/lib/pricesStore';
 
 export default function CatalogueItemPage({ params }: { params: Promise<{ id: string }> }) {
@@ -32,7 +32,7 @@ async function Item({ params }: { params: Promise<{ id: string }> }) {
   const item = /^[0-9a-f-]{36}$/i.test(id) ? await supabaseCatalogueStore().get(id) : null;
   if (!item || !item.published) notFound();
   const prices = await supabasePriceStore().get();
-  const price = prices[item.product].pricePkr + (item.backLayers.length ? prices.backPricePkr : 0);
+  const price = prices[item.product].priceKes + (item.backLayers.length ? prices.backPriceKes : 0);
   const previews = Object.fromEntries(Object.entries(item.mockups).map(([k, path]) => [k, cataloguePictureUrl(path)]));
 
   return (
@@ -46,10 +46,10 @@ async function Item({ params }: { params: Promise<{ id: string }> }) {
         <p className="eyebrow">{catalog[item.product].label}</p>
         <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">{item.title}</h1>
         {item.description && <p className="mt-3 text-lg text-mute">{item.description}</p>}
-        <p className="mt-3 font-display text-3xl font-extrabold">{pkr(price)}</p>
+        <p className="mt-3 font-display text-3xl font-extrabold">{kes(price)}</p>
         {item.backLayers.length > 0 && <p className="text-sm text-mute">Printed on the {item.layers.length ? 'front and back' : 'back'}.</p>}
       </div>
-      <CatalogueOrder itemId={item.id} colors={item.colors} previews={previews} unitPriceLabel={pkr(price)} />
+      <CatalogueOrder itemId={item.id} colors={item.colors} previews={previews} unitPriceLabel={kes(price)} />
     </main>
   );
 }

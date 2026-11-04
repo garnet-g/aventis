@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import type { PGlite } from '@electric-sql/pglite';
-import { BACK_PRINT_COST_PKR, BACK_PRINT_PRICE_PKR, catalog, DELIVERY_FEE_PKR } from '@/lib/catalog';
+import { BACK_PRINT_COST_KES, BACK_PRINT_PRICE_KES, catalog, DELIVERY_FEE_KES } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
 import { saveDesign, submitDesign } from '@/lib/designs';
 import { StubImageSafetyProvider } from '@/lib/moderation/image';
@@ -12,7 +12,7 @@ import { MemoryCartStore } from './helpers/memoryCart';
 import { MemoryDesignStore } from './helpers/memoryStore';
 import { pgOrderStore } from './helpers/pgOrderStore';
 
-const delivery = { name: 'Ali Khan', phone: '03001234567', city: 'Lahore', province: 'Punjab', address: 'House 1, Street 2, Gulberg' };
+const delivery = { name: 'Wanjiku Mwangi', phone: '0712345678', city: 'Nairobi', county: 'Nairobi', address: 'Apt 4, Ngong Road, Kilimani' };
 const text = (t: string): DesignLayer => ({
   kind: 'text', text: t, font: 'sans', fill: '#111111', direction: 'ltr', fontSize: 0.12, rect: { x: 0.1, y: 0.1, width: 0.5, height: 0.2 }, rotation: 0,
 });
@@ -20,8 +20,8 @@ const text = (t: string): DesignLayer => ({
 class SpyProvider implements PaymentProvider {
   name = 'spy';
   isTestMode = true;
-  charges: { amountPkr: number; reference: string }[] = [];
-  async charge(args: { amountPkr: number; reference: string }) {
+  charges: { amountKes: number; reference: string }[] = [];
+  async charge(args: { amountKes: number; reference: string }) {
     this.charges.push(args);
     return { ok: true as const, paymentRef: `TEST-${args.reference}` };
   }
@@ -141,22 +141,22 @@ describe('money', () => {
     const provider = new SpyProvider();
     await checkout(alice, [{ id: tee.id }], { provider });
     expect(provider.charges).toHaveLength(1);
-    expect(provider.charges[0].amountPkr).toBe(catalog.tee.pricePkr + DELIVERY_FEE_PKR);
+    expect(provider.charges[0].amountKes).toBe(catalog.tee.priceKes + DELIVERY_FEE_KES);
   });
 
   test('quantity multiplies the price and the cost', async () => {
     const d = await makeDesign(alice, 'Ali');
     const provider = new SpyProvider();
     const { orders } = await checkout(alice, [{ id: d.id, quantity: 3 }], { provider });
-    expect(orders[0]).toMatchObject({ quantity: 3, pricePkr: 3 * catalog.tee.pricePkr, costPkr: 3 * catalog.tee.costPkr });
-    expect(provider.charges[0].amountPkr).toBe(3 * catalog.tee.pricePkr + DELIVERY_FEE_PKR);
+    expect(orders[0]).toMatchObject({ quantity: 3, priceKes: 3 * catalog.tee.priceKes, costKes: 3 * catalog.tee.costKes });
+    expect(provider.charges[0].amountKes).toBe(3 * catalog.tee.priceKes + DELIVERY_FEE_KES);
   });
 
   test('a back print adds its extra price and cost for every unit', async () => {
     const d = await makeDesign(alice, 'Ali', 'tee', { back: 'Back' });
     const { orders } = await checkout(alice, [{ id: d.id, quantity: 2 }]);
-    expect(orders[0].pricePkr).toBe(2 * (catalog.tee.pricePkr + BACK_PRINT_PRICE_PKR));
-    expect(orders[0].costPkr).toBe(2 * (catalog.tee.costPkr + BACK_PRINT_COST_PKR));
+    expect(orders[0].priceKes).toBe(2 * (catalog.tee.priceKes + BACK_PRINT_PRICE_KES));
+    expect(orders[0].costKes).toBe(2 * (catalog.tee.costKes + BACK_PRINT_COST_KES));
   });
 
   test('several designs are one payment with one delivery fee, and one order each', async () => {
@@ -166,11 +166,11 @@ describe('money', () => {
     const { orders } = await checkout(alice, [{ id: tee.id }, { id: hoodie.id, quantity: 2 }], { provider });
     expect(orders).toHaveLength(2);
     expect(provider.charges).toHaveLength(1);
-    const expected = catalog.tee.pricePkr + 2 * catalog.hoodie.pricePkr + DELIVERY_FEE_PKR;
-    expect(provider.charges[0].amountPkr).toBe(expected);
+    const expected = catalog.tee.priceKes + 2 * catalog.hoodie.priceKes + DELIVERY_FEE_KES;
+    expect(provider.charges[0].amountKes).toBe(expected);
     // the delivery fee sits on the first order only, so the orders add up to exactly what was charged
-    expect(orders.map((o) => o.deliveryFeePkr)).toEqual([DELIVERY_FEE_PKR, 0]);
-    expect(orders.reduce((sum, o) => sum + o.pricePkr + o.deliveryFeePkr, 0)).toBe(expected);
+    expect(orders.map((o) => o.deliveryFeeKes)).toEqual([DELIVERY_FEE_KES, 0]);
+    expect(orders.reduce((sum, o) => sum + o.priceKes + o.deliveryFeeKes, 0)).toBe(expected);
   });
 });
 
@@ -217,10 +217,10 @@ describe('paying safely', () => {
     expect(provider.charges).toHaveLength(0);
   });
 
-  test('a +92 number with spaces is accepted and stored without them', async () => {
+  test('a +254 number with spaces is accepted and stored without them', async () => {
     const d = await makeDesign(alice, 'Ali');
-    const { orders } = await checkout(alice, [{ id: d.id }], { delivery: { ...delivery, phone: '+92 300 1234567' } });
-    expect(orders[0].delivery.phone).toBe('+923001234567');
+    const { orders } = await checkout(alice, [{ id: d.id }], { delivery: { ...delivery, phone: '+254 712 345678' } });
+    expect(orders[0].delivery.phone).toBe('+254712345678');
   });
 
   test('two simultaneous checkouts of the same cart create exactly one set of orders', async () => {
@@ -291,7 +291,7 @@ describe('artifacts at payment', () => {
 });
 
 describe('prices set by the owner', () => {
-  const custom = { tee: { pricePkr: 1800, costPkr: 900 }, hoodie: { pricePkr: 2600, costPkr: 1400 }, backPricePkr: 700, backCostPkr: 450, deliveryFeePkr: 300 };
+  const custom = { tee: { priceKes: 1800, costKes: 900 }, hoodie: { priceKes: 2600, costKes: 1400 }, backPriceKes: 700, backCostKes: 450, deliveryFeeKes: 300 };
   const priceStore = (prices = custom) => ({ get: async () => prices, set: async () => undefined });
 
   test('the customer is charged the saved prices and the order records them', async () => {
@@ -304,8 +304,8 @@ describe('prices set by the owner', () => {
       { userId: alice, delivery },
     );
     expect(created).toBe(true);
-    expect(provider.charges[0].amountPkr).toBe((1800 + 700) * 2 + 300);
-    expect(orders[0]).toMatchObject({ pricePkr: 5000, costPkr: (900 + 450) * 2, deliveryFeePkr: 300 });
+    expect(provider.charges[0].amountKes).toBe((1800 + 700) * 2 + 300);
+    expect(orders[0]).toMatchObject({ priceKes: 5000, costKes: (900 + 450) * 2, deliveryFeeKes: 300 });
   });
 
   test('paying the same cart again is not a new purchase (so no second alert)', async () => {

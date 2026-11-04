@@ -54,7 +54,7 @@ describe('admin route guard', () => {
 });
 
 // ---- admin logic against real designs/orders ----
-const delivery = { name: 'Ali Khan', phone: '03001234567', city: 'Lahore', province: 'Punjab', address: 'House 1, Street 2, Gulberg' };
+const delivery = { name: 'Wanjiku Mwangi', phone: '0712345678', city: 'Nairobi', county: 'Nairobi', address: 'Apt 4, Ngong Road, Kilimani' };
 const text = (t: string): DesignLayer => ({
   kind: 'text', text: t, font: 'sans', fill: '#111111', direction: 'ltr', fontSize: 0.12,
   rect: { x: 0.1, y: 0.1, width: 0.5, height: 0.2 }, rotation: 0,
@@ -157,7 +157,7 @@ describe('order status', () => {
 describe('money and downloads', () => {
   test('profit equals price plus delivery fee minus cost', async () => {
     const o = await paidOrder();
-    expect(orderProfit(o)).toBe(o.pricePkr + o.deliveryFeePkr - o.costPkr);
+    expect(orderProfit(o)).toBe(o.priceKes + o.deliveryFeeKes - o.costKes);
     expect(orderProfit(o)).toBe(1500 + 250 - 800);
   });
 

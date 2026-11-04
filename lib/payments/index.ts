@@ -6,7 +6,7 @@ export interface PaymentProvider {
   isTestMode: boolean;
   /** `reference` is stable per design and MUST be used as the provider's idempotency key, so a retry never charges twice. */
   charge(args: {
-    amountPkr: number;
+    amountKes: number;
     reference: string;
   }): Promise<{ ok: true; paymentRef: string } | { ok: false; reason: string }>;
 }

@@ -8,7 +8,7 @@ import { loadCart } from '@/lib/cart';
 import { supabasePriceStore } from '@/lib/pricesStore';
 import { supabaseCartStore } from '@/lib/cartStore';
 import { supabaseDesignStore } from '@/lib/designsStore';
-import { pkr } from '@/lib/labels';
+import { kes } from '@/lib/labels';
 import { getPaymentProvider } from '@/lib/payments';
 
 export default function CheckoutPage() {
@@ -55,7 +55,7 @@ async function Checkout() {
                   {l.design.backLayers.length > 0 ? 'front and back' : 'front'}
                 </span>
               </span>
-              <span>{pkr(l.pricePkr)}</span>
+              <span>{kes(l.priceKes)}</span>
             </li>
           ))}
         </ul>
@@ -65,16 +65,16 @@ async function Checkout() {
         )}
         <div className="flex justify-between py-0.5 text-sm">
           <span>Delivery</span>
-          <span>{pkr(cart.deliveryFeePkr)}</span>
+          <span>{kes(cart.deliveryFeeKes)}</span>
         </div>
         <div className="mt-1 flex items-baseline justify-between">
           <span className="font-bold">Total</span>
-          <span className="font-display text-2xl font-extrabold">{pkr(cart.totalPkr)}</span>
+          <span className="font-display text-2xl font-extrabold">{kes(cart.totalKes)}</span>
         </div>
       </section>
 
       <div className="lg:order-1">
-        <CheckoutForm totalPkr={cart.totalPkr} testMode={provider.isTestMode} />
+        <CheckoutForm totalKes={cart.totalKes} testMode={provider.isTestMode} />
       </div>
       </div>
     </main>

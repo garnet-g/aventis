@@ -22,7 +22,7 @@ const instrument = Instrument_Sans({
 
 export const metadata: Metadata = {
   title: { default: "VybeCrew", template: "%s | VybeCrew" },
-  description: "Shop VybeCrew drops or put your own name or art on a shirt or hoodie. We print it and deliver it.",
+  description: "Shop VybeCrew drops or design your own shirt or hoodie. We print it and deliver it.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

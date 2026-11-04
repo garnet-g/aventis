@@ -4,7 +4,7 @@ import type { PaymentProvider } from './index';
 export class DummyProvider implements PaymentProvider {
   name = 'dummy';
   isTestMode = true;
-  async charge({ reference }: { amountPkr: number; reference: string }) {
+  async charge({ reference }: { amountKes: number; reference: string }) {
     return { ok: true as const, paymentRef: `TEST-${reference}` };
   }
 }

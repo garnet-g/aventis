@@ -8,7 +8,7 @@ import { loadCart } from '@/lib/cart';
 import { supabasePriceStore } from '@/lib/pricesStore';
 import { supabaseCartStore } from '@/lib/cartStore';
 import { supabaseDesignStore } from '@/lib/designsStore';
-import { pkr } from '@/lib/labels';
+import { kes } from '@/lib/labels';
 
 export default function CartPage() {
   return (
@@ -51,13 +51,13 @@ async function Cart() {
                       {l.design.color === 'white' ? 'White' : 'Black'} &middot; Size {l.design.size}
                       {l.design.backLayers.length > 0 ? ' · front and back' : ''}
                     </p>
-                    <p className="text-sm">{pkr(l.unitPricePkr)} each</p>
+                    <p className="text-sm">{kes(l.unitPriceKes)} each</p>
                     {l.problem && <p className="badge badge-gold mt-2">{l.problem}</p>}
                   </div>
                 </div>
                 <div className="mt-3 flex items-end justify-between gap-2">
                   <CartItemControls designId={l.designId} quantity={l.quantity} />
-                  <b className="font-display text-xl">{pkr(l.pricePkr)}</b>
+                  <b className="font-display text-xl">{kes(l.priceKes)}</b>
                 </div>
               </li>
             ))}
@@ -67,16 +67,16 @@ async function Cart() {
           <section className="ticket text-sm">
             <div className="flex justify-between py-0.5">
               <span>Items</span>
-              <span>{pkr(cart.subtotalPkr)}</span>
+              <span>{kes(cart.subtotalKes)}</span>
             </div>
             <div className="flex justify-between py-0.5">
               <span>Delivery</span>
-              <span>{pkr(cart.deliveryFeePkr)}</span>
+              <span>{kes(cart.deliveryFeeKes)}</span>
             </div>
             <div className="mt-1 flex items-baseline justify-between">
               <span className="font-bold">Total</span>
               <span data-testid="cart-total" className="font-display text-2xl font-extrabold">
-                {pkr(cart.totalPkr)}
+                {kes(cart.totalKes)}
               </span>
             </div>
           </section>

@@ -10,14 +10,14 @@ const toOrder = (r: Row): Order => ({
   userId: r.user_id as string,
   status: r.status as Order['status'],
   quantity: r.quantity as number,
-  costPkr: r.cost_pkr as number,
-  pricePkr: r.price_pkr as number,
-  deliveryFeePkr: r.delivery_fee_pkr as number,
+  costKes: r.cost_kes as number,
+  priceKes: r.price_kes as number,
+  deliveryFeeKes: r.delivery_fee_kes as number,
   delivery: {
     name: r.name as string,
     phone: r.phone as string,
     city: r.city as string,
-    province: r.province as Order['delivery']['province'],
+    county: r.county as Order['delivery']['county'],
     address: r.address as string,
   },
   paymentRef: r.payment_ref as string,
@@ -54,13 +54,13 @@ export function pgOrderStore(db: PGlite): OrderStore {
     },
     async createCheckout(c: NewCheckout) {
       try {
-        const items = c.items.map((i) => ({ design_id: i.designId, quantity: i.quantity, price_pkr: i.pricePkr, cost_pkr: i.costPkr }));
+        const items = c.items.map((i) => ({ design_id: i.designId, quantity: i.quantity, price_kes: i.priceKes, cost_kes: i.costKes }));
         const r = await db.query<Row>('select * from create_checkout($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)', [
           c.userId,
           c.reference,
           c.paymentRef,
-          c.totalPkr,
-          c.deliveryFeePkr,
+          c.totalKes,
+          c.deliveryFeeKes,
           JSON.stringify(c.delivery),
           JSON.stringify(items),
         ]);

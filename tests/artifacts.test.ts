@@ -89,7 +89,7 @@ describe('renderDesignPng', () => {
   });
 
   test('Latin text layer produces glyph pixels', async () => {
-    const png = await renderDesignPng(item, [textLayer('Ali Khan')], loader);
+    const png = await renderDesignPng(item, [textLayer('Wanjiku Mwangi')], loader);
     expect((await opaquePixels(png)).count).toBeGreaterThan(2000);
   });
 
@@ -125,18 +125,18 @@ const styled = (text: string, font: string, fill = '#000000', direction: 'ltr' |
 describe('text styling is what gets printed', () => {
   test.each(Object.keys(FONTS) as FontKey[])('the %s font renders real glyphs', async (key) => {
     const urdu = FONTS[key].script === 'urdu';
-    const png = await renderDesignPng(item, [styled(urdu ? 'علی احمد' : 'Ali Khan', key, '#000000', urdu ? 'rtl' : 'ltr')], loader);
+    const png = await renderDesignPng(item, [styled(urdu ? 'علی احمد' : 'Wanjiku Mwangi', key, '#000000', urdu ? 'rtl' : 'ltr')], loader);
     expect((await ink(png)).n, key).toBeGreaterThan(1500);
   });
 
   test('a different font changes the printed shape (condensed jersey vs flowing script)', async () => {
-    const jersey = await ink(await renderDesignPng(item, [styled('Ali Khan', 'jersey')], loader));
-    const script = await ink(await renderDesignPng(item, [styled('Ali Khan', 'script')], loader));
+    const jersey = await ink(await renderDesignPng(item, [styled('Wanjiku Mwangi', 'jersey')], loader));
+    const script = await ink(await renderDesignPng(item, [styled('Wanjiku Mwangi', 'script')], loader));
     expect(Math.abs(jersey.width - script.width) / Math.max(jersey.width, script.width)).toBeGreaterThan(0.1);
   });
 
   test('the chosen text color is the color printed', async () => {
-    const png = await renderDesignPng(item, [styled('Ali Khan', 'display', '#e5412a')], loader);
+    const png = await renderDesignPng(item, [styled('Wanjiku Mwangi', 'display', '#e5412a')], loader);
     const c = await ink(png);
     expect(c.r).toBeGreaterThan(200);
     expect(c.g).toBeLessThan(110);
@@ -144,7 +144,7 @@ describe('text styling is what gets printed', () => {
   });
 
   test('an unknown or mismatched font falls back to one that fits instead of failing', async () => {
-    const odd = await renderDesignPng(item, [styled('Ali Khan', 'Comic Papyrus')], loader);
+    const odd = await renderDesignPng(item, [styled('Wanjiku Mwangi', 'Comic Papyrus')], loader);
     expect((await ink(odd)).n).toBeGreaterThan(1500);
     const urduInLatinFont = await renderDesignPng(item, [styled('علی احمد', 'script', '#000000', 'rtl')], loader);
     expect((await ink(urduInLatinFont)).n).toBeGreaterThan(1500);
@@ -172,7 +172,7 @@ describe('renderTextOverlay stays bounded', () => {
   }, 30_000);
 
   test('normal text keeps its requested size', async () => {
-    const meta = await sharp(await renderTextOverlay(layer('Ali Khan', 0.12), W, H)).metadata();
+    const meta = await sharp(await renderTextOverlay(layer('Wanjiku Mwangi', 0.12), W, H)).metadata();
     // The overlay is ink-tight: ascender text such as "Ali Khan" is about 0.75 of the font size tall.
     expect(meta.height!).toBeGreaterThanOrEqual(Math.round(0.12 * W * 0.7));
     expect(meta.height!).toBeLessThanOrEqual(Math.round(0.12 * W * 2.5));

@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       },
       { userId: user.id, delivery },
     );
-    if (created) await alertAdmins(orders.length, orders.reduce((sum, o) => sum + o.pricePkr + o.deliveryFeePkr, 0));
+    if (created) await alertAdmins(orders.length, orders.reduce((sum, o) => sum + o.priceKes + o.deliveryFeeKes, 0));
     return NextResponse.json({ orderIds: orders.map((o) => o.id) });
   } catch (e) {
     return errorResponse(e);
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 }
 
 /** Emails the admins about a new paid checkout. A failed alert never affects the customer's payment. */
-async function alertAdmins(orderCount: number, totalPkr: number) {
+async function alertAdmins(orderCount: number, totalKes: number) {
   try {
     const db = getServiceClient();
     const to = await adminAlertRecipients(process.env.ADMIN_ALERT_EMAILS, async () => {
@@ -44,7 +44,7 @@ async function alertAdmins(orderCount: number, totalPkr: number) {
       const emails = await Promise.all((data ?? []).map(async (p) => (await db.auth.admin.getUserById(p.id as string)).data.user?.email ?? null));
       return emails.filter((e): e is string => Boolean(e));
     });
-    if (to.length) await notifyNewOrder(getEmailSender(), getSiteUrl(), { to, orderCount, totalPkr });
+    if (to.length) await notifyNewOrder(getEmailSender(), getSiteUrl(), { to, orderCount, totalKes });
   } catch (e) {
     console.error('could not alert the admins about a new order', e);
   }

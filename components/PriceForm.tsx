@@ -9,25 +9,25 @@ const FIELDS: { group: string; fields: Field[] }[] = [
   {
     group: 'T-shirt',
     fields: [
-      { id: 'tee-price', label: 'Customer pays', get: (p) => p.tee.pricePkr, set: (p, n) => ({ ...p, tee: { ...p.tee, pricePkr: n } }) },
-      { id: 'tee-cost', label: 'Printer charges', get: (p) => p.tee.costPkr, set: (p, n) => ({ ...p, tee: { ...p.tee, costPkr: n } }) },
+      { id: 'tee-price', label: 'Customer pays', get: (p) => p.tee.priceKes, set: (p, n) => ({ ...p, tee: { ...p.tee, priceKes: n } }) },
+      { id: 'tee-cost', label: 'Printer charges', get: (p) => p.tee.costKes, set: (p, n) => ({ ...p, tee: { ...p.tee, costKes: n } }) },
     ],
   },
   {
     group: 'Hoodie',
     fields: [
-      { id: 'hoodie-price', label: 'Customer pays', get: (p) => p.hoodie.pricePkr, set: (p, n) => ({ ...p, hoodie: { ...p.hoodie, pricePkr: n } }) },
-      { id: 'hoodie-cost', label: 'Printer charges', get: (p) => p.hoodie.costPkr, set: (p, n) => ({ ...p, hoodie: { ...p.hoodie, costPkr: n } }) },
+      { id: 'hoodie-price', label: 'Customer pays', get: (p) => p.hoodie.priceKes, set: (p, n) => ({ ...p, hoodie: { ...p.hoodie, priceKes: n } }) },
+      { id: 'hoodie-cost', label: 'Printer charges', get: (p) => p.hoodie.costKes, set: (p, n) => ({ ...p, hoodie: { ...p.hoodie, costKes: n } }) },
     ],
   },
   {
     group: 'Printing the back too',
     fields: [
-      { id: 'back-price', label: 'Customer pays extra', get: (p) => p.backPricePkr, set: (p, n) => ({ ...p, backPricePkr: n }) },
-      { id: 'back-cost', label: 'Printer charges extra', get: (p) => p.backCostPkr, set: (p, n) => ({ ...p, backCostPkr: n }) },
+      { id: 'back-price', label: 'Customer pays extra', get: (p) => p.backPriceKes, set: (p, n) => ({ ...p, backPriceKes: n }) },
+      { id: 'back-cost', label: 'Printer charges extra', get: (p) => p.backCostKes, set: (p, n) => ({ ...p, backCostKes: n }) },
     ],
   },
-  { group: 'Delivery', fields: [{ id: 'delivery', label: 'Fee per checkout', get: (p) => p.deliveryFeePkr, set: (p, n) => ({ ...p, deliveryFeePkr: n }) }] },
+  { group: 'Delivery', fields: [{ id: 'delivery', label: 'Fee per checkout', get: (p) => p.deliveryFeeKes, set: (p, n) => ({ ...p, deliveryFeeKes: n }) }] },
 ];
 
 /** The prices form. Values are kept as text while typing so a half-typed number is never rewritten. */
@@ -66,7 +66,7 @@ export function PriceForm({ initial }: { initial: Prices }) {
             <label key={f.id} className="flex items-center justify-between gap-3">
               {f.label}
               <span className="flex items-center gap-1">
-                PKR
+                KES
                 <input
                   name={f.id}
                   inputMode="numeric"

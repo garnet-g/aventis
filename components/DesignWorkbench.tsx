@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { BACK_PRINT_PRICE_PKR, catalog, COLORS, SIZES, type Color, type ProductId, type Side, type Size } from '@/lib/catalog';
-import { pkr } from '@/lib/labels';
+import { BACK_PRINT_PRICE_KES, catalog, COLORS, SIZES, type Color, type ProductId, type Side, type Size } from '@/lib/catalog';
+import { kes } from '@/lib/labels';
 import type { DesignLayer } from '@/lib/designLayers';
 import { Editor, MAX_TEXT_SIZE, MIN_TEXT_SIZE, type EditorHandle, type HistoryState, type Selection } from '@/components/Editor';
 import { CropDialog } from '@/components/CropDialog';
@@ -27,7 +27,7 @@ type Props = {
   uploadProgress?: number | null;
   showLayersJson?: boolean;
   /** What printing the back adds, shown on the Back tab. */
-  backPricePkr?: number;
+  backPriceKes?: number;
   children?: ReactNode;
 };
 
@@ -46,7 +46,7 @@ const TEXT_COLORS = [
   { name: 'Purple', hex: '#7c3aed' },
 ] as const;
 
-export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChange, uploadProgress = null, showLayersJson, backPricePkr = BACK_PRINT_PRICE_PKR, children }: Props) {
+export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChange, uploadProgress = null, showLayersJson, backPriceKes = BACK_PRINT_PRICE_KES, children }: Props) {
   const editor = useRef<EditorHandle>(null);
   const [state, setState] = useState<WorkbenchState>(
     initial
@@ -174,7 +174,7 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
               className={`flex-1 py-2.5 text-sm font-bold ${side === s ? 'bg-ink text-paper' : ''}`}
             >
               {s === 'front' ? 'Front' : 'Back'} ({count})
-              {s === 'back' && count > 0 && <span className="ml-1 text-[0.7rem] font-semibold opacity-80">· +{pkr(backPricePkr)}</span>}
+              {s === 'back' && count > 0 && <span className="ml-1 text-[0.7rem] font-semibold opacity-80">· +{kes(backPriceKes)}</span>}
             </button>
           );
         })}
@@ -383,7 +383,7 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
             disabled={!ready}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Your name or text"
+            placeholder="Add your text"
             className="field min-w-0 flex-1"
           />
           <button disabled={!ready} className="btn btn-ink btn-sm" onClick={addText}>

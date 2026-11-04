@@ -81,12 +81,12 @@ export async function addName(page: Page, name: string) {
 }
 
 export async function fillDeliveryAndPay(page: Page) {
-  await page.getByPlaceholder('Full name').fill('Ali Khan');
-  await page.getByPlaceholder(/Mobile/).fill('03001234567');
-  await page.getByPlaceholder('City').fill('Lahore');
-  await page.locator('select[name=province]').selectOption('Punjab');
-  await page.getByPlaceholder('Full address').fill('House 1, Street 2, Gulberg');
-  await page.getByRole('button', { name: /^Pay PKR/ }).click();
+  await page.getByPlaceholder('Full name').fill('Wanjiku Mwangi');
+  await page.getByPlaceholder(/Mobile/).fill('0712345678');
+  await page.getByPlaceholder('City').fill('Nairobi');
+  await page.locator('select[name=county]').selectOption('Nairobi');
+  await page.getByPlaceholder('Full address').fill('Apt 4, Ngong Road, Kilimani');
+  await page.getByRole('button', { name: /^Pay KES/ }).click();
 }
 
 /** From the cart (where an approved design lands) to the checkout page. */

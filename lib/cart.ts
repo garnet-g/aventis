@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { HttpError } from '@/lib/errors';
 import { layersHash, type Design, type DesignStore } from '@/lib/designs';
 import { DEFAULT_PRICES, type Prices } from '@/lib/prices';
-import { checkoutTotals, lineTotals, MAX_QUANTITY, unitPricePkr } from '@/lib/pricing';
+import { checkoutTotals, lineTotals, MAX_QUANTITY, unitPriceKes } from '@/lib/pricing';
 
 export type CartItem = { designId: string; quantity: number };
 
@@ -48,9 +48,9 @@ export type CartLineView = {
   designId: string;
   design: Design;
   quantity: number;
-  unitPricePkr: number;
-  pricePkr: number;
-  costPkr: number;
+  unitPriceKes: number;
+  priceKes: number;
+  costKes: number;
   /** False when this line cannot be paid for yet, with the reason in `problem`. */
   ok: boolean;
   problem?: string;
@@ -75,7 +75,7 @@ export async function loadCart(deps: { designs: DesignStore; cart: CartStore; pr
       designId: design.id,
       design,
       quantity: item.quantity,
-      unitPricePkr: unitPricePkr(design, prices),
+      unitPriceKes: unitPriceKes(design, prices),
       ...lineTotals(design, item.quantity, prices),
       ok: !problem,
       problem,

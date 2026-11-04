@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { DesignWorkbench, type InitialDesign, type WorkbenchState } from '@/components/DesignWorkbench';
 import { catalog, type ProductId } from '@/lib/catalog';
 import { postFormWithProgress } from '@/lib/clientUpload';
-import { pkr } from '@/lib/labels';
+import { kes } from '@/lib/labels';
 import type { Prices } from '@/lib/prices';
 
 type Outcome = { status: 'approved' | 'pending_review' | 'rejected'; message: string };
@@ -190,7 +190,7 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
     }
   }
 
-  const total = prices[product].pricePkr + (hasBack ? prices.backPricePkr : 0) + prices.deliveryFeePkr;
+  const total = prices[product].priceKes + (hasBack ? prices.backPriceKes : 0) + prices.deliveryFeeKes;
 
   return (
     <>
@@ -209,7 +209,7 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
 
       <DesignWorkbench
         initial={initial}
-        backPricePkr={prices.backPricePkr}
+        backPriceKes={prices.backPriceKes}
         uploadFile={uploadFile}
         onChange={(s) => {
           state.current = s;
@@ -240,7 +240,7 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
         <div className="shell flex items-center justify-between gap-3 pb-4 pt-3">
           <div>
             <small className="block text-[0.7rem] text-[#bdb2a0]">Total with delivery{hasBack ? ', incl. back print' : ''}</small>
-            <b className="font-display text-2xl leading-none">{pkr(total)}</b>
+            <b className="font-display text-2xl leading-none">{kes(total)}</b>
           </div>
           <button data-testid="continue" disabled={busy || uploading} onClick={onContinue} className="btn btn-dock btn-sm sm:min-w-56">
             {busy ? 'Working…' : uploading ? 'Uploading…' : 'Add to cart'}

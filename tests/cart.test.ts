@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'vitest';
-import { BACK_PRINT_PRICE_PKR, catalog, DELIVERY_FEE_PKR } from '@/lib/catalog';
+import { BACK_PRINT_PRICE_KES, catalog, DELIVERY_FEE_KES } from '@/lib/catalog';
 import { addToCart, cartFingerprint, loadCart, parseQuantity, removeFromCart, setCartQuantity } from '@/lib/cart';
 import type { DesignLayer } from '@/lib/designLayers';
 import { saveDesign, submitDesign } from '@/lib/designs';
@@ -130,10 +130,10 @@ describe('loadCart', () => {
     await setCartQuantity(deps(), 'alice', a.id, 3);
     await setCartQuantity(deps(), 'alice', b.id, 2);
     const view = await loadCart(deps(), 'alice');
-    expect(view.lines.map((l) => l.pricePkr)).toEqual([3 * catalog.tee.pricePkr, 2 * (catalog.hoodie.pricePkr + BACK_PRINT_PRICE_PKR)]);
-    expect(view.subtotalPkr).toBe(3 * catalog.tee.pricePkr + 2 * (catalog.hoodie.pricePkr + BACK_PRINT_PRICE_PKR));
-    expect(view.deliveryFeePkr).toBe(DELIVERY_FEE_PKR);
-    expect(view.totalPkr).toBe(view.subtotalPkr + DELIVERY_FEE_PKR);
+    expect(view.lines.map((l) => l.priceKes)).toEqual([3 * catalog.tee.priceKes, 2 * (catalog.hoodie.priceKes + BACK_PRINT_PRICE_KES)]);
+    expect(view.subtotalKes).toBe(3 * catalog.tee.priceKes + 2 * (catalog.hoodie.priceKes + BACK_PRINT_PRICE_KES));
+    expect(view.deliveryFeeKes).toBe(DELIVERY_FEE_KES);
+    expect(view.totalKes).toBe(view.subtotalKes + DELIVERY_FEE_KES);
     expect(view.canCheckout).toBe(true);
   });
 
@@ -151,7 +151,7 @@ describe('loadCart', () => {
   });
 
   test('an empty cart cannot be checked out and costs nothing', async () => {
-    expect(await loadCart(deps(), 'alice')).toMatchObject({ lines: [], subtotalPkr: 0, deliveryFeePkr: 0, totalPkr: 0, canCheckout: false });
+    expect(await loadCart(deps(), 'alice')).toMatchObject({ lines: [], subtotalKes: 0, deliveryFeeKes: 0, totalKes: 0, canCheckout: false });
   });
 
   test('shows only the signed-in customer’s own cart', async () => {

@@ -222,7 +222,7 @@ describe('a catalogue copy can be paid for like any approved design', () => {
     await db.query(`insert into designs (id, user_id, product, color, size, layers, back_layers, status) values ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,'approved')`, [
       design.id, alice, design.product, design.color, design.size, JSON.stringify(design.layers), JSON.stringify(design.backLayers),
     ]);
-    const delivery = { name: 'Ali Khan', phone: '03001234567', city: 'Lahore', province: 'Punjab', address: 'House 1, Street 2, Gulberg' };
+    const delivery = { name: 'Wanjiku Mwangi', phone: '0712345678', city: 'Nairobi', county: 'Nairobi', address: 'Apt 4, Ngong Road, Kilimani' };
     const { orders } = await placeCheckout({ designs, orders: pgOrderStore(db), cart, provider: new DummyProvider() }, { userId: alice, delivery });
     expect(orders).toHaveLength(1);
     expect(orders[0].quantity).toBe(2);

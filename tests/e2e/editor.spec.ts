@@ -284,11 +284,11 @@ test('undo history is kept separately for each side', async ({ page }) => {
 
 test('the tabs show how much is on each side, and the extra price for printing the back', async ({ page }) => {
   await page.goto('/dev/editor');
-  await expect(page.getByRole('tab', { name: /Back/ })).not.toContainText('PKR');
+  await expect(page.getByRole('tab', { name: /Back/ })).not.toContainText('KES');
   await page.getByRole('tab', { name: /Back/ }).click();
   await addName(page, 'Back one');
   await expect(page.getByRole('tab', { name: /Back/ })).toContainText('(1)');
-  await expect(page.getByRole('tab', { name: /Back/ })).toContainText('+PKR 500');
+  await expect(page.getByRole('tab', { name: /Back/ })).toContainText('+KES 500');
   await expect(page.getByRole('tab', { name: /Front/ })).toContainText('(0)');
 });
 

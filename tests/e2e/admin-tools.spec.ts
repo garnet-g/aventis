@@ -77,31 +77,31 @@ test('prices changed on screen reach the customer; paid orders keep their price;
     // a typo is explained and nothing is saved
     await admin.page.locator('input[name="tee-price"]').fill('12.5');
     await admin.page.getByRole('button', { name: 'Save prices' }).click();
-    await expect(admin.page.locator('form [role="alert"]')).toContainText(/whole rupees/i);
+    await expect(admin.page.locator('form [role="alert"]')).toContainText(/whole shillings/i);
     await admin.page.locator('input[name="tee-price"]').fill('');
     await admin.page.getByRole('button', { name: 'Save prices' }).click();
     await expect(admin.page.locator('form [role="alert"]')).toBeVisible();
     const { data: saved } = await service().from('settings').select('value').eq('key', 'prices').single();
-    expect((saved!.value as { tee: { pricePkr: number } }).tee.pricePkr).toBe(2000);
+    expect((saved!.value as { tee: { priceKes: number } }).tee.priceKes).toBe(2000);
 
     // the customer's cart and the payment use the new prices: 2,000 + 300 delivery
     await signUp(page, email);
     await addName(page, 'New price');
     await page.getByTestId('continue').click();
     await page.waitForURL('**/cart');
-    await expect(page.getByTestId('cart-total')).toHaveText('PKR 2,300');
+    await expect(page.getByTestId('cart-total')).toHaveText('KES 2,300');
     await goToCheckout(page);
     await fillDeliveryAndPay(page);
     await page.waitForURL('**/orders');
-    const { data: order } = await service().from('orders').select('price_pkr, cost_pkr, delivery_fee_pkr').eq('design_id', await designIdFor(email)).single();
-    expect(order).toEqual({ price_pkr: 2000, cost_pkr: 950, delivery_fee_pkr: 300 });
+    const { data: order } = await service().from('orders').select('price_kes, cost_kes, delivery_fee_kes').eq('design_id', await designIdFor(email)).single();
+    expect(order).toEqual({ price_kes: 2000, cost_kes: 950, delivery_fee_kes: 300 });
 
     // the home page shows the new price too
     await page.goto('/');
-    await expect(page.getByText(/T-shirt from PKR 2,000/)).toBeVisible();
+    await expect(page.getByText(/T-shirt from KES 2,000/)).toBeVisible();
 
     // a customer cannot change prices
-    const res = await page.request.put('/api/admin/prices', { data: { tee: { pricePkr: 1, costPkr: 1 } } });
+    const res = await page.request.put('/api/admin/prices', { data: { tee: { priceKes: 1, costKes: 1 } } });
     expect(res.status()).toBe(404);
   } finally {
     await service().from('settings').delete().eq('key', 'prices'); // back to the defaults for the other tests

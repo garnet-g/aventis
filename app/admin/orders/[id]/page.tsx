@@ -6,7 +6,7 @@ import { nextStatus, orderProfit } from '@/lib/admin';
 import { requireAdmin } from '@/lib/auth';
 import { catalog } from '@/lib/catalog';
 import { supabaseDesignStore } from '@/lib/designsStore';
-import { ORDER_STATUS_LABEL, pkr } from '@/lib/labels';
+import { ORDER_STATUS_LABEL, kes } from '@/lib/labels';
 import { supabaseOrderNoteStore } from '@/lib/orderNotesStore';
 import { supabaseOrderStore } from '@/lib/ordersStore';
 
@@ -48,18 +48,18 @@ async function OrderDetail({ params }: { params: Promise<{ id: string }> }) {
           {order.delivery.name} · {order.delivery.phone}
         </p>
         <p>
-          {order.delivery.address}, {order.delivery.city}, {order.delivery.province}
+          {order.delivery.address}, {order.delivery.city}, {order.delivery.county}
         </p>
       </section>
 
       <section className="ticket text-sm">
         <h2 className="mb-1 font-semibold">Money</h2>
         <p>
-          Customer paid: {pkr(order.pricePkr + order.deliveryFeePkr)} (item {pkr(order.pricePkr)} + delivery{' '}
-          {pkr(order.deliveryFeePkr)})
+          Customer paid: {kes(order.priceKes + order.deliveryFeeKes)} (item {kes(order.priceKes)} + delivery{' '}
+          {kes(order.deliveryFeeKes)})
         </p>
-        <p>Print cost: {pkr(order.costPkr)}</p>
-        <p className="font-semibold">Profit: {pkr(orderProfit(order))}</p>
+        <p>Print cost: {kes(order.costKes)}</p>
+        <p className="font-semibold">Profit: {kes(orderProfit(order))}</p>
         <p className="text-mute">Payment ref: {order.paymentRef}</p>
       </section>
 

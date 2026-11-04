@@ -4,7 +4,7 @@ import { SiteHeader } from '@/components/SiteHeader';
 import { catalog, type ProductId } from '@/lib/catalog';
 import { previewKey } from '@/lib/catalogueItems';
 import { cataloguePictureUrl, supabaseCatalogueStore } from '@/lib/catalogueStore';
-import { pkr } from '@/lib/labels';
+import { kes } from '@/lib/labels';
 import { supabasePriceStore } from '@/lib/pricesStore';
 
 export const metadata = { title: 'Catalogue', description: 'Ready-made VybeCrew T-shirt and hoodie designs. Pick one, choose your size and order.' };
@@ -72,7 +72,7 @@ async function Grid({ searchParams }: { searchParams: Promise<{ p?: string }> })
           {items.map((item) => {
             const key = previewKey(item, item.colors[0]);
             const picture = key ? cataloguePictureUrl(item.mockups[key]) : null;
-            const price = prices[item.product].pricePkr + (item.backLayers.length ? prices.backPricePkr : 0);
+            const price = prices[item.product].priceKes + (item.backLayers.length ? prices.backPriceKes : 0);
             return (
               <li key={item.id} data-testid="catalogue-card">
                 <Link href={`/catalogue/${item.id}`} className="group block overflow-hidden rounded-2xl border-2 border-ink bg-white shadow-[5px_5px_0_var(--color-marigold)] transition-transform hover:-translate-y-1">
@@ -88,7 +88,7 @@ async function Grid({ searchParams }: { searchParams: Promise<{ p?: string }> })
                     <p className="font-display text-xl font-extrabold leading-tight">{item.title}</p>
                     <p className="mt-1 flex items-center justify-between text-sm">
                       <span className="text-mute">{catalog[item.product].label}</span>
-                      <b>{pkr(price)}</b>
+                      <b>{kes(price)}</b>
                     </p>
                   </div>
                 </Link>
