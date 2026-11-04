@@ -35,6 +35,7 @@ async function OrderDetail({ params }: { params: Promise<{ id: string }> }) {
       <section className="ticket text-sm">
         <h2 className="mb-1 font-semibold">Item</h2>
         <p>{design ? `${catalog[design.product].label} · ${design.color === 'white' ? 'White' : 'Black'} · size ${design.size}` : '—'}</p>
+        <p className="font-semibold">Quantity: {order.quantity}</p>
         <p className="text-mute">{hasBack ? 'Printed on the front and the back' : 'Printed on the front only'}</p>
       </section>
 

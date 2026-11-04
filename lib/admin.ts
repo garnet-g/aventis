@@ -1,5 +1,5 @@
 import { layersHash, type Design, type DesignStore } from '@/lib/designs';
-import { notifyDecision, type EmailSender } from '@/lib/notify';
+import { notifyDecision, notifyOrderStatus, type EmailSender } from '@/lib/notify';
 import { HttpError, type ArtifactGenerator, type Order, type OrderStatus, type OrderStore } from '@/lib/orders';
 
 const FLOW: OrderStatus[] = ['paid', 'at_printer', 'shipped', 'delivered'];
@@ -47,6 +47,21 @@ export async function advanceOrder(orders: OrderStore, id: string): Promise<Orde
   const updated = await orders.setStatus(id, order.status, next);
   if (!updated) throw new HttpError(409, 'Someone else just changed this order. Reload and try again.');
   return updated;
+}
+
+/** Moves an order one step, then tells the customer when it ships or is delivered. A failed email never undoes the step. */
+export async function advanceAndNotify(
+  deps: { orders: OrderStore; email: EmailSender; emailFor: (userId: string) => Promise<string | null>; siteUrl: string },
+  id: string,
+): Promise<Order> {
+  const order = await advanceOrder(deps.orders, id);
+  try {
+    const to = await deps.emailFor(order.userId);
+    if (to) await notifyOrderStatus(deps.email, deps.siteUrl, { to, status: order.status, orderId: order.id });
+  } catch (e) {
+    console.error('could not email the customer about order', order.id, e);
+  }
+  return order;
 }
 
 /** Re-renders the mockup and design file from the order's snapshot (used when generation failed at payment). */

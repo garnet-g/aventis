@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { pkr } from '@/lib/labels';
 import { PROVINCES } from '@/lib/orders';
 
-export function CheckoutForm({ designId, totalPkr, testMode }: { designId: string; totalPkr: number; testMode: boolean }) {
+export function CheckoutForm({ totalPkr, testMode }: { totalPkr: number; testMode: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -19,7 +19,7 @@ export function CheckoutForm({ designId, totalPkr, testMode }: { designId: strin
     const res = await fetch('/api/pay', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ designId, delivery }),
+      body: JSON.stringify({ delivery }),
     });
     const body = await res.json().catch(() => ({}));
     setBusy(false);

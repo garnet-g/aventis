@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import sharp from 'sharp';
-import { addName, addUpload, adminPage, designIdFor, fillDeliveryAndPay, service, signUp, uniqueEmail } from './helpers';
+import { addName, addUpload, adminPage, designIdFor, fillDeliveryAndPay, goToCheckout, service, signUp, uniqueEmail, userId } from './helpers';
 
 async function expectNoHorizontalScroll(page: Page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -23,7 +23,7 @@ test('customer designs, passes the check, pays in test mode; admin sees the paid
   await page.screenshot({ path: 'test-results/phone-design.png', fullPage: true });
   await page.getByTestId('continue').click();
 
-  await page.waitForURL('**/checkout/**');
+  await goToCheckout(page);
   await expect(page.getByTestId('test-mode-banner')).toBeVisible();
   await expectNoHorizontalScroll(page);
   await page.screenshot({ path: 'test-results/phone-checkout.png', fullPage: true });
@@ -75,10 +75,10 @@ test('an unsure design shows Waiting for review, payment is blocked, then the ad
   await expect(page.getByTestId('design-outcome')).toContainText('Waiting for review');
 
   const designId = await designIdFor(email);
-  await page.goto(`/checkout/${designId}`);
-  await page.waitForURL('**/orders'); // checkout refuses a design that is not approved
-  const blocked = await page.request.post('/api/pay', { data: { designId, delivery: {} } });
-  expect([400, 403]).toContain(blocked.status());
+  const blocked = await page.request.post('/api/cart', { data: { designId } });
+  expect(blocked.status()).toBe(403); // a design that is waiting for review cannot go in the cart
+  await page.goto('/checkout');
+  await page.waitForURL('**/cart'); // an empty cart cannot be checked out
 
   const admin = await adminPage(browser);
   await admin.page.goto('/admin/review');
@@ -89,8 +89,8 @@ test('an unsure design shows Waiting for review, payment is blocked, then the ad
   await admin.context.close();
 
   await page.goto('/orders');
-  await page.getByRole('link', { name: 'Pay now' }).click();
-  await page.waitForURL('**/checkout/**');
+  await page.getByRole('button', { name: 'Pay now' }).click(); // puts it in the cart
+  await goToCheckout(page);
   await fillDeliveryAndPay(page);
   await page.waitForURL('**/orders');
   await expect(page.getByTestId('design-state').first()).toHaveText('Paid');
@@ -104,10 +104,12 @@ test('an explicit design is rejected and cannot be paid; the customer can start 
   await expect(page.getByTestId('design-outcome')).toContainText(/explicit/i);
 
   const designId = await designIdFor(email);
+  const add = await page.request.post('/api/cart', { data: { designId } });
+  expect(add.status()).toBe(403); // a rejected design cannot go in the cart
   const pay = await page.request.post('/api/pay', {
-    data: { designId, delivery: { name: 'Ali Khan', phone: '03001234567', city: 'Lahore', province: 'Punjab', address: 'House 1, Street 2' } },
+    data: { delivery: { name: 'Ali Khan', phone: '03001234567', city: 'Lahore', province: 'Punjab', address: 'House 1, Street 2' } },
   });
-  expect(pay.status()).toBe(403);
+  expect(pay.status()).toBe(400); // and there is nothing to pay for
 
   await page.goto('/orders');
   await page.getByRole('link', { name: 'Start a new design' }).click();
@@ -136,7 +138,7 @@ test('customer uploads and generated files are not publicly readable', async () 
 
 test('customer API calls without a session answer 401, not a redirect or a server error', async ({ playwright }) => {
   const anon = await playwright.request.newContext({ baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3100' });
-  for (const url of ['/api/pay', '/api/designs', '/api/designs/00000000-0000-0000-0000-000000000000/submit', '/api/designs/00000000-0000-0000-0000-000000000000/upload']) {
+  for (const url of ['/api/pay', '/api/cart', '/api/designs', '/api/designs/00000000-0000-0000-0000-000000000000/submit', '/api/designs/00000000-0000-0000-0000-000000000000/upload']) {
     const res = await anon.post(url, { data: {}, maxRedirects: 0 });
     expect(res.status(), url).toBe(401);
   }
@@ -176,8 +178,8 @@ test('a front-and-back design costs more, and the admin gets four files', async 
   await addName(page, 'Back');
   await page.getByTestId('continue').click();
 
-  await page.waitForURL('**/checkout/**');
-  await expect(page.getByText('Back print', { exact: true })).toBeVisible();
+  await goToCheckout(page);
+  await expect(page.getByText(/front and back/i).first()).toBeVisible(); // the back print is part of the line's price
   await expect(page.getByRole('button', { name: /^Pay PKR 2,250/ })).toBeVisible(); // 1,500 + 500 + 250
   await fillDeliveryAndPay(page);
   await page.waitForURL('**/orders');
@@ -240,4 +242,109 @@ test('Save for later keeps the design and goes to My prints', async ({ page }) =
   await page.getByRole('button', { name: 'Save for later' }).click();
   await page.waitForURL('**/orders');
   await expect(page.getByTestId('design-state').first()).toHaveText('Draft');
+});
+
+test('a cart holds several designs with quantities; one payment makes one order for each', async ({ page, browser }) => {
+  const email = uniqueEmail('cart');
+  await signUp(page, email);
+  await addName(page, 'One');
+  await page.getByTestId('continue').click();
+  await page.waitForURL('**/cart');
+  await expect(page.getByTestId('cart-line')).toHaveCount(1);
+
+  await page.getByRole('link', { name: 'Add another design' }).click();
+  await page.waitForURL('**/design');
+  await addName(page, 'Two');
+  await page.getByTestId('continue').click();
+  await page.waitForURL('**/cart');
+  await expect(page.getByTestId('cart-line')).toHaveCount(2);
+
+  const first = page.getByTestId('cart-line').first();
+  await first.getByRole('button', { name: 'Increase quantity' }).click();
+  await expect(first.getByTestId('quantity')).toHaveText('2');
+  await first.getByRole('button', { name: 'Increase quantity' }).click();
+  await expect(first.getByTestId('quantity')).toHaveText('3');
+  // 3 x 1,500 + 1 x 1,500 + 250 delivery, charged once
+  await expect(page.getByTestId('cart-total')).toHaveText('PKR 6,250');
+
+  await page.getByRole('link', { name: /^Checkout/ }).click();
+  await page.waitForURL('**/checkout');
+  await expect(page.getByRole('button', { name: /^Pay PKR 6,250/ })).toBeVisible();
+  await fillDeliveryAndPay(page);
+  await page.waitForURL('**/orders');
+
+  const { data: orders } = await service()
+    .from('orders')
+    .select('id, quantity, price_pkr, delivery_fee_pkr, payment_ref, position, artifacts_failed')
+    .eq('user_id', await userId(email))
+    .order('position');
+  expect(orders!.map((o) => o.quantity)).toEqual([3, 1]);
+  expect(orders!.map((o) => o.price_pkr)).toEqual([4500, 1500]);
+  expect(orders!.map((o) => o.delivery_fee_pkr)).toEqual([250, 0]);
+  expect(new Set(orders!.map((o) => o.payment_ref)).size).toBe(1);
+  expect(orders!.every((o) => !o.artifacts_failed)).toBe(true);
+
+  await page.goto('/cart');
+  await expect(page.getByText('Your cart is empty')).toBeVisible();
+
+  const admin = await adminPage(browser);
+  await admin.page.goto(`/admin/orders/${orders![0].id}`);
+  await expect(admin.page.getByText('Quantity: 3')).toBeVisible(); // the number of pieces to print
+  await admin.context.close();
+});
+
+test('items can be removed, and a quantity must be a whole number from 1 to 50', async ({ page }) => {
+  const email = uniqueEmail('qty');
+  await signUp(page, email);
+  await addName(page, 'Limits');
+  await page.getByTestId('continue').click();
+  await page.waitForURL('**/cart');
+  const designId = await designIdFor(email);
+
+  for (const [quantity, expected] of [[0, 400], [51, 400], [1.5, 400], [50, 200]] as const) {
+    const res = await page.request.put(`/api/cart/${designId}`, { data: { quantity } });
+    expect(res.status(), String(quantity)).toBe(expected);
+  }
+  await page.reload();
+  await expect(page.getByTestId('cart-line').getByTestId('quantity')).toHaveText('50');
+  await expect(page.getByRole('button', { name: 'Increase quantity' })).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Remove' }).click();
+  await expect(page.getByText('Your cart is empty')).toBeVisible();
+});
+
+test('a design edited after it went in the cart must be checked again before it can be paid for', async ({ page }) => {
+  const email = uniqueEmail('edit');
+  await signUp(page, email);
+  await addName(page, 'Edit me');
+  await page.getByTestId('continue').click();
+  await page.waitForURL('**/cart');
+  const designId = await designIdFor(email);
+
+  await page.goto(`/design?d=${designId}`);
+  await expect(page.getByRole('tab', { name: /Front/ })).toContainText('(1)');
+  await addName(page, 'More');
+  // the page already says "Saved" for the loaded design, so wait for the edit itself to reach the database
+  await expect
+    .poll(async () => (await service().from('designs').select('layers').eq('id', designId).single()).data?.layers.length)
+    .toBe(2);
+
+  await page.goto('/cart');
+  await expect(page.getByText(/checked again/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Checkout/ })).toHaveAttribute('aria-disabled', 'true');
+});
+
+test('a resumed design is drawn exactly once (no duplicate layers)', async ({ page }) => {
+  const email = uniqueEmail('dup');
+  await signUp(page, email);
+  await addName(page, 'Only one');
+  await expect(page.getByTestId('save-status')).toContainText('Saved');
+  await page.goto(`/design?d=${await designIdFor(email)}`);
+  await expect(page.getByRole('tab', { name: /Front/ })).toContainText('(1)');
+  await addName(page, 'Second');
+  await expect(page.getByRole('tab', { name: /Front/ })).toContainText('(2)');
+  const id = await designIdFor(email);
+  await expect.poll(async () => (await service().from('designs').select('layers').eq('id', id).single()).data?.layers.length).toBe(2);
+  const { data } = await service().from('designs').select('layers').eq('id', await designIdFor(email)).single();
+  expect((data!.layers as { text: string }[]).map((l) => l.text)).toEqual(['Only one', 'Second']);
 });

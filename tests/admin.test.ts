@@ -3,7 +3,8 @@ import type { PGlite } from '@electric-sql/pglite';
 import type { DesignLayer } from '@/lib/designLayers';
 import { layersHash, saveDesign, submitDesign } from '@/lib/designs';
 import { StubImageSafetyProvider } from '@/lib/moderation/image';
-import { createPaidOrder } from '@/lib/orders';
+import { placeCheckout } from '@/lib/orders';
+import { MemoryCartStore } from './helpers/memoryCart';
 import { DummyProvider } from '@/lib/payments/dummy';
 import { addUser, newDb } from './helpers/db';
 import { MemoryDesignStore } from './helpers/memoryStore';
@@ -25,7 +26,7 @@ import { POST as regeneratePOST } from '../app/api/admin/orders/[id]/regenerate/
 import { POST as statusPOST } from '../app/api/admin/orders/[id]/status/route';
 import { GET as previewGET } from '../app/api/admin/designs/[id]/preview/route';
 import { POST as decisionPOST } from '../app/api/admin/designs/[id]/decision/route';
-import { advanceOrder, artifactPath, decideDesign, nextStatus, orderProfit, regenerateArtifacts, signedDownloadUrl } from '@/lib/admin';
+import { advanceAndNotify, advanceOrder, artifactPath, decideDesign, nextStatus, orderProfit, regenerateArtifacts, signedDownloadUrl } from '@/lib/admin';
 
 const ctx = { params: Promise.resolve({ id: 'x' }) };
 const req = (body?: unknown) => new Request('http://t/x', { method: 'POST', body: JSON.stringify(body ?? {}) });
@@ -63,7 +64,10 @@ async function designWith(content: string) {
 async function paidOrder() {
   const d = await designWith('Ali');
   await db.query(`insert into designs (id, user_id, product, color, size, layers, status) values ($1,$2,'tee','white','M',$3::jsonb,'approved')`, [d.id, alice, JSON.stringify(d.layers)]);
-  return createPaidOrder({ designs, orders: pgOrderStore(db), provider: new DummyProvider() }, { designId: d.id, userId: alice, delivery });
+  const cart = new MemoryCartStore();
+  await cart.add(alice, d.id, 1);
+  const { orders } = await placeCheckout({ designs, orders: pgOrderStore(db), cart, provider: new DummyProvider() }, { userId: alice, delivery });
+  return orders[0];
 }
 
 beforeEach(async () => {
@@ -186,5 +190,56 @@ describe('artifactPath', () => {
 
   test('is null for anything that is not a known file', () => {
     expect(artifactPath(order, '../../etc/passwd' as never)).toBeNull();
+  });
+});
+
+describe('shipping emails', () => {
+  const sent: { to: string; subject: string; text: string }[] = [];
+  const email = { send: async (m: { to: string; subject: string; text: string }) => void sent.push(m) };
+  const siteUrl = 'https://shop.example';
+  const deps = () => ({ orders: pgOrderStore(db), email, emailFor: async () => 'customer@example.com' as string | null, siteUrl });
+
+  beforeEach(() => {
+    sent.length = 0;
+  });
+
+  test('moving an order to at printer sends no email', async () => {
+    const o = await paidOrder();
+    const out = await advanceAndNotify(deps(), o.id);
+    expect(out.status).toBe('at_printer');
+    expect(sent).toHaveLength(0);
+  });
+
+  test('moving an order to shipped emails the customer a link to follow it', async () => {
+    const o = await paidOrder();
+    await advanceAndNotify(deps(), o.id);
+    const out = await advanceAndNotify(deps(), o.id);
+    expect(out.status).toBe('shipped');
+    expect(sent).toHaveLength(1);
+    expect(sent[0].to).toBe('customer@example.com');
+    expect(sent[0].subject).toMatch(/shipped/i);
+    expect(sent[0].text).toContain('https://shop.example/orders');
+  });
+
+  test('delivered also emails the customer', async () => {
+    const o = await paidOrder();
+    for (let i = 0; i < 3; i++) await advanceAndNotify(deps(), o.id);
+    expect(sent.map((m) => m.subject.toLowerCase()).some((s) => s.includes('delivered'))).toBe(true);
+  });
+
+  test('an email failure does not undo the status change', async () => {
+    const o = await paidOrder();
+    await advanceAndNotify(deps(), o.id);
+    const broken = { ...deps(), email: { send: async () => Promise.reject(new Error('smtp down')) } };
+    const out = await advanceAndNotify(broken, o.id);
+    expect(out.status).toBe('shipped');
+    expect((await pgOrderStore(db).findById(o.id))!.status).toBe('shipped');
+  });
+
+  test('a customer with no known email address is skipped without error', async () => {
+    const o = await paidOrder();
+    await advanceAndNotify(deps(), o.id);
+    await expect(advanceAndNotify({ ...deps(), emailFor: async () => null }, o.id)).resolves.toMatchObject({ status: 'shipped' });
+    expect(sent).toHaveLength(0);
   });
 });

@@ -13,7 +13,14 @@ const SIGNED_LINK_SECONDS = 3600;
 export default function DesignPage({ searchParams }: { searchParams: Promise<{ d?: string }> }) {
   return (
     <>
-      <SiteHeader right={<Link href="/orders">My orders</Link>} />
+      <SiteHeader
+        right={
+          <span className="flex gap-4">
+            <Link href="/cart">Cart</Link>
+            <Link href="/orders">My orders</Link>
+          </span>
+        }
+      />
       <Suspense fallback={<p className="p-4 text-sm text-mute">Loading…</p>}>
         <SignedInDesign searchParams={searchParams} />
       </Suspense>

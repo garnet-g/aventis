@@ -11,13 +11,13 @@ Build plan: `docs/superpowers/plans/2026-10-31-custom-apparel-platform.md`
 ## How an order flows
 
 1. The customer opens `/design`, picks item, color and size, uploads an image and/or adds a name. Art can only sit inside the dashed print area.
-2. **Continue to checkout** saves the design and runs the safety check:
-   - clearly fine: straight to `/checkout/<design>`
+2. **Add to cart** saves the design and runs the safety check:
+   - clearly fine: it goes into the cart (`/cart`)
    - unsure: payment is blocked, the customer sees "Waiting for review" (see `/orders`)
    - clearly explicit: rejected with a reason
 3. An admin reviews "unsure" designs at `/admin/review`. Approving emails the customer a payment link; rejecting emails the reason.
-4. The customer pays. The server computes the amount (item price + delivery fee) from `lib/catalog.ts`, records one paid order, and renders the mockup and design file from a **snapshot** of the design.
-5. Admins see the order at `/admin/orders`, download both files (60-second signed links), hand them to the printer, and move the order through **Paid → At printer → Shipped → Delivered**.
+4. The customer pays. The cart holds several designs, each with a quantity of 1 to 50. One payment covers the whole cart: the server computes the amount (prices x quantities, plus one delivery fee) from `lib/catalog.ts` and `lib/pricing.ts`, records one paid order per design, and renders the mockup and design file from a **snapshot** of the design.
+5. Admins see the order at `/admin/orders`, download both files (60-second signed links), hand them to the printer, and move the order through **Paid → At printer → Shipped → Delivered**. The customer is emailed when an order ships and when it is delivered.
 
 ## Run it locally
 
@@ -88,14 +88,14 @@ Treat the text filter as a first line, not a guarantee. Review the queue regular
 
 ## Adding a real payment provider
 
-Implement `PaymentProvider` in `lib/payments/` (see `lib/payments/index.ts`) and add it to `getPaymentProvider()`. The provider **must** treat `reference` (the design id) as an idempotency key, so a retry or a double click can never charge a customer twice. The database already guarantees one order per design. Until a real provider is added, checkout shows a **TEST MODE** banner and no money moves.
+Implement `PaymentProvider` in `lib/payments/` (see `lib/payments/index.ts`) and add it to `getPaymentProvider()`. The provider **must** treat `reference` (a fingerprint of the cart) as an idempotency key, so a retry or a double click can never charge a customer twice. The same cart can only ever be paid once. Until a real provider is added, checkout shows a **TEST MODE** banner and no money moves.
 
 ## Known limits and recommendations
 
 - **Hosting body limit:** serverless hosts such as Vercel cap request bodies (around 4.5 MB), below the app's 10 MB upload limit. Before deploying there, switch uploads to direct-to-storage signed URLs or lower the limit.
 - **Rendering runs inside the web server.** During testing, one full test run had a native crash (heap corruption) in the image library that I could not reproduce again in 13 further runs or 1,400 stress renders. Before real traffic, move mockup/design-file rendering into a separate worker process so a crash cannot take down the website, and queue it for bursts of orders.
 - Emails are English only; the app UI is English only (Urdu names on garments are supported).
-- One item per order; no guest checkout; a single admin role; no refunds screen.
+- One design per order (several pieces of it via quantity); no guest checkout; a single admin role; no refunds screen.
 - Local development uses a permissive stand-in for the image-safety check when no key is set; do not run that way in production.
 
 ## Project map
@@ -129,3 +129,9 @@ tests/              vitest unit/database tests; tests/e2e for Playwright
 - **Orders keep both sides.** The admin order page then offers four downloads (front and back mockup, front and back design file).
 - **Saved as you go.** A design is saved automatically about a second after each change, once it has anything on it, and also when the page is hidden. **Save for later** saves and goes to My prints, where a draft has a **Continue designing** link that reopens it with its pictures and text. A design that is waiting for review, or already ordered, cannot be reopened for editing.
 - **Existing databases:** apply the new migration with `npx supabase migration up` (it adds `back_layers` and the back columns on orders).
+
+## Cart, quantity and shipping emails
+
+- **Existing databases:** apply the new migration with `npx supabase migration up` (adds `cart_items`, `checkouts`, and `quantity` on orders).
+- The delivery fee is charged once per payment and recorded on the first order. An order's price and printer cost cover all its pieces.
+- A design edited after it went in the cart must be checked again before it can be paid for.

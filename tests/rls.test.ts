@@ -142,3 +142,62 @@ describe('row-level security', () => {
     await expect(insertOrder(aliceDesign, alice)).rejects.toThrow();
   });
 });
+
+describe('carts and checkouts', () => {
+  const delivery = JSON.stringify({ name: 'A', phone: '03001234567', city: 'Lahore', province: 'Punjab', address: '1 Road' });
+  const items = (ids: string[], quantity = 2) =>
+    JSON.stringify(ids.map((id) => ({ design_id: id, quantity, price_pkr: 3000, cost_pkr: 1600 })));
+  const checkout = (user: string, ref: string, ids: string[], quantity = 2) =>
+    db.query('select * from create_checkout($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)', [user, ref, `PAY-${ref}`, 6250, 250, delivery, items(ids, quantity)]);
+
+  test('a customer reads only their own cart and cannot change it directly', async () => {
+    const bobDesign = await insertDesign(db, bob);
+    await db.query('insert into cart_items (user_id, design_id, quantity) values ($1,$2,1), ($3,$4,1)', [alice, aliceDesign, bob, bobDesign]);
+    const mine = await asUser(db, alice, async () => (await db.query('select design_id from cart_items')).rows);
+    expect(mine).toEqual([{ design_id: aliceDesign }]);
+    await expect(asUser(db, alice, () => db.query('update cart_items set quantity = 9'))).rejects.toThrow();
+    await expect(asUser(db, alice, () => db.query('delete from cart_items'))).rejects.toThrow();
+    await expect(asUser(db, alice, () => db.query('insert into cart_items (user_id, design_id, quantity) values ($1,$2,1)', [alice, aliceDesign]))).rejects.toThrow();
+  });
+
+  test('a cart quantity must be between 1 and 50', async () => {
+    for (const bad of [0, 51, -3]) {
+      await expect(db.query('insert into cart_items (user_id, design_id, quantity) values ($1,$2,$3)', [alice, aliceDesign, bad])).rejects.toThrow();
+    }
+    await db.query('insert into cart_items (user_id, design_id, quantity) values ($1,$2,50)', [alice, aliceDesign]);
+  });
+
+  test('create_checkout makes the orders of one payment together, sharing the payment reference', async () => {
+    const second = await insertDesign(db, alice, 'approved');
+    await db.query(`update designs set status = 'approved' where id = $1`, [aliceDesign]);
+    const { rows } = await checkout(alice, 'REF-1', [aliceDesign, second]);
+    expect(rows).toHaveLength(2);
+    expect(new Set(rows.map((o) => (o as { payment_ref: string }).payment_ref))).toEqual(new Set(['PAY-REF-1']));
+    expect(rows.map((o) => (o as { quantity: number }).quantity)).toEqual([2, 2]);
+    expect(rows.map((o) => (o as { delivery_fee_pkr: number }).delivery_fee_pkr)).toEqual([250, 0]);
+    expect(rows.map((o) => (o as { position: number }).position)).toEqual([1, 2]);
+    expect((await db.query('select 1 from checkouts')).rows).toHaveLength(1);
+  });
+
+  test('create_checkout is all or nothing: one unapproved design leaves no checkout and no orders', async () => {
+    const draft = await insertDesign(db, alice, 'draft');
+    await db.query(`update designs set status = 'approved' where id = $1`, [aliceDesign]);
+    await expect(checkout(alice, 'REF-2', [aliceDesign, draft])).rejects.toThrow(/approved design/i);
+    expect((await db.query('select 1 from orders')).rows).toHaveLength(0);
+    expect((await db.query('select 1 from checkouts')).rows).toHaveLength(0);
+  });
+
+  test('a cart reference can only ever be used for one checkout', async () => {
+    const second = await insertDesign(db, alice, 'approved');
+    await db.query(`update designs set status = 'approved' where id = $1`, [aliceDesign]);
+    await checkout(alice, 'REF-3', [aliceDesign]);
+    await expect(checkout(alice, 'REF-3', [second])).rejects.toThrow();
+    expect((await db.query('select 1 from orders')).rows).toHaveLength(1);
+  });
+
+  test('an order quantity must be between 1 and 50', async () => {
+    await db.query(`update designs set status = 'approved' where id = $1`, [aliceDesign]);
+    await expect(checkout(alice, 'REF-4', [aliceDesign], 0)).rejects.toThrow();
+    await expect(checkout(alice, 'REF-5', [aliceDesign], 51)).rejects.toThrow();
+  });
+});

@@ -3,7 +3,9 @@ import { ORDER_STATUS_LABEL } from '@/lib/labels';
 import type { OrderStatus } from '@/lib/orders';
 
 export type Tone = 'gold' | 'forest' | 'ink' | 'red';
-export type DesignState = { text: string; tone: Tone; action?: { href: string; label: string } };
+/** `addToCart` means: put this design in the cart first, then go to `href`. */
+export type DesignAction = { href: string; label: string; addToCart?: string };
+export type DesignState = { text: string; tone: Tone; action?: DesignAction };
 
 const ORDER_TONE: Record<OrderStatus, Tone> = { paid: 'forest', at_printer: 'gold', shipped: 'ink', delivered: 'forest' };
 
@@ -16,7 +18,7 @@ export function describeDesign(design: Design, orderStatus: OrderStatus | null):
     case 'approved':
       // Approval counts only for the exact layers that were checked.
       return design.moderatedHash === layersHash(design.layers, design.backLayers)
-        ? { text: 'Approved: ready to pay', tone: 'forest', action: { href: `/checkout/${design.id}`, label: 'Pay now' } }
+        ? { text: 'Approved: ready to pay', tone: 'forest', action: { href: '/cart', label: 'Pay now', addToCart: design.id } }
         : { text: 'Changed since it was checked', tone: 'gold', action: { href: `/design?d=${design.id}`, label: 'Submit again' } };
     case 'rejected':
       return {
@@ -33,7 +35,7 @@ export function describeDesign(design: Design, orderStatus: OrderStatus | null):
 export function buildCustomerView(
   userId: string,
   designs: Design[],
-  orders: { designId: string; userId: string; status: OrderStatus }[],
+  orders: { designId: string; userId: string; status: OrderStatus; quantity?: number }[],
 ) {
   const own = orders.filter((o) => o.userId === userId);
   return designs
@@ -42,5 +44,6 @@ export function buildCustomerView(
       design,
       state: describeDesign(design, own.find((o) => o.designId === design.id)?.status ?? null),
       orderStatus: own.find((o) => o.designId === design.id)?.status ?? null,
+      quantity: own.find((o) => o.designId === design.id)?.quantity ?? null,
     }));
 }

@@ -88,3 +88,10 @@ export async function fillDeliveryAndPay(page: Page) {
   await page.getByPlaceholder('Full address').fill('House 1, Street 2, Gulberg');
   await page.getByRole('button', { name: /^Pay PKR/ }).click();
 }
+
+/** From the cart (where an approved design lands) to the checkout page. */
+export async function goToCheckout(page: Page) {
+  await page.waitForURL('**/cart');
+  await page.getByRole('link', { name: /^Checkout/ }).click();
+  await page.waitForURL('**/checkout');
+}

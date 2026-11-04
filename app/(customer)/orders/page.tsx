@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { AddToCartButton } from '@/components/AddToCartButton';
 import { SiteHeader } from '@/components/SiteHeader';
 import { requireUser } from '@/lib/auth';
 import { catalog } from '@/lib/catalog';
@@ -19,7 +20,14 @@ const TRACK: { key: OrderStatus; label: string }[] = [
 export default function MyOrdersPage() {
   return (
     <>
-      <SiteHeader right={<Link href="/design">+ New</Link>} />
+      <SiteHeader
+        right={
+          <span className="flex gap-4">
+            <Link href="/cart">Cart</Link>
+            <Link href="/design">+ New</Link>
+          </span>
+        }
+      />
       <Suspense fallback={<p className="p-4 text-sm text-mute">Loading…</p>}>
         <MyOrders />
       </Suspense>
@@ -54,12 +62,12 @@ async function MyOrders() {
   const db = await getServerClient();
   const [{ data: designRows }, { data: orderRows }] = await Promise.all([
     db.from('designs').select('*').order('updated_at', { ascending: false }),
-    db.from('orders').select('design_id, user_id, status'),
+    db.from('orders').select('design_id, user_id, status, quantity'),
   ]);
   const view = buildCustomerView(
     user.id,
     (designRows ?? []).map((r) => toDesign(r as DesignRow)),
-    (orderRows ?? []).map((o) => ({ designId: o.design_id as string, userId: o.user_id as string, status: o.status as OrderStatus })),
+    (orderRows ?? []).map((o) => ({ designId: o.design_id as string, userId: o.user_id as string, status: o.status as OrderStatus, quantity: o.quantity as number })),
   );
 
   return (
@@ -71,20 +79,24 @@ async function MyOrders() {
         </p>
       )}
       <ul className="flex flex-col gap-3">
-        {view.map(({ design, state, orderStatus }) => (
+        {view.map(({ design, state, orderStatus, quantity }) => (
           <li key={design.id} className="ticket">
             <span data-testid="design-state" className={`badge ${BADGE[state.tone]}`}>
               {state.text}
             </span>
             <p className="mt-2 font-display text-lg font-extrabold">
               {catalog[design.product].label} &middot; {design.color === 'white' ? 'White' : 'Black'} &middot; {design.size}
+              {quantity && quantity > 1 ? ` × ${quantity}` : ''}
             </p>
             {orderStatus && <Track status={orderStatus} />}
-            {state.action && (
-              <Link className="btn btn-sm mt-3" href={state.action.href}>
-                {state.action.label}
-              </Link>
-            )}
+            {state.action &&
+              (state.action.addToCart ? (
+                <AddToCartButton designId={state.action.addToCart} href={state.action.href} label={state.action.label} />
+              ) : (
+                <Link className="btn btn-sm mt-3" href={state.action.href}>
+                  {state.action.label}
+                </Link>
+              ))}
           </li>
         ))}
       </ul>

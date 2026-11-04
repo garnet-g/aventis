@@ -1,4 +1,4 @@
-import { DuplicateOrderError, type NewOrder, type Order, type OrderStore } from '@/lib/orders';
+import { DuplicateCheckoutError, type NewCheckout, type Order, type OrderStore } from '@/lib/orders';
 import { getServiceClient } from '@/lib/supabase/server';
 
 export type OrderRow = {
@@ -6,6 +6,7 @@ export type OrderRow = {
   design_id: string;
   user_id: string;
   status: Order['status'];
+  quantity: number;
   cost_pkr: number;
   price_pkr: number;
   delivery_fee_pkr: number;
@@ -29,6 +30,7 @@ export const toOrder = (r: OrderRow): Order => ({
   designId: r.design_id,
   userId: r.user_id,
   status: r.status,
+  quantity: r.quantity ?? 1,
   costPkr: r.cost_pkr,
   pricePkr: r.price_pkr,
   deliveryFeePkr: r.delivery_fee_pkr,
@@ -43,7 +45,7 @@ export const toOrder = (r: OrderRow): Order => ({
   artifactsFailed: r.artifacts_failed,
 });
 
-/** Service-role order store; unique design_id / payment_ref make a duplicate insert fail. */
+/** Service-role order store; a unique cart reference and unique design_id make a repeat checkout fail. */
 export function supabaseOrderStore(): OrderStore {
   const db = () => getServiceClient();
   return {
@@ -60,27 +62,28 @@ export function supabaseOrderStore(): OrderStore {
       if (error) throw new Error(error.message);
       return data && data.length > 0 ? toOrder(data[0] as OrderRow) : null;
     },
-    async insert(o: NewOrder) {
-      const { data, error } = await db()
-        .from('orders')
-        .insert({
-          design_id: o.designId,
-          user_id: o.userId,
-          cost_pkr: o.costPkr,
-          price_pkr: o.pricePkr,
-          delivery_fee_pkr: o.deliveryFeePkr,
-          ...o.delivery,
-          payment_ref: o.paymentRef,
-          layers_snapshot: o.layersSnapshot,
-          back_layers_snapshot: o.backLayersSnapshot,
-        })
-        .select('*')
-        .single();
+    async findCheckoutOrders(reference) {
+      const { data: checkout } = await db().from('checkouts').select('id').eq('reference', reference).maybeSingle();
+      if (!checkout) return null;
+      const { data } = await db().from('orders').select('*').eq('checkout_id', checkout.id).order('position');
+      return data && data.length > 0 ? data.map((row) => toOrder(row as OrderRow)) : null;
+    },
+    async createCheckout(c: NewCheckout) {
+      // One database function creates the checkout and every order in a single transaction.
+      const { data, error } = await db().rpc('create_checkout', {
+        p_user: c.userId,
+        p_reference: c.reference,
+        p_payment_ref: c.paymentRef,
+        p_total_pkr: c.totalPkr,
+        p_delivery_fee_pkr: c.deliveryFeePkr,
+        p_delivery: c.delivery,
+        p_items: c.items.map((i) => ({ design_id: i.designId, quantity: i.quantity, price_pkr: i.pricePkr, cost_pkr: i.costPkr })),
+      });
       if (error) {
-        if (error.code === '23505') throw new DuplicateOrderError();
+        if (error.code === '23505') throw new DuplicateCheckoutError();
         throw new Error(error.message);
       }
-      return toOrder(data as OrderRow);
+      return (data as OrderRow[]).map(toOrder);
     },
     async setArtifacts(id, p) {
       const { error } = await db().from('orders').update({

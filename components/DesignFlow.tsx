@@ -18,7 +18,26 @@ const hasContent = (s: WorkbenchState) => s.layers.length > 0 || s.backLayers.le
 /** What gets saved: everything except the browser-only image links. */
 const snapshot = (s: WorkbenchState) => JSON.stringify([s.product, s.color, s.size, s.layers, s.backLayers]);
 
-export function DesignFlow({ initial }: { initial?: InitialDesign & { id: string } }) {
+type Initial = InitialDesign & { id: string };
+
+/**
+ * Next keeps a page's state alive when you navigate away and come back. Once a design is in the cart it is
+ * finished, so coming back to this page must start a blank design instead of reusing (and overwriting) it.
+ */
+export function DesignFlow({ initial }: { initial?: Initial }) {
+  const finished = useRef(false);
+  const [epoch, setEpoch] = useState(0);
+  useEffect(() => {
+    // Effects run again each time the kept page is shown, so a finished design is swapped for a fresh one here.
+    if (finished.current) {
+      finished.current = false;
+      setEpoch((e) => e + 1);
+    }
+  }, []);
+  return <DesignFlowInner key={epoch} initial={epoch === 0 ? initial : undefined} onFinished={() => (finished.current = true)} />;
+}
+
+function DesignFlowInner({ initial, onFinished }: { initial?: Initial; onFinished: () => void }) {
   const router = useRouter();
   const state = useRef<WorkbenchState>(
     initial
@@ -142,7 +161,12 @@ export function DesignFlow({ initial }: { initial?: InitialDesign & { id: string
       const res = await fetch(`/api/designs/${id}/submit`, { method: 'POST' });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? 'Could not check your design.');
-      if (body.status === 'approved') return router.push(`/checkout/${id}`);
+      if (body.status === 'approved') {
+        const add = await fetch('/api/cart', { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ designId: id }) });
+        if (!add.ok) throw new Error((await add.json().catch(() => ({}))).error ?? 'Could not add it to your cart.');
+        onFinished();
+        return router.push('/cart');
+      }
       setOutcome(body);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
@@ -217,7 +241,7 @@ export function DesignFlow({ initial }: { initial?: InitialDesign & { id: string
             <b className="font-display text-2xl leading-none">{pkr(total)}</b>
           </div>
           <button data-testid="continue" disabled={busy || uploading} onClick={onContinue} className="btn btn-dock btn-sm">
-            {busy ? 'Working…' : uploading ? 'Uploading…' : 'Continue to checkout'}
+            {busy ? 'Working…' : uploading ? 'Uploading…' : 'Add to cart'}
           </button>
         </div>
       </div>

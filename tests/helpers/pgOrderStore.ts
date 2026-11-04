@@ -1,6 +1,6 @@
 import type { PGlite } from '@electric-sql/pglite';
-import type { NewOrder, Order, OrderStore } from '@/lib/orders';
-import { DuplicateOrderError } from '@/lib/orders';
+import type { NewCheckout, Order, OrderStore } from '@/lib/orders';
+import { DuplicateCheckoutError } from '@/lib/orders';
 
 type Row = Record<string, unknown>;
 
@@ -9,6 +9,7 @@ const toOrder = (r: Row): Order => ({
   designId: r.design_id as string,
   userId: r.user_id as string,
   status: r.status as Order['status'],
+  quantity: r.quantity as number,
   costPkr: r.cost_pkr as number,
   pricePkr: r.price_pkr as number,
   deliveryFeePkr: r.delivery_fee_pkr as number,
@@ -29,7 +30,7 @@ const toOrder = (r: Row): Order => ({
   artifactsFailed: r.artifacts_failed as boolean,
 });
 
-/** Order store over the real schema (via PGlite) so unique constraints behave as in production. */
+/** Order store over the real schema (via PGlite) so constraints, triggers and the checkout function behave as in production. */
 export function pgOrderStore(db: PGlite): OrderStore {
   return {
     async findByDesign(designId) {
@@ -40,20 +41,32 @@ export function pgOrderStore(db: PGlite): OrderStore {
       const r = await db.query<Row>('select * from orders where id = $1', [id]);
       return r.rows[0] ? toOrder(r.rows[0]) : null;
     },
+    async findCheckoutOrders(reference) {
+      const r = await db.query<Row>(
+        'select o.* from orders o join checkouts c on c.id = o.checkout_id where c.reference = $1 order by o.position',
+        [reference],
+      );
+      return r.rows.length ? r.rows.map(toOrder) : null;
+    },
     async setStatus(id, from, to) {
       const r = await db.query<Row>('update orders set status = $3 where id = $1 and status = $2 returning *', [id, from, to]);
       return r.rows[0] ? toOrder(r.rows[0]) : null;
     },
-    async insert(o: NewOrder) {
+    async createCheckout(c: NewCheckout) {
       try {
-        const r = await db.query<Row>(
-          `insert into orders (design_id, user_id, cost_pkr, price_pkr, delivery_fee_pkr, name, phone, city, province, address, payment_ref, layers_snapshot, back_layers_snapshot)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb) returning *`,
-          [o.designId, o.userId, o.costPkr, o.pricePkr, o.deliveryFeePkr, o.delivery.name, o.delivery.phone, o.delivery.city, o.delivery.province, o.delivery.address, o.paymentRef, JSON.stringify(o.layersSnapshot), JSON.stringify(o.backLayersSnapshot)],
-        );
-        return toOrder(r.rows[0]);
+        const items = c.items.map((i) => ({ design_id: i.designId, quantity: i.quantity, price_pkr: i.pricePkr, cost_pkr: i.costPkr }));
+        const r = await db.query<Row>('select * from create_checkout($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)', [
+          c.userId,
+          c.reference,
+          c.paymentRef,
+          c.totalPkr,
+          c.deliveryFeePkr,
+          JSON.stringify(c.delivery),
+          JSON.stringify(items),
+        ]);
+        return r.rows.map(toOrder);
       } catch (e) {
-        if ((e as { code?: string }).code === '23505') throw new DuplicateOrderError();
+        if ((e as { code?: string }).code === '23505') throw new DuplicateCheckoutError();
         throw e;
       }
     },

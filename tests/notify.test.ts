@@ -3,7 +3,7 @@ import { decideAndNotify } from '@/lib/admin';
 import type { DesignLayer } from '@/lib/designLayers';
 import { layersHash, saveDesign, submitDesign } from '@/lib/designs';
 import { StubImageSafetyProvider } from '@/lib/moderation/image';
-import { notifyDecision, type EmailSender } from '@/lib/notify';
+import { notifyDecision, notifyOrderStatus, type EmailSender } from '@/lib/notify';
 import { buildCustomerView, describeDesign } from '@/lib/customerItems';
 import { MemoryDesignStore } from './helpers/memoryStore';
 
@@ -37,7 +37,7 @@ describe('notifyDecision', () => {
     await notifyDecision(out, siteUrl, { to: 'a@example.com', decision: 'approved', designId: 'd1' });
     expect(out.sent).toHaveLength(1);
     expect(out.sent[0].to).toBe('a@example.com');
-    expect(out.sent[0].text).toContain('https://shop.example/checkout/d1');
+    expect(out.sent[0].text).toContain('https://shop.example/orders');
   });
 
   test('reject sends the reason and a link to start again', async () => {
@@ -61,7 +61,7 @@ describe('decideAndNotify', () => {
     const id = await pendingDesign();
     const out = new Outbox();
     await decideAndNotify({ designs, email: out, emailFor: async () => 'a@example.com', siteUrl }, id, 'approve');
-    expect(out.sent[0].text).toContain(`/checkout/${id}`);
+    expect(out.sent[0].text).toContain('/orders');
   });
 
   test('a customer with no known email is skipped without error', async () => {
@@ -86,7 +86,7 @@ describe('customer status page', () => {
     const l = [text('Ali')];
     const s = describeDesign(design({ status: 'approved', layers: l, moderatedHash: layersHash(l) }), null);
     expect(s.text).toMatch(/approved/i);
-    expect(s.action).toEqual({ href: '/checkout/d1', label: 'Pay now' });
+    expect(s.action).toEqual({ href: '/cart', label: 'Pay now', addToCart: 'd1' });
   });
 
   test('an approval whose layers no longer match is not payable', () => {
@@ -112,5 +112,27 @@ describe('customer status page', () => {
     ]);
     expect(view.map((v) => v.design.id)).toEqual(['a']);
     expect(view[0].state.text).toBe('Paid');
+  });
+});
+
+describe('notifyOrderStatus', () => {
+  test('shipped tells the customer and links to their prints', async () => {
+    const out = new Outbox();
+    expect(await notifyOrderStatus(out, siteUrl, { to: 'a@example.com', status: 'shipped', orderId: 'o1' })).toBe(true);
+    expect(out.sent[0].subject).toMatch(/shipped/i);
+    expect(out.sent[0].text).toContain('https://shop.example/orders');
+  });
+
+  test('delivered tells the customer too', async () => {
+    const out = new Outbox();
+    expect(await notifyOrderStatus(out, siteUrl, { to: 'a@example.com', status: 'delivered', orderId: 'o1' })).toBe(true);
+    expect(out.sent[0].subject).toMatch(/delivered/i);
+  });
+
+  test('paid and at printer send nothing', async () => {
+    const out = new Outbox();
+    expect(await notifyOrderStatus(out, siteUrl, { to: 'a@example.com', status: 'paid', orderId: 'o1' })).toBe(false);
+    expect(await notifyOrderStatus(out, siteUrl, { to: 'a@example.com', status: 'at_printer', orderId: 'o1' })).toBe(false);
+    expect(out.sent).toHaveLength(0);
   });
 });

@@ -4,10 +4,11 @@ import { BACK_PRINT_COST_PKR, BACK_PRINT_PRICE_PKR, catalog, DELIVERY_FEE_PKR } 
 import type { DesignLayer } from '@/lib/designLayers';
 import { saveDesign, submitDesign } from '@/lib/designs';
 import { StubImageSafetyProvider } from '@/lib/moderation/image';
-import { createPaidOrder, HttpError } from '@/lib/orders';
+import { HttpError, placeCheckout, type ArtifactGenerator } from '@/lib/orders';
 import { DummyProvider } from '@/lib/payments/dummy';
 import type { PaymentProvider } from '@/lib/payments';
 import { addUser, newDb } from './helpers/db';
+import { MemoryCartStore } from './helpers/memoryCart';
 import { MemoryDesignStore } from './helpers/memoryStore';
 import { pgOrderStore } from './helpers/pgOrderStore';
 
@@ -28,6 +29,7 @@ class SpyProvider implements PaymentProvider {
 
 let db: PGlite;
 let designs: MemoryDesignStore;
+let cart: MemoryCartStore;
 let alice: string;
 let bob: string;
 
@@ -49,9 +51,29 @@ async function makeDesign(owner: string, content: string, product: 'tee' | 'hood
   return current;
 }
 
+/** Puts designs in the owner's cart (straight into the store, so even bad states can be set up) and checks out. */
+async function checkout(
+  owner: string,
+  items: { id: string; quantity?: number }[],
+  extra: { provider?: PaymentProvider; artifacts?: ArtifactGenerator; cart?: MemoryCartStore; delivery?: unknown } = {},
+) {
+  const store = extra.cart ?? cart;
+  for (const i of items) {
+    await store.add(owner, i.id, 1);
+    if (i.quantity && i.quantity > 1) await store.setQuantity(owner, i.id, i.quantity);
+  }
+  return placeCheckout(
+    { designs, orders: pgOrderStore(db), cart: store, provider: extra.provider ?? new SpyProvider(), artifacts: extra.artifacts },
+    { userId: owner, delivery: extra.delivery ?? delivery },
+  );
+}
+
+const orderCount = async () => (await db.query('select 1 from orders')).rows.length;
+
 beforeEach(async () => {
   db = await newDb();
   designs = new MemoryDesignStore();
+  cart = new MemoryCartStore();
   alice = await addUser(db, 'alice@example.com');
   bob = await addUser(db, 'bob@example.com');
 });
@@ -61,175 +83,208 @@ afterEach(async () => {
   await db.close();
 });
 
-const deps = () => ({ designs, orders: pgOrderStore(db) });
-
-describe('createPaidOrder', () => {
-  test('pay on a pending_review design returns 403 and creates no order', async () => {
+describe('what can be paid for', () => {
+  test('a design that is waiting for review is refused with 403: nobody is charged and no order exists', async () => {
     const d = await makeDesign(alice, 'Dick');
     expect(d.status).toBe('pending_review');
     const provider = new SpyProvider();
-    await expect(createPaidOrder({ ...deps(), provider }, { designId: d.id, userId: alice, delivery })).rejects.toMatchObject({ status: 403 });
+    await expect(checkout(alice, [{ id: d.id }], { provider })).rejects.toMatchObject({ status: 403 });
     expect(provider.charges).toHaveLength(0);
-    expect((await db.query('select 1 from orders')).rows).toHaveLength(0);
+    expect(await orderCount()).toBe(0);
   });
 
-  test('pay on a rejected design returns 403', async () => {
-    const d = await makeDesign(alice, 'fuck');
-    expect(d.status).toBe('rejected');
-    await expect(createPaidOrder({ ...deps(), provider: new SpyProvider() }, { designId: d.id, userId: alice, delivery })).rejects.toMatchObject({ status: 403 });
+  test('a rejected design and a draft are refused with 403', async () => {
+    const rejected = await makeDesign(alice, 'fuck');
+    await expect(checkout(alice, [{ id: rejected.id }])).rejects.toMatchObject({ status: 403 });
+    cart.items.clear();
+    const draft = await saveDesign(designs, alice, { product: 'tee', color: 'white', size: 'M', layers: [text('Ali')] });
+    await expect(checkout(alice, [{ id: draft.id }])).rejects.toMatchObject({ status: 403 });
   });
 
-  test('pay on a draft design returns 403', async () => {
-    const d = await saveDesign(designs, alice, { product: 'tee', color: 'white', size: 'M', layers: [text('Ali')] });
-    await expect(createPaidOrder({ ...deps(), provider: new SpyProvider() }, { designId: d.id, userId: alice, delivery })).rejects.toMatchObject({ status: 403 });
+  test("someone else's design in the cart is refused with 404", async () => {
+    const d = await makeDesign(alice, 'Ali');
+    await expect(checkout(bob, [{ id: d.id }])).rejects.toMatchObject({ status: 404 });
+    expect(await orderCount()).toBe(0);
   });
 
-  test('a design whose layers changed after it was approved cannot be paid', async () => {
+  test('a design approved for different layers cannot be paid for', async () => {
     const d = await makeDesign(alice, 'Ali');
     await designs.update(d.id, { layers: [text('Something else')] }); // status stays approved, as after a bad write
     const provider = new SpyProvider();
-    await expect(createPaidOrder({ ...deps(), provider }, { designId: d.id, userId: alice, delivery })).rejects.toMatchObject({ status: 403 });
+    await expect(checkout(alice, [{ id: d.id }], { provider })).rejects.toMatchObject({ status: 403 });
     expect(provider.charges).toHaveLength(0);
   });
 
-  test("another user cannot pay for my design", async () => {
+  test('a back side added after approval cannot be paid for', async () => {
     const d = await makeDesign(alice, 'Ali');
-    await expect(createPaidOrder({ ...deps(), provider: new SpyProvider() }, { designId: d.id, userId: bob, delivery })).rejects.toMatchObject({ status: 404 });
+    await designs.update(d.id, { backLayers: [text('Sneaked in')] });
+    await expect(checkout(alice, [{ id: d.id }])).rejects.toMatchObject({ status: 403 });
   });
 
-  test('amount charged equals catalog price plus delivery fee (server-computed)', async () => {
+  test('an empty cart is refused with 400', async () => {
+    await expect(checkout(alice, [])).rejects.toMatchObject({ status: 400 });
+  });
+
+  test('one design that cannot be paid for stops the whole checkout: all or nothing', async () => {
+    const good = await makeDesign(alice, 'Ali');
+    const waiting = await makeDesign(alice, 'Dick');
     const provider = new SpyProvider();
-    const tee = await makeDesign(alice, 'Ali', 'tee');
-    const hoodie = await makeDesign(alice, 'Ali', 'hoodie');
-    await createPaidOrder({ ...deps(), provider }, { designId: tee.id, userId: alice, delivery });
-    await createPaidOrder({ ...deps(), provider }, { designId: hoodie.id, userId: alice, delivery });
-    expect(provider.charges.map((c) => c.amountPkr)).toEqual([
-      catalog.tee.pricePkr + DELIVERY_FEE_PKR,
-      catalog.hoodie.pricePkr + DELIVERY_FEE_PKR,
-    ]);
-  });
-
-  test('order records cost, price, fee, and a snapshot of the design layers', async () => {
-    const d = await makeDesign(alice, 'Ali', 'hoodie');
-    const order = await createPaidOrder({ ...deps(), provider: new SpyProvider() }, { designId: d.id, userId: alice, delivery });
-    expect(order).toMatchObject({ status: 'paid', costPkr: 1300, pricePkr: catalog.hoodie.pricePkr, deliveryFeePkr: DELIVERY_FEE_PKR });
-    expect(order.layersSnapshot).toEqual(d.layers);
-  });
-
-  test('two simultaneous pay calls create exactly one order', async () => {
-    const d = await makeDesign(alice, 'Ali');
-    const provider = new SpyProvider();
-    const [a, b] = await Promise.all([
-      createPaidOrder({ ...deps(), provider }, { designId: d.id, userId: alice, delivery }),
-      createPaidOrder({ ...deps(), provider }, { designId: d.id, userId: alice, delivery }),
-    ]);
-    expect(a.id).toBe(b.id);
-    expect((await db.query('select 1 from orders')).rows).toHaveLength(1);
-  });
-
-  test('paying again after success returns the same order and does not charge again', async () => {
-    const d = await makeDesign(alice, 'Ali');
-    const provider = new SpyProvider();
-    const first = await createPaidOrder({ ...deps(), provider }, { designId: d.id, userId: alice, delivery });
-    const second = await createPaidOrder({ ...deps(), provider }, { designId: d.id, userId: alice, delivery });
-    expect(second.id).toBe(first.id);
-    expect(provider.charges).toHaveLength(1);
-  });
-
-  test('invalid phone number is rejected with a field error', async () => {
-    const d = await makeDesign(alice, 'Ali');
-    await expect(
-      createPaidOrder({ ...deps(), provider: new SpyProvider() }, { designId: d.id, userId: alice, delivery: { ...delivery, phone: '12345' } }),
-    ).rejects.toMatchObject({ issues: [expect.objectContaining({ path: ['phone'] })] });
-  });
-
-  test('accepts +92 and spaced Pakistani mobile numbers', async () => {
-    const d = await makeDesign(alice, 'Ali');
-    const order = await createPaidOrder({ ...deps(), provider: new SpyProvider() }, { designId: d.id, userId: alice, delivery: { ...delivery, phone: '+92 300 1234567' } });
-    expect(order.delivery.phone).toBe('+923001234567');
-  });
-
-  test('dummy provider result is marked as test in payment_ref', async () => {
-    const d = await makeDesign(alice, 'Ali');
-    const order = await createPaidOrder({ ...deps(), provider: new DummyProvider() }, { designId: d.id, userId: alice, delivery });
-    expect(order.paymentRef).toBe(`TEST-${d.id}`);
-  });
-
-  test('a failed payment creates no order and reports a payment error', async () => {
-    const d = await makeDesign(alice, 'Ali');
-    const failing: PaymentProvider = { name: 'f', isTestMode: false, charge: async () => ({ ok: false, reason: 'card declined' }) };
-    await expect(createPaidOrder({ ...deps(), provider: failing }, { designId: d.id, userId: alice, delivery })).rejects.toMatchObject({ status: 402 });
-    expect((await db.query('select 1 from orders')).rows).toHaveLength(0);
+    await expect(checkout(alice, [{ id: good.id }, { id: waiting.id }], { provider })).rejects.toMatchObject({ status: 403 });
+    expect(provider.charges).toHaveLength(0);
+    expect(await orderCount()).toBe(0);
   });
 });
 
-describe('printing on the back', () => {
-  test('a back print adds its extra price and extra cost, charged on the server', async () => {
-    const d = await makeDesign(alice, 'Ali', 'tee', { back: 'Back' });
+describe('money', () => {
+  test('the charge is the catalog price plus delivery, worked out on the server', async () => {
+    const tee = await makeDesign(alice, 'Ali', 'tee');
     const provider = new SpyProvider();
-    const order = await createPaidOrder({ ...deps(), provider }, { designId: d.id, userId: alice, delivery });
-    expect(provider.charges[0].amountPkr).toBe(catalog.tee.pricePkr + BACK_PRINT_PRICE_PKR + DELIVERY_FEE_PKR);
-    expect(order.pricePkr).toBe(catalog.tee.pricePkr + BACK_PRINT_PRICE_PKR);
-    expect(order.costPkr).toBe(catalog.tee.costPkr + BACK_PRINT_COST_PKR);
+    await checkout(alice, [{ id: tee.id }], { provider });
+    expect(provider.charges).toHaveLength(1);
+    expect(provider.charges[0].amountPkr).toBe(catalog.tee.pricePkr + DELIVERY_FEE_PKR);
   });
 
-  test('a front-only design pays no back extra', async () => {
+  test('quantity multiplies the price and the cost', async () => {
     const d = await makeDesign(alice, 'Ali');
-    const order = await createPaidOrder({ ...deps(), provider: new SpyProvider() }, { designId: d.id, userId: alice, delivery });
-    expect(order.pricePkr).toBe(catalog.tee.pricePkr);
-    expect(order.costPkr).toBe(catalog.tee.costPkr);
-  });
-
-  test('the order keeps a snapshot of both sides', async () => {
-    const d = await makeDesign(alice, 'Ali', 'tee', { back: 'Back' });
-    const order = await createPaidOrder({ ...deps(), provider: new SpyProvider() }, { designId: d.id, userId: alice, delivery });
-    expect(order.layersSnapshot).toEqual(d.layers);
-    expect(order.backLayersSnapshot).toEqual(d.backLayers);
-  });
-
-  test('a back side added after approval cannot be paid for (the approval covered the old design)', async () => {
-    const d = await makeDesign(alice, 'Ali');
-    await designs.update(d.id, { backLayers: [text('Sneaked in')] }); // status stays approved, as after a bad write
     const provider = new SpyProvider();
-    await expect(createPaidOrder({ ...deps(), provider }, { designId: d.id, userId: alice, delivery })).rejects.toMatchObject({ status: 403 });
+    const { orders } = await checkout(alice, [{ id: d.id, quantity: 3 }], { provider });
+    expect(orders[0]).toMatchObject({ quantity: 3, pricePkr: 3 * catalog.tee.pricePkr, costPkr: 3 * catalog.tee.costPkr });
+    expect(provider.charges[0].amountPkr).toBe(3 * catalog.tee.pricePkr + DELIVERY_FEE_PKR);
+  });
+
+  test('a back print adds its extra price and cost for every unit', async () => {
+    const d = await makeDesign(alice, 'Ali', 'tee', { back: 'Back' });
+    const { orders } = await checkout(alice, [{ id: d.id, quantity: 2 }]);
+    expect(orders[0].pricePkr).toBe(2 * (catalog.tee.pricePkr + BACK_PRINT_PRICE_PKR));
+    expect(orders[0].costPkr).toBe(2 * (catalog.tee.costPkr + BACK_PRINT_COST_PKR));
+  });
+
+  test('several designs are one payment with one delivery fee, and one order each', async () => {
+    const tee = await makeDesign(alice, 'A', 'tee');
+    const hoodie = await makeDesign(alice, 'B', 'hoodie');
+    const provider = new SpyProvider();
+    const { orders } = await checkout(alice, [{ id: tee.id }, { id: hoodie.id, quantity: 2 }], { provider });
+    expect(orders).toHaveLength(2);
+    expect(provider.charges).toHaveLength(1);
+    const expected = catalog.tee.pricePkr + 2 * catalog.hoodie.pricePkr + DELIVERY_FEE_PKR;
+    expect(provider.charges[0].amountPkr).toBe(expected);
+    // the delivery fee sits on the first order only, so the orders add up to exactly what was charged
+    expect(orders.map((o) => o.deliveryFeePkr)).toEqual([DELIVERY_FEE_PKR, 0]);
+    expect(orders.reduce((sum, o) => sum + o.pricePkr + o.deliveryFeePkr, 0)).toBe(expected);
+  });
+});
+
+describe('what an order records', () => {
+  test('delivery details and the payment reference are on every order of the checkout', async () => {
+    const a = await makeDesign(alice, 'A');
+    const b = await makeDesign(alice, 'B');
+    const { orders } = await checkout(alice, [{ id: a.id }, { id: b.id }], { provider: new DummyProvider() });
+    expect(new Set(orders.map((o) => o.paymentRef)).size).toBe(1);
+    expect(orders[0].paymentRef).toMatch(/^TEST-[0-9a-f]{32}$/);
+    for (const o of orders) expect(o.delivery).toEqual(delivery);
+  });
+
+  test('each order keeps a snapshot of both sides of its design', async () => {
+    const d = await makeDesign(alice, 'Ali', 'tee', { back: 'Back' });
+    const { orders } = await checkout(alice, [{ id: d.id }]);
+    expect(orders[0].layersSnapshot).toEqual(d.layers);
+    expect(orders[0].backLayersSnapshot).toEqual(d.backLayers);
+    expect(orders[0].status).toBe('paid');
+  });
+
+  test('the cart is emptied once the order is placed', async () => {
+    const d = await makeDesign(alice, 'Ali');
+    await checkout(alice, [{ id: d.id }]);
+    expect(await cart.list(alice)).toEqual([]);
+  });
+});
+
+describe('paying safely', () => {
+  test('a failed payment creates no order and keeps the cart', async () => {
+    const d = await makeDesign(alice, 'Ali');
+    const failing: PaymentProvider = { name: 'f', isTestMode: false, charge: async () => ({ ok: false, reason: 'card declined' }) };
+    await expect(checkout(alice, [{ id: d.id }], { provider: failing })).rejects.toMatchObject({ status: 402 });
+    expect(await orderCount()).toBe(0);
+    expect(await cart.list(alice)).toHaveLength(1);
+  });
+
+  test('an invalid phone number is rejected with a field error before anything else happens', async () => {
+    const d = await makeDesign(alice, 'Ali');
+    const provider = new SpyProvider();
+    await expect(checkout(alice, [{ id: d.id }], { provider, delivery: { ...delivery, phone: '12345' } })).rejects.toMatchObject({
+      issues: [expect.objectContaining({ path: ['phone'] })],
+    });
     expect(provider.charges).toHaveLength(0);
+  });
+
+  test('a +92 number with spaces is accepted and stored without them', async () => {
+    const d = await makeDesign(alice, 'Ali');
+    const { orders } = await checkout(alice, [{ id: d.id }], { delivery: { ...delivery, phone: '+92 300 1234567' } });
+    expect(orders[0].delivery.phone).toBe('+923001234567');
+  });
+
+  test('two simultaneous checkouts of the same cart create exactly one set of orders', async () => {
+    const d = await makeDesign(alice, 'Ali');
+    const provider = new SpyProvider();
+    const second = new MemoryCartStore();
+    const [a, b] = await Promise.all([
+      checkout(alice, [{ id: d.id }], { provider }),
+      checkout(alice, [{ id: d.id }], { provider, cart: second }),
+    ]);
+    expect(a.orders[0].id).toBe(b.orders[0].id);
+    expect(await orderCount()).toBe(1);
+  });
+
+  test('checking out the same cart again returns the same orders and does not charge again', async () => {
+    const d = await makeDesign(alice, 'Ali');
+    const provider = new SpyProvider();
+    const first = await checkout(alice, [{ id: d.id }], { provider });
+    const again = await checkout(alice, [{ id: d.id }], { provider });
+    expect(again.orders.map((o) => o.id)).toEqual(first.orders.map((o) => o.id));
+    expect(provider.charges).toHaveLength(1);
+  });
+
+  test('a different quantity is a different payment (the idempotency key changes)', async () => {
+    const d = await makeDesign(alice, 'Ali');
+    const provider = new SpyProvider();
+    await expect(checkout(alice, [{ id: d.id, quantity: 2 }], { provider })).resolves.toBeTruthy();
+    expect(provider.charges[0].reference).toMatch(/^[0-9a-f]{32}$/);
   });
 });
 
 describe('artifacts at payment', () => {
   const paths = { mockupPath: 'o/mockup.png', designFilePath: 'o/design.png' };
 
-  test('successful generation stores both file paths on the order', async () => {
-    const d = await makeDesign(alice, 'Ali');
-    let seen: unknown;
-    const order = await createPaidOrder(
-      { ...deps(), provider: new SpyProvider(), artifacts: async (a) => ((seen = a.order.layersSnapshot), paths) },
-      { designId: d.id, userId: alice, delivery },
-    );
-    expect(order).toMatchObject({ ...paths, artifactsFailed: false });
-    expect(seen).toEqual(d.layers); // rendered from the order's snapshot
-    const row = (await db.query<{ mockup_path: string; design_file_path: string }>('select mockup_path, design_file_path from orders')).rows[0];
-    expect(row).toEqual({ mockup_path: paths.mockupPath, design_file_path: paths.designFilePath });
+  test('every order gets its own files, made from its own snapshot', async () => {
+    const a = await makeDesign(alice, 'A');
+    const b = await makeDesign(alice, 'B');
+    const seen: unknown[] = [];
+    const { orders } = await checkout(alice, [{ id: a.id }, { id: b.id }], {
+      artifacts: async (x) => (seen.push(x.order.layersSnapshot), { mockupPath: `${x.order.id}/m.png`, designFilePath: `${x.order.id}/d.png` }),
+    });
+    expect(seen).toEqual([a.layers, b.layers]);
+    expect(orders.map((o) => o.mockupPath)).toEqual(orders.map((o) => `${o.id}/m.png`));
+    const rows = (await db.query<{ mockup_path: string }>('select mockup_path from orders order by created_at')).rows;
+    expect(rows.every((r) => r.mockup_path)).toBe(true);
   });
 
-  test('generation failure leaves the order paid with artifacts_failed true', async () => {
-    const d = await makeDesign(alice, 'Ali');
-    const order = await createPaidOrder(
-      { ...deps(), provider: new SpyProvider(), artifacts: async () => Promise.reject(new Error('disk full')) },
-      { designId: d.id, userId: alice, delivery },
-    );
-    expect(order).toMatchObject({ status: 'paid', artifactsFailed: true, mockupPath: null });
-    const row = (await db.query<{ status: string; artifacts_failed: boolean }>('select status, artifacts_failed from orders')).rows[0];
-    expect(row).toEqual({ status: 'paid', artifacts_failed: true });
+  test('a generation failure leaves that order paid and flagged, and the others unharmed', async () => {
+    const a = await makeDesign(alice, 'A');
+    const b = await makeDesign(alice, 'B');
+    const { orders } = await checkout(alice, [{ id: a.id }, { id: b.id }], {
+      artifacts: async (x) => (x.design.id === a.id ? Promise.reject(new Error('disk full')) : paths),
+    });
+    expect(orders[0]).toMatchObject({ status: 'paid', artifactsFailed: true, mockupPath: null });
+    expect(orders[1]).toMatchObject({ artifactsFailed: false, mockupPath: paths.mockupPath });
   });
 
-  test('only the request that created the order generates files, even when two race', async () => {
+  test('only the request that created the orders generates files, even when two race', async () => {
     const d = await makeDesign(alice, 'Ali');
     let calls = 0;
-    const artifacts = async () => (calls++, paths);
+    const artifacts: ArtifactGenerator = async () => (calls++, paths);
     await Promise.all([
-      createPaidOrder({ ...deps(), provider: new SpyProvider(), artifacts }, { designId: d.id, userId: alice, delivery }),
-      createPaidOrder({ ...deps(), provider: new SpyProvider(), artifacts }, { designId: d.id, userId: alice, delivery }),
+      checkout(alice, [{ id: d.id }], { artifacts }),
+      checkout(alice, [{ id: d.id }], { artifacts, cart: new MemoryCartStore() }),
     ]);
     expect(calls).toBe(1);
   });

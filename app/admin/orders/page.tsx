@@ -48,7 +48,7 @@ async function Orders() {
                       {order.id.slice(0, 8)}
                     </Link>
                   </td>
-                  <td className="p-2">{d ? `${d.product} · ${d.color} · ${d.size}` : '—'}</td>
+                  <td className="p-2">{d ? `${d.product} · ${d.color} · ${d.size}${order.quantity > 1 ? ` × ${order.quantity}` : ''}` : '—'}</td>
                   <td className="p-2">
                     {order.delivery.name}
                     <br />

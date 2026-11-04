@@ -1,3 +1,5 @@
+import type { OrderStatus } from '@/lib/orders';
+
 export interface EmailSender {
   send(message: { to: string; subject: string; text: string }): Promise<void>;
 }
@@ -44,7 +46,7 @@ export async function notifyDecision(
     return email.send({
       to: args.to,
       subject: 'Your design was approved',
-      text: `Good news: your design has been checked and approved.\n\nPay here to place your order: ${siteUrl}/checkout/${args.designId}`,
+      text: `Good news: your design has been checked and approved.\n\nOpen your prints and press Pay now to place your order: ${siteUrl}/orders`,
     });
   }
   return email.send({
@@ -52,4 +54,21 @@ export async function notifyDecision(
     subject: 'Your design could not be approved',
     text: `Sorry, we could not approve your design.\n\nReason: ${args.reason ?? 'This design cannot be printed.'}\n\nYou can start a new design here: ${siteUrl}/design`,
   });
+}
+
+const ORDER_EMAILS: Partial<Record<OrderStatus, { subject: string; line: string }>> = {
+  shipped: { subject: 'Your order has shipped', line: 'Good news: your order is on its way.' },
+  delivered: { subject: 'Your order was delivered', line: 'Your order has been delivered. We hope you love it!' },
+};
+
+/** Emails the customer when their order ships or is delivered. Returns whether an email was sent. */
+export async function notifyOrderStatus(
+  email: EmailSender,
+  siteUrl: string,
+  args: { to: string; status: OrderStatus; orderId: string },
+): Promise<boolean> {
+  const content = ORDER_EMAILS[args.status];
+  if (!content) return false;
+  await email.send({ to: args.to, subject: content.subject, text: `${content.line}\n\nFollow your order here: ${siteUrl}/orders` });
+  return true;
 }
