@@ -95,6 +95,7 @@ Implement `PaymentProvider` in `lib/payments/` (see `lib/payments/index.ts`) and
 - **Hosting body limit:** serverless hosts such as Vercel cap request bodies (around 4.5 MB), below the app's 10 MB upload limit. Before deploying there, switch uploads to direct-to-storage signed URLs or lower the limit.
 - **Rendering runs inside the web server.** During testing, one full test run had a native crash (heap corruption) in the image library that I could not reproduce again in 13 further runs or 1,400 stress renders. Before real traffic, move mockup/design-file rendering into a separate worker process so a crash cannot take down the website, and queue it for bursts of orders.
 - Emails are English only; the app UI is English only (Urdu names on garments are supported).
+- If a customer edits a design in the few moments between paying and the order being recorded, the order is refused and that payment has to be refunded by hand (no unchecked art can reach the printer: the database re-checks approval when the order is written).
 - One design per order (several pieces of it via quantity); no guest checkout; a single admin role; no refunds screen.
 - Local development uses a permissive stand-in for the image-safety check when no key is set; do not run that way in production.
 
@@ -135,3 +136,11 @@ tests/              vitest unit/database tests; tests/e2e for Playwright
 - **Existing databases:** apply the new migration with `npx supabase migration up` (adds `cart_items`, `checkouts`, and `quantity` on orders).
 - The delivery fee is charged once per payment and recorded on the first order. An order's price and printer cost cover all its pieces.
 - A design edited after it went in the cart must be checked again before it can be paid for.
+
+## Admin tools
+
+- **Existing databases:** apply `npx supabase migration up` (adds `order_notes` and `settings`; both are server-only, customers cannot read them).
+- **Orders** (`/admin/orders`): search by name, phone, city, order id, item or note, and filter by status.
+- **Private note** on each order page; customers never see it.
+- **Alerts:** the admin menu shows how many designs wait for review and how many paid orders are new, and every new paid checkout emails the admins. Set `ADMIN_ALERT_EMAILS` (comma separated) to choose who; otherwise every admin account is emailed.
+- **Prices** (`/admin/settings`): customer price and printer cost for each item, the back-print extra, and the delivery fee. They apply to new carts and checkouts; paid orders keep the price they were paid at. The numbers in `lib/catalog.ts` are only the starting values.

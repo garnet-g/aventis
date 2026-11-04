@@ -141,3 +141,36 @@ export async function decideAndNotify(
   }
   return design;
 }
+
+export const ORDER_STATUSES: OrderStatus[] = FLOW;
+
+export type OrderListRow = { order: Order; item: string; note: string };
+
+/** Narrows the admin order list by status and by a search over id, customer, phone, city, item and note. */
+export function filterOrders<T extends OrderListRow>(rows: T[], args: { q?: string; status?: string }): T[] {
+  const status = ORDER_STATUSES.find((s) => s === args.status);
+  const words = (args.q ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+  return rows.filter(({ order, item, note }) => {
+    if (status && order.status !== status) return false;
+    const haystack = [order.id, order.delivery.name, order.delivery.phone, order.delivery.city, item, note].join(' ').toLowerCase();
+    return words.every((w) => haystack.includes(w));
+  });
+}
+
+export interface OrderNoteStore {
+  get(orderId: string): Promise<string>;
+  /** An empty note removes it. */
+  set(orderId: string, note: string): Promise<void>;
+}
+
+export const MAX_NOTE_LENGTH = 1000;
+
+/** Saves the admin-only note on an order. */
+export async function saveOrderNote(deps: { orders: OrderStore; notes: OrderNoteStore }, id: string, note: unknown): Promise<string> {
+  if (typeof note !== 'string') throw new HttpError(400, 'The note must be text.');
+  const clean = note.trim();
+  if (clean.length > MAX_NOTE_LENGTH) throw new HttpError(400, `Keep the note under ${MAX_NOTE_LENGTH} characters.`);
+  if (!(await deps.orders.findById(id))) throw new HttpError(404, 'Order not found.');
+  await deps.notes.set(id, clean);
+  return clean;
+}

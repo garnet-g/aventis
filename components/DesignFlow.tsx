@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DesignWorkbench, type InitialDesign, type WorkbenchState } from '@/components/DesignWorkbench';
-import { BACK_PRINT_PRICE_PKR, catalog, DELIVERY_FEE_PKR, type ProductId } from '@/lib/catalog';
+import { catalog, type ProductId } from '@/lib/catalog';
 import { postFormWithProgress } from '@/lib/clientUpload';
 import { pkr } from '@/lib/labels';
+import type { Prices } from '@/lib/prices';
 
 type Outcome = { status: 'approved' | 'pending_review' | 'rejected'; message: string };
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -24,7 +25,7 @@ type Initial = InitialDesign & { id: string };
  * Next keeps a page's state alive when you navigate away and come back. Once a design is in the cart it is
  * finished, so coming back to this page must start a blank design instead of reusing (and overwriting) it.
  */
-export function DesignFlow({ initial }: { initial?: Initial }) {
+export function DesignFlow({ initial, prices }: { initial?: Initial; prices: Prices }) {
   const finished = useRef(false);
   const [epoch, setEpoch] = useState(0);
   useEffect(() => {
@@ -34,10 +35,10 @@ export function DesignFlow({ initial }: { initial?: Initial }) {
       setEpoch((e) => e + 1);
     }
   }, []);
-  return <DesignFlowInner key={epoch} initial={epoch === 0 ? initial : undefined} onFinished={() => (finished.current = true)} />;
+  return <DesignFlowInner key={epoch} initial={epoch === 0 ? initial : undefined} prices={prices} onFinished={() => (finished.current = true)} />;
 }
 
-function DesignFlowInner({ initial, onFinished }: { initial?: Initial; onFinished: () => void }) {
+function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; prices: Prices; onFinished: () => void }) {
   const router = useRouter();
   const state = useRef<WorkbenchState>(
     initial
@@ -189,7 +190,7 @@ function DesignFlowInner({ initial, onFinished }: { initial?: Initial; onFinishe
     }
   }
 
-  const total = catalog[product].pricePkr + (hasBack ? BACK_PRINT_PRICE_PKR : 0) + DELIVERY_FEE_PKR;
+  const total = prices[product].pricePkr + (hasBack ? prices.backPricePkr : 0) + prices.deliveryFeePkr;
 
   return (
     <>
@@ -208,6 +209,7 @@ function DesignFlowInner({ initial, onFinished }: { initial?: Initial; onFinishe
 
       <DesignWorkbench
         initial={initial}
+        backPricePkr={prices.backPricePkr}
         uploadFile={uploadFile}
         onChange={(s) => {
           state.current = s;

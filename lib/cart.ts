@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { HttpError } from '@/lib/errors';
 import { layersHash, type Design, type DesignStore } from '@/lib/designs';
+import { DEFAULT_PRICES, type Prices } from '@/lib/prices';
 import { checkoutTotals, lineTotals, MAX_QUANTITY, unitPricePkr } from '@/lib/pricing';
 
 export type CartItem = { designId: string; quantity: number };
@@ -56,7 +57,8 @@ export type CartLineView = {
 };
 
 /** The cart as the customer sees it: every line priced, flagged if it cannot be paid for, with the totals. */
-export async function loadCart(deps: { designs: DesignStore; cart: CartStore }, userId: string) {
+export async function loadCart(deps: { designs: DesignStore; cart: CartStore; prices?: Prices }, userId: string) {
+  const prices = deps.prices ?? DEFAULT_PRICES;
   const lines: CartLineView[] = [];
   for (const item of await deps.cart.list(userId)) {
     const design = await deps.designs.get(item.designId);
@@ -73,13 +75,13 @@ export async function loadCart(deps: { designs: DesignStore; cart: CartStore }, 
       designId: design.id,
       design,
       quantity: item.quantity,
-      unitPricePkr: unitPricePkr(design),
-      ...lineTotals(design, item.quantity),
+      unitPricePkr: unitPricePkr(design, prices),
+      ...lineTotals(design, item.quantity, prices),
       ok: !problem,
       problem,
     });
   }
-  return { lines, ...checkoutTotals(lines), canCheckout: lines.length > 0 && lines.every((l) => l.ok) };
+  return { lines, ...checkoutTotals(lines, prices), canCheckout: lines.length > 0 && lines.every((l) => l.ok) };
 }
 
 /** A stable key for "this exact cart": the same designs and quantities always give the same key. */

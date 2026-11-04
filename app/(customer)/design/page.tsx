@@ -5,6 +5,7 @@ import { DesignFlow } from '@/components/DesignFlow';
 import { SiteHeader } from '@/components/SiteHeader';
 import { requireUser } from '@/lib/auth';
 import { supabaseDesignStore } from '@/lib/designsStore';
+import { supabasePriceStore } from '@/lib/pricesStore';
 import { getServiceClient } from '@/lib/supabase/server';
 
 const SIGNED_LINK_SECONDS = 3600;
@@ -31,7 +32,8 @@ export default function DesignPage({ searchParams }: { searchParams: Promise<{ d
 async function SignedInDesign({ searchParams }: { searchParams: Promise<{ d?: string }> }) {
   const user = await requireUser();
   const { d } = await searchParams;
-  if (!d) return <DesignFlow />;
+  const prices = await supabasePriceStore().get();
+  if (!d) return <DesignFlow prices={prices} />;
 
   // Resume a saved design: only its owner, and only while it can still be edited.
   const store = supabaseDesignStore();
@@ -50,6 +52,7 @@ async function SignedInDesign({ searchParams }: { searchParams: Promise<{ d?: st
 
   return (
     <DesignFlow
+      prices={prices}
       initial={{
         id: design.id,
         product: design.product,

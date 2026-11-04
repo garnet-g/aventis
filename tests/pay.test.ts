@@ -290,6 +290,32 @@ describe('artifacts at payment', () => {
   });
 });
 
+describe('prices set by the owner', () => {
+  const custom = { tee: { pricePkr: 1800, costPkr: 900 }, hoodie: { pricePkr: 2600, costPkr: 1400 }, backPricePkr: 700, backCostPkr: 450, deliveryFeePkr: 300 };
+  const priceStore = (prices = custom) => ({ get: async () => prices, set: async () => undefined });
+
+  test('the customer is charged the saved prices and the order records them', async () => {
+    const d = await makeDesign(alice, 'Ali', 'tee', { back: 'Back' });
+    const provider = new SpyProvider();
+    await cart.add(alice, d.id, 1);
+    await cart.setQuantity(alice, d.id, 2);
+    const { orders, created } = await placeCheckout(
+      { designs, orders: pgOrderStore(db), cart, provider, prices: priceStore() },
+      { userId: alice, delivery },
+    );
+    expect(created).toBe(true);
+    expect(provider.charges[0].amountPkr).toBe((1800 + 700) * 2 + 300);
+    expect(orders[0]).toMatchObject({ pricePkr: 5000, costPkr: (900 + 450) * 2, deliveryFeePkr: 300 });
+  });
+
+  test('paying the same cart again is not a new purchase (so no second alert)', async () => {
+    const d = await makeDesign(alice, 'Ali');
+    const first = await checkout(alice, [{ id: d.id }]);
+    const again = await checkout(alice, [{ id: d.id }]);
+    expect([first.created, again.created]).toEqual([true, false]);
+  });
+});
+
 test('HttpError carries its status', () => {
   expect(new HttpError(403, 'no').status).toBe(403);
 });

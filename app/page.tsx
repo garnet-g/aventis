@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { SiteHeader } from '@/components/SiteHeader';
 import { TeeArt } from '@/components/TeeArt';
-import { catalog, DELIVERY_FEE_PKR } from '@/lib/catalog';
+import { Suspense } from 'react';
+import { catalog } from '@/lib/catalog';
+import { DEFAULT_PRICES } from '@/lib/prices';
+import { supabasePriceStore } from '@/lib/pricesStore';
 import { pkr } from '@/lib/labels';
 
 const STEPS = [
@@ -54,9 +57,9 @@ export default function HomePage() {
           <Link href="/design" className="btn">
             Start designing &rarr;
           </Link>
-          <p className="text-center text-sm text-mute">
-            T-shirt from {pkr(catalog.tee.pricePkr)} &middot; Hoodie from {pkr(catalog.hoodie.pricePkr)}
-          </p>
+          <Suspense fallback={<PriceLine prices={DEFAULT_PRICES} />}>
+            <LivePriceLine />
+          </Suspense>
         </section>
 
         <ol className="rise grid grid-cols-3 gap-2" style={{ animationDelay: '240ms' }}>
@@ -69,15 +72,19 @@ export default function HomePage() {
         </ol>
 
         <ul className="rise grid grid-cols-2 gap-3" style={{ animationDelay: '320ms' }}>
-          {Object.values(catalog).map((p) => (
-            <li key={p.label} className="rounded-xl border-2 border-ink bg-[#fffaf0] p-3">
-              <p className="font-display text-lg font-extrabold">{p.label}</p>
-              <p className="text-sm">{pkr(p.pricePkr)}</p>
+          {(['tee', 'hoodie'] as const).map((id) => (
+            <li key={id} className="rounded-xl border-2 border-ink bg-[#fffaf0] p-3">
+              <p className="font-display text-lg font-extrabold">{catalog[id].label}</p>
+              <Suspense fallback={<p className="text-sm">{pkr(DEFAULT_PRICES[id].pricePkr)}</p>}>
+                <LiveProductPrice id={id} />
+              </Suspense>
               <p className="text-xs text-mute">White or black &middot; S to XL</p>
             </li>
           ))}
         </ul>
-        <p className="-mt-2 text-center text-xs text-mute">Delivery {pkr(DELIVERY_FEE_PKR)}. Every design is checked by a person before it is printed.</p>
+        <Suspense fallback={<DeliveryLine fee={DEFAULT_PRICES.deliveryFeePkr} />}>
+          <LiveDeliveryLine />
+        </Suspense>
 
         <Link className="text-center text-sm underline" href="/orders">
           My designs and orders
@@ -86,3 +93,18 @@ export default function HomePage() {
     </>
   );
 }
+
+// The owner can change prices at any time, so they are read when the page is requested.
+const PriceLine = ({ prices }: { prices: typeof DEFAULT_PRICES }) => (
+  <p className="text-center text-sm text-mute">
+    T-shirt from {pkr(prices.tee.pricePkr)} &middot; Hoodie from {pkr(prices.hoodie.pricePkr)}
+  </p>
+);
+const DeliveryLine = ({ fee }: { fee: number }) => (
+  <p className="-mt-2 text-center text-xs text-mute">Delivery {pkr(fee)}. Every design is checked by a person before it is printed.</p>
+);
+const LivePriceLine = async () => <PriceLine prices={await supabasePriceStore().get()} />;
+const LiveDeliveryLine = async () => <DeliveryLine fee={(await supabasePriceStore().get()).deliveryFeePkr} />;
+const LiveProductPrice = async ({ id }: { id: 'tee' | 'hoodie' }) => (
+  <p className="text-sm">{pkr((await supabasePriceStore().get())[id].pricePkr)}</p>
+);

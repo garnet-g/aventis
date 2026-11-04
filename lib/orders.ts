@@ -4,6 +4,7 @@ import type { DesignLayer } from '@/lib/designLayers';
 import { layersHash, type Design, type DesignStore } from '@/lib/designs';
 import { HttpError } from '@/lib/errors';
 import type { PaymentProvider } from '@/lib/payments';
+import { DEFAULT_PRICES, type PriceStore } from '@/lib/prices';
 import { checkoutTotals, lineTotals } from '@/lib/pricing';
 
 export { HttpError } from '@/lib/errors';
@@ -98,10 +99,11 @@ export class DuplicateCheckoutError extends Error {
  * design. Everything is checked before anyone is charged, and the orders are created together or not at all.
  */
 export async function placeCheckout(
-  deps: { designs: DesignStore; orders: OrderStore; cart: CartStore; provider: PaymentProvider; artifacts?: ArtifactGenerator },
+  deps: { designs: DesignStore; orders: OrderStore; cart: CartStore; provider: PaymentProvider; prices?: PriceStore; artifacts?: ArtifactGenerator },
   args: { userId: string; delivery: unknown },
-): Promise<{ orders: Order[] }> {
+): Promise<{ orders: Order[]; created: boolean }> {
   const delivery = deliverySchema.parse(args.delivery);
+  const prices = (await deps.prices?.get()) ?? DEFAULT_PRICES;
   const items = await deps.cart.list(args.userId);
   if (items.length === 0) throw new HttpError(400, 'Your cart is empty.');
 
@@ -114,15 +116,15 @@ export async function placeCheckout(
       throw new HttpError(403, 'This design has not been approved for payment.');
     }
     const quantity = parseQuantity(item.quantity);
-    lines.push({ design, quantity, ...lineTotals(design, quantity) });
+    lines.push({ design, quantity, ...lineTotals(design, quantity, prices) });
   }
 
-  const { deliveryFeePkr, totalPkr } = checkoutTotals(lines);
+  const { deliveryFeePkr, totalPkr } = checkoutTotals(lines, prices);
   const reference = cartFingerprint(items);
 
   const settle = async (orders: Order[]) => {
     await deps.cart.clear(args.userId);
-    return { orders };
+    return { orders, created: false };
   };
 
   // The same cart paid for twice never charges twice.
@@ -155,7 +157,7 @@ export async function placeCheckout(
 
   // Only the request that created the orders generates files. A failure never undoes a payment: the order stays
   // paid and is flagged so an admin can regenerate its files.
-  if (!deps.artifacts) return { orders };
+  if (!deps.artifacts) return { orders, created: true };
   const designs = new Map(lines.map((l) => [l.design.id, l.design]));
   const finished: Order[] = [];
   for (const order of orders) {
@@ -176,5 +178,5 @@ export async function placeCheckout(
       finished.push({ ...order, artifactsFailed: true });
     }
   }
-  return { orders: finished };
+  return { orders: finished, created: true };
 }

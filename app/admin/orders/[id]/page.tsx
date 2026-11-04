@@ -1,11 +1,13 @@
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { OrderActions } from '@/components/OrderActions';
+import { OrderNote } from '@/components/OrderNote';
 import { nextStatus, orderProfit } from '@/lib/admin';
 import { requireAdmin } from '@/lib/auth';
 import { catalog } from '@/lib/catalog';
 import { supabaseDesignStore } from '@/lib/designsStore';
 import { ORDER_STATUS_LABEL, pkr } from '@/lib/labels';
+import { supabaseOrderNoteStore } from '@/lib/orderNotesStore';
 import { supabaseOrderStore } from '@/lib/ordersStore';
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,6 +24,7 @@ async function OrderDetail({ params }: { params: Promise<{ id: string }> }) {
   const order = await supabaseOrderStore().findById(id);
   if (!order) notFound();
   const design = await supabaseDesignStore().get(order.designId);
+  const note = await supabaseOrderNoteStore().get(order.id);
   const next = nextStatus(order.status);
   const hasBack = order.backLayersSnapshot.length > 0;
   const filesReady =
@@ -91,6 +94,8 @@ async function OrderDetail({ params }: { params: Promise<{ id: string }> }) {
           <p className="font-semibold text-vermilion">The files are missing. Use &ldquo;Regenerate files&rdquo;.</p>
         )}
       </section>
+
+      <OrderNote orderId={order.id} initial={note} />
 
       <OrderActions orderId={order.id} nextLabel={next ? ORDER_STATUS_LABEL[next] : null} needsFiles={!filesReady} />
     </main>

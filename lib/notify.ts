@@ -72,3 +72,25 @@ export async function notifyOrderStatus(
   await email.send({ to: args.to, subject: content.subject, text: `${content.line}\n\nFollow your order here: ${siteUrl}/orders` });
   return true;
 }
+
+/** Tells the admins that a customer just paid, so they can pick the order up. */
+export async function notifyNewOrder(
+  email: EmailSender,
+  siteUrl: string,
+  args: { to: string[]; orderCount: number; totalPkr: number },
+): Promise<void> {
+  const what = args.orderCount === 1 ? '1 new order' : `${args.orderCount} new orders`;
+  const text = `${what} just came in (PKR ${args.totalPkr.toLocaleString('en-US')} paid).
+
+Open the orders: ${siteUrl}/admin/orders`;
+  await Promise.all(args.to.map((to) => email.send({ to, subject: `New order: ${what}`, text })));
+}
+
+/** Who gets new-order alerts: ADMIN_ALERT_EMAILS (comma separated) when set, otherwise every admin's own email. */
+export async function adminAlertRecipients(
+  env: string | undefined,
+  allAdminEmails: () => Promise<string[]>,
+): Promise<string[]> {
+  const listed = (env ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  return listed.length ? listed : allAdminEmails();
+}

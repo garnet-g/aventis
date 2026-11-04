@@ -5,6 +5,7 @@ import { SiteHeader } from '@/components/SiteHeader';
 import { requireUser } from '@/lib/auth';
 import { catalog } from '@/lib/catalog';
 import { loadCart } from '@/lib/cart';
+import { supabasePriceStore } from '@/lib/pricesStore';
 import { supabaseCartStore } from '@/lib/cartStore';
 import { supabaseDesignStore } from '@/lib/designsStore';
 import { pkr } from '@/lib/labels';
@@ -22,7 +23,7 @@ export default function CartPage() {
 
 async function Cart() {
   const user = await requireUser();
-  const cart = await loadCart({ designs: supabaseDesignStore(), cart: supabaseCartStore() }, user.id);
+  const cart = await loadCart({ designs: supabaseDesignStore(), cart: supabaseCartStore(), prices: await supabasePriceStore().get() }, user.id);
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-12">

@@ -5,6 +5,7 @@ import { SiteHeader } from '@/components/SiteHeader';
 import { requireUser } from '@/lib/auth';
 import { catalog } from '@/lib/catalog';
 import { loadCart } from '@/lib/cart';
+import { supabasePriceStore } from '@/lib/pricesStore';
 import { supabaseCartStore } from '@/lib/cartStore';
 import { supabaseDesignStore } from '@/lib/designsStore';
 import { pkr } from '@/lib/labels';
@@ -23,7 +24,7 @@ export default function CheckoutPage() {
 
 async function Checkout() {
   const user = await requireUser();
-  const cart = await loadCart({ designs: supabaseDesignStore(), cart: supabaseCartStore() }, user.id);
+  const cart = await loadCart({ designs: supabaseDesignStore(), cart: supabaseCartStore(), prices: await supabasePriceStore().get() }, user.id);
   // Only a cart whose designs are all approved, exactly as they are now, can be paid for.
   if (!cart.canCheckout) redirect('/cart');
   const provider = getPaymentProvider();

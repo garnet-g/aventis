@@ -23,6 +23,8 @@ type Props = {
   /** 0-100 while a file is being sent; null when idle. */
   uploadProgress?: number | null;
   showLayersJson?: boolean;
+  /** What printing the back adds, shown on the Back tab. */
+  backPricePkr?: number;
   children?: ReactNode;
 };
 
@@ -41,7 +43,7 @@ const TEXT_COLORS = [
   { name: 'Purple', hex: '#7c3aed' },
 ] as const;
 
-export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChange, uploadProgress = null, showLayersJson, children }: Props) {
+export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChange, uploadProgress = null, showLayersJson, backPricePkr = BACK_PRINT_PRICE_PKR, children }: Props) {
   const editor = useRef<EditorHandle>(null);
   const [state, setState] = useState<WorkbenchState>(
     initial
@@ -117,7 +119,7 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
               className={`flex-1 py-2.5 text-sm font-bold ${side === s ? 'bg-ink text-paper' : ''}`}
             >
               {s === 'front' ? 'Front' : 'Back'} ({count})
-              {s === 'back' && count > 0 && <span className="ml-1 text-[0.7rem] font-semibold opacity-80">· +{pkr(BACK_PRINT_PRICE_PKR)}</span>}
+              {s === 'back' && count > 0 && <span className="ml-1 text-[0.7rem] font-semibold opacity-80">· +{pkr(backPricePkr)}</span>}
             </button>
           );
         })}
