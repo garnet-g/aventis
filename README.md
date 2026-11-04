@@ -144,3 +144,10 @@ tests/              vitest unit/database tests; tests/e2e for Playwright
 - **Private note** on each order page; customers never see it.
 - **Alerts:** the admin menu shows how many designs wait for review and how many paid orders are new, and every new paid checkout emails the admins. Set `ADMIN_ALERT_EMAILS` (comma separated) to choose who; otherwise every admin account is emailed.
 - **Prices** (`/admin/settings`): customer price and printer cost for each item, the back-print extra, and the delivery fee. They apply to new carts and checkouts; paid orders keep the price they were paid at. The numbers in `lib/catalog.ts` are only the starting values.
+
+## Crop and background removal
+
+- **Crop:** select a picture, press Crop, drag the corners or the middle of the box (Free or Square), press Crop. The cut-out is uploaded as a new picture and takes the old one's place at the same scale; a box under 300 px on the shorter side is refused. One undo step brings the original back.
+- **Remove background:** runs inside the customer's browser, so photos never go to a third party. It uses the Apache-2.0 `Xenova/modnet` model (about 7 MB; `BACKGROUND_MODEL` in `lib/imageEdit.ts`) through `@huggingface/transformers`. The first use downloads the model from huggingface.co and the ONNX runtime from cdn.jsdelivr.net, then the browser keeps them.
+- **Know the limit:** MODNet is trained on **people**. It cuts out portraits well and logos or objects poorly. If customers mostly upload artwork, swap in a general model (`onnx-community/BiRefNet_lite-ONNX` is MIT but about 115 MB; RMBG models need a commercial licence from Bria) or an outside service.
+- Edited pictures are new uploads, so the safety check runs on them like any other picture.
