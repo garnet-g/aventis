@@ -14,12 +14,14 @@ export function CatalogueOrder({
   colors,
   previews,
   unitPriceLabel,
+  bulkNote = '',
 }: {
   itemId: string;
   colors: Color[];
   /** "<color>-<side>" -> picture link. */
   previews: Record<string, string>;
   unitPriceLabel: string;
+  bulkNote?: string;
 }) {
   const router = useRouter();
   const [color, setColor] = useState<Color>(colors[0]);
@@ -116,6 +118,11 @@ export function CatalogueOrder({
         </section>
 
         <p className="text-sm text-mute">{unitPriceLabel} each, plus delivery at checkout.</p>
+        {bulkNote && (
+          <p data-testid="bulk-note" className="text-sm font-semibold">
+            {bulkNote}
+          </p>
+        )}
 
         {error && (
           <p role="alert" className="text-sm font-semibold text-vermilion">

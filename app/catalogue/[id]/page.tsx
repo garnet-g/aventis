@@ -5,7 +5,7 @@ import { CatalogueOrder } from '@/components/CatalogueOrder';
 import { SiteHeader } from '@/components/SiteHeader';
 import { catalog } from '@/lib/catalog';
 import { cataloguePictureUrl, supabaseCatalogueStore } from '@/lib/catalogueStore';
-import { kes } from '@/lib/labels';
+import { bulkTiersLabel, kes } from '@/lib/labels';
 import { supabasePriceStore } from '@/lib/pricesStore';
 
 export default function CatalogueItemPage({ params }: { params: Promise<{ id: string }> }) {
@@ -49,7 +49,7 @@ async function Item({ params }: { params: Promise<{ id: string }> }) {
         <p className="mt-3 font-display text-3xl font-extrabold">{kes(price)}</p>
         {item.backLayers.length > 0 && <p className="text-sm text-mute">Printed on the {item.layers.length ? 'front and back' : 'back'}.</p>}
       </div>
-      <CatalogueOrder itemId={item.id} colors={item.colors} previews={previews} unitPriceLabel={kes(price)} />
+      <CatalogueOrder itemId={item.id} colors={item.colors} previews={previews} unitPriceLabel={kes(price)} bulkNote={bulkTiersLabel(prices.bulkTiers)} />
     </main>
   );
 }

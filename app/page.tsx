@@ -5,7 +5,7 @@ import { TeeArt } from '@/components/TeeArt';
 import { catalog } from '@/lib/catalog';
 import { previewKey } from '@/lib/catalogueItems';
 import { cataloguePictureUrl, supabaseCatalogueStore } from '@/lib/catalogueStore';
-import { kes } from '@/lib/labels';
+import { bulkTiersLabel, kes } from '@/lib/labels';
 import { DEFAULT_PRICES } from '@/lib/prices';
 import { supabasePriceStore } from '@/lib/pricesStore';
 
@@ -111,7 +111,7 @@ export default function HomePage() {
                 </li>
               ))}
             </ul>
-            <Suspense fallback={<DeliveryLine fee={DEFAULT_PRICES.deliveryFeeKes} />}>
+            <Suspense fallback={<DeliveryLine prices={DEFAULT_PRICES} />}>
               <LiveDeliveryLine />
             </Suspense>
           </div>
@@ -138,11 +138,13 @@ const PriceLine = ({ prices }: { prices: typeof DEFAULT_PRICES }) => (
     T-shirt from {kes(prices.tee.priceKes)} &middot; Hoodie from {kes(prices.hoodie.priceKes)}
   </p>
 );
-const DeliveryLine = ({ fee }: { fee: number }) => (
-  <p className="mt-6 text-sm text-mute">Delivery {kes(fee)}. Every design is checked by a person before it is printed.</p>
+const DeliveryLine = ({ prices }: { prices: typeof DEFAULT_PRICES }) => (
+  <p className="mt-6 text-sm text-mute">
+    Delivery {kes(prices.deliveryFeeKes)}. Every design is checked by a person before it is printed. {bulkTiersLabel(prices.bulkTiers)}
+  </p>
 );
 const LivePriceLine = async () => <PriceLine prices={await supabasePriceStore().get()} />;
-const LiveDeliveryLine = async () => <DeliveryLine fee={(await supabasePriceStore().get()).deliveryFeeKes} />;
+const LiveDeliveryLine = async () => <DeliveryLine prices={await supabasePriceStore().get()} />;
 const LiveProductPrice = async ({ id }: { id: 'tee' | 'hoodie' }) => (
   <p className="text-lg font-bold">{kes((await supabasePriceStore().get())[id].priceKes)}</p>
 );

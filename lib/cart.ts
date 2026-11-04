@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { HttpError } from '@/lib/errors';
 import { layersHash, type Design, type DesignStore } from '@/lib/designs';
 import { DEFAULT_PRICES, type Prices } from '@/lib/prices';
-import { checkoutTotals, lineTotals, MAX_QUANTITY, unitPriceKes } from '@/lib/pricing';
+import { bulkPercentOff, checkoutTotals, lineTotals, listUnitPriceKes, MAX_QUANTITY, unitPriceKes } from '@/lib/pricing';
 
 export type CartItem = { designId: string; quantity: number };
 
@@ -48,7 +48,12 @@ export type CartLineView = {
   designId: string;
   design: Design;
   quantity: number;
+  /** The price of one piece after any bulk discount. */
   unitPriceKes: number;
+  /** The price of one piece before any bulk discount. */
+  listUnitPriceKes: number;
+  /** The bulk discount on this line, in percent (0 for none). */
+  bulkPercentOff: number;
   priceKes: number;
   costKes: number;
   /** False when this line cannot be paid for yet, with the reason in `problem`. */
@@ -75,7 +80,9 @@ export async function loadCart(deps: { designs: DesignStore; cart: CartStore; pr
       designId: design.id,
       design,
       quantity: item.quantity,
-      unitPriceKes: unitPriceKes(design, prices),
+      unitPriceKes: unitPriceKes(design, prices, item.quantity),
+      listUnitPriceKes: listUnitPriceKes(design, prices),
+      bulkPercentOff: bulkPercentOff(item.quantity, prices),
       ...lineTotals(design, item.quantity, prices),
       ok: !problem,
       problem,

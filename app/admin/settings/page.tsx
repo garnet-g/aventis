@@ -18,7 +18,7 @@ async function Settings() {
       <h1 className="font-display text-3xl font-extrabold tracking-tight">Prices</h1>
       <p className="text-sm text-mute">
         &ldquo;Customer pays&rdquo; is what is charged. &ldquo;Printer charges&rdquo; is what it costs you, and drives the profit shown on orders. A change
-        applies to new carts and checkouts; orders already paid keep the price they were paid at.
+        applies to new carts and checkouts; orders already paid keep the price they were paid at. Bulk prices are taken off the whole price of each piece (garment and back print) and do not change what the printer charges, so they reduce your profit.
       </p>
       <PriceForm initial={await supabasePriceStore().get()} />
     </main>

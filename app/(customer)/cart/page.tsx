@@ -51,7 +51,15 @@ async function Cart() {
                       {l.design.color === 'white' ? 'White' : 'Black'} &middot; Size {l.design.size}
                       {l.design.backLayers.length > 0 ? ' · front and back' : ''}
                     </p>
-                    <p className="text-sm">{kes(l.unitPriceKes)} each</p>
+                    <p className="text-sm">
+                      {l.bulkPercentOff > 0 && <s className="mr-1.5 text-mute">{kes(l.listUnitPriceKes)}</s>}
+                      {kes(l.unitPriceKes)} each
+                    </p>
+                    {l.bulkPercentOff > 0 && (
+                      <p data-testid="bulk-badge" className="badge badge-gold mt-1">
+                        Bulk price: {l.bulkPercentOff}% off
+                      </p>
+                    )}
                     {l.problem && <p className="badge badge-gold mt-2">{l.problem}</p>}
                   </div>
                 </div>

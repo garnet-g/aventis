@@ -291,7 +291,7 @@ describe('artifacts at payment', () => {
 });
 
 describe('prices set by the owner', () => {
-  const custom = { tee: { priceKes: 1800, costKes: 900 }, hoodie: { priceKes: 2600, costKes: 1400 }, backPriceKes: 700, backCostKes: 450, deliveryFeeKes: 300 };
+  const custom = { tee: { priceKes: 1800, costKes: 900 }, hoodie: { priceKes: 2600, costKes: 1400 }, backPriceKes: 700, backCostKes: 450, deliveryFeeKes: 300, bulkTiers: [] };
   const priceStore = (prices = custom) => ({ get: async () => prices, set: async () => undefined });
 
   test('the customer is charged the saved prices and the order records them', async () => {

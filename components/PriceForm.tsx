@@ -34,6 +34,7 @@ const FIELDS: { group: string; fields: Field[] }[] = [
 export function PriceForm({ initial }: { initial: Prices }) {
   const [saved, setSaved] = useState(initial);
   const [text, setText] = useState(() => Object.fromEntries(FIELDS.flatMap((g) => g.fields.map((f) => [f.id, String(f.get(initial))]))));
+  const [rows, setRows] = useState(() => initial.bulkTiers.map((t) => ({ min: String(t.minQuantity), pct: String(t.percentOff) })));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
@@ -45,6 +46,9 @@ export function PriceForm({ initial }: { initial: Prices }) {
     setDone(false);
     let prices = saved;
     for (const g of FIELDS) for (const f of g.fields) prices = f.set(prices, text[f.id].trim() === '' ? Number.NaN : Number(text[f.id]));
+    // a row left completely empty is ignored; a half-filled one is reported by the server
+    const num = (v: string) => (v.trim() === '' ? Number.NaN : Number(v));
+    prices = { ...prices, bulkTiers: rows.filter((r) => r.min.trim() !== '' || r.pct.trim() !== '').map((r) => ({ minQuantity: num(r.min), percentOff: num(r.pct) })) };
     const res = await fetch('/api/admin/prices', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -54,6 +58,7 @@ export function PriceForm({ initial }: { initial: Prices }) {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) return setError(body.error ?? 'Could not save the prices.');
     setSaved(body.prices);
+    setRows(body.prices.bulkTiers.map((t: { minQuantity: number; percentOff: number }) => ({ min: String(t.minQuantity), pct: String(t.percentOff) })));
     setDone(true);
   }
 
@@ -82,6 +87,50 @@ export function PriceForm({ initial }: { initial: Prices }) {
           ))}
         </fieldset>
       ))}
+      <fieldset className="ticket flex flex-col gap-2 text-sm">
+        <legend className="px-1 font-display text-lg font-extrabold">Bulk prices</legend>
+        <p className="text-mute">Each piece costs less when a customer orders more of the same design. Leave empty for no bulk prices.</p>
+        {rows.map((r, i) => (
+          <div key={i} className="flex flex-wrap items-center gap-2" data-testid="bulk-row">
+            <label className="flex items-center gap-1">
+              Order
+              <input
+                aria-label={`Bulk price ${i + 1} starts at`}
+                inputMode="numeric"
+                value={r.min}
+                onChange={(e) => {
+                  setRows(rows.map((x, j) => (j === i ? { ...x, min: e.target.value } : x)));
+                  setDone(false);
+                }}
+                className="field w-20 text-right"
+              />
+              or more
+            </label>
+            <label className="flex items-center gap-1">
+              and save
+              <input
+                aria-label={`Bulk price ${i + 1} percent off`}
+                inputMode="numeric"
+                value={r.pct}
+                onChange={(e) => {
+                  setRows(rows.map((x, j) => (j === i ? { ...x, pct: e.target.value } : x)));
+                  setDone(false);
+                }}
+                className="field w-20 text-right"
+              />
+              %
+            </label>
+            <button type="button" className="underline" onClick={() => { setRows(rows.filter((_, j) => j !== i)); setDone(false); }}>
+              Remove
+            </button>
+          </div>
+        ))}
+        {rows.length < 5 && (
+          <button type="button" className="btn btn-quiet btn-sm self-start" onClick={() => { setRows([...rows, { min: '', pct: '' }]); setDone(false); }}>
+            Add a bulk price
+          </button>
+        )}
+      </fieldset>
       {error && (
         <p role="alert" className="text-sm font-semibold text-vermilion">
           {error}
