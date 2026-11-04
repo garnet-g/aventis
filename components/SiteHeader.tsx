@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { AdminLink } from '@/components/AdminLink';
 
 /** The VybeCrew mark: a yellow tile with a bold V over a wave. */
 export function LogoMark({ className = 'h-8 w-8' }: { className?: string }) {
@@ -38,7 +39,10 @@ export function SiteHeader({ right }: { right?: ReactNode }) {
             Design your own
           </Link>
         </nav>
-        <div className="flex items-center gap-4 text-sm font-bold [&_a:hover]:text-marigold">{right}</div>
+        <div className="flex items-center gap-4 text-sm font-bold [&_a:hover]:text-marigold">
+          {right}
+          <AdminLink />
+        </div>
       </div>
       <nav aria-label="Main (small screens)" className="shell flex gap-6 pb-3 text-xs font-bold uppercase tracking-wide md:hidden">
         <Link href="/catalogue">Catalogue</Link>
