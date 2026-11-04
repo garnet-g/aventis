@@ -5,8 +5,8 @@ A phone-first web app where customers in Pakistan put a design or a name on a T-
 - the **mockup** (the garment with the design on it), and
 - the **design file** (the artwork alone, a transparent PNG at print resolution).
 
-Design spec: `docs/superpowers/specs/2026-10-31-custom-apparel-platform-design.md`
-Build plan: `docs/superpowers/plans/2026-10-31-custom-apparel-platform.md`
+Design spec: `docs/design/design-spec.md`
+Build plan: `docs/design/implementation-plan.md`
 
 ## How an order flows
 

@@ -1,6 +1,5 @@
 # Custom Apparel Platform Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A phone-first web app where Pakistani customers place a design or name inside a fixed print area on a T-shirt or hoodie, pass a safety check, pay (dummy provider in v1), and where admins receive paid orders with a mockup and a standalone design file to forward to their printer.
 
@@ -8,7 +7,7 @@
 
 **Tech Stack:** Next.js (TypeScript, App Router), Tailwind CSS, Fabric.js, Supabase (`@supabase/supabase-js`, `@supabase/ssr`), sharp (server-side image compositing), Vitest (unit/integration), Playwright (end-to-end), Zod (input validation).
 
-**Spec:** `docs/superpowers/specs/2026-10-31-custom-apparel-platform-design.md`
+**Spec:** `docs/design/design-spec.md`
 
 ## Global Constraints
 
@@ -69,7 +68,7 @@ tests/                              mirrors lib/ and app/api/
 ### Task 1: Project scaffold and catalog
 
 **Files:**
-- Create: project via `create-next-app` (TypeScript, Tailwind, App Router) in the project folder; `lib/catalog.ts`; `vitest.config.ts`; `.gitignore` (include `.superpowers/`, `.env*.local`)
+- Create: project via `create-next-app` (TypeScript, Tailwind, App Router) in the project folder; `lib/catalog.ts`; `vitest.config.ts`; `.gitignore` (include `.env*.local`)
 - Test: `tests/catalog.test.ts`
 
 **Interfaces:**
