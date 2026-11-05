@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { SiteHeader } from '@/components/SiteHeader';
-import { TeeArt } from '@/components/TeeArt';
 import { catalog } from '@/lib/catalog';
 import { previewKey } from '@/lib/catalogueItems';
 import { cataloguePictureUrl, supabaseCatalogueStore } from '@/lib/catalogueStore';
@@ -55,20 +54,13 @@ export default function HomePage() {
 
           <div className="rise relative mx-auto flex h-80 w-full max-w-lg items-center justify-center overflow-hidden rounded-3xl border-2 border-marigold bg-[#151515] sm:h-96 lg:h-[28rem]" style={{ animationDelay: '120ms' }}>
             <div className="halftone absolute inset-0 text-white opacity-10 [mask-image:linear-gradient(120deg,#000,transparent_65%)]" />
-            <div className="absolute right-4 top-4 grid h-24 w-24 rotate-[8deg] place-items-center rounded-full border-2 border-ink bg-marigold text-center font-display text-sm font-extrabold leading-none text-ink">
+            <div className="absolute bottom-4 left-4 grid h-24 w-24 -rotate-[8deg] place-items-center rounded-full border-2 border-ink bg-marigold text-center font-display text-sm font-extrabold leading-none text-ink">
               100%
               <br />
               yours
             </div>
-            <TeeArt className="relative w-60 -rotate-3 sm:w-72 lg:w-80" fill="#ffffff">
-              <text x="400" y="470" textAnchor="middle" fontFamily="var(--font-bricolage)" fontWeight="800" fontSize="150" fill="#0a0a0a">
-                YOUR
-              </text>
-              <text x="400" y="560" textAnchor="middle" fontWeight="700" fontSize="42" letterSpacing="12" fill="#0a0a0a">
-                DESIGN
-              </text>
-              <rect x="330" y="600" width="140" height="18" fill="#ffd60a" />
-            </TeeArt>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/vybecrew-logo.png" alt="" width={640} height={635} className="relative h-full max-h-full w-auto -rotate-2 p-6" />
           </div>
         </div>
         <div className="tape" aria-hidden />

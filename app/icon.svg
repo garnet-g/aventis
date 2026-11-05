@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="VybeCrew">
-  <rect width="64" height="64" rx="14" fill="#ffd60a"/>
-  <path d="M9 15h13l10 24 10-24h13L38 51H26z" fill="#0a0a0a"/>
-  <path d="M10 56c7-5 11-5 18 0s11 5 18 0 8-3 8-3" fill="none" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" opacity=".9"/>
-</svg>

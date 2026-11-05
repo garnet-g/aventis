@@ -171,3 +171,9 @@ The shop is set up for Nairobi: amounts are in Kenya shillings (KES), delivery a
 Customers pay less per piece when they order more of the same design. The owner sets up to five bulk prices on the admin Prices page ("Order 10 or more and save 10%"); the biggest one a line reaches applies to every piece on that line, garment and back print alike. The starting set is 5+ save 5%, 10+ save 10%, 25+ save 15%. Bulk prices lower what the customer pays but not what the printer charges, so profit on those orders is smaller. The paid order keeps the discounted price. Customers see the offer on the home page and the catalogue design page, and a "Bulk price" badge on the cart line once it applies.
 
 The header shows an Admin link to signed-in admins.
+
+## Logo and starter catalogue
+
+The logo's original is `assets/brand/vybecrew-logo-source.jpg` (light art on black). `node scripts/make-brand.mjs` turns it into the transparent site logo (`public/brand/vybecrew-logo.png`), the page icons, the share picture and the catalogue art in `assets/brand/`. The black background becomes transparent, so the logo is meant for black surfaces: the site's black bars and panels, and black garments.
+
+`scripts/seed-brand-catalogue.mjs` posts and publishes eight starter designs (logo on black T-shirts and hoodies: front, back, chest and back, front and back) through the admin page: `ADMIN_EMAIL=... ADMIN_PASSWORD=... node scripts/seed-brand-catalogue.mjs` with the app running. Run it against the live site once it is deployed. The original is only about 830 pixels wide, so the artwork is enlarged for print; ask for a larger or vector version for the best print quality.

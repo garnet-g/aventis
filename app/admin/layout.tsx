@@ -9,7 +9,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <>
       <div className="bg-ink text-white">
         <nav aria-label="Admin" className="shell flex flex-wrap items-center gap-x-6 gap-y-2 py-3 text-sm font-bold [&_a:hover]:text-marigold">
-          <Logo />
+          <Logo className="h-9" />
           <span className="rounded bg-marigold px-1.5 py-0.5 text-[0.65rem] uppercase tracking-widest text-ink">Admin</span>
           <Suspense fallback={<NavLinks />}>
             <CountedNavLinks />

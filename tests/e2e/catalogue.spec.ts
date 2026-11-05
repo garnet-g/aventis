@@ -143,13 +143,15 @@ test.describe('on a computer', () => {
   });
 });
 
-test('the brand is VybeCrew with a yellow tile logo', async ({ page }) => {
+test('the brand is VybeCrew, with the logo in the header and as the page icon', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/VybeCrew/);
-  await expect(page.getByRole('link', { name: 'VybeCrew' }).first()).toBeVisible();
-  const logo = await page.request.get('/brand/vybecrew-logo.svg');
-  expect(logo.status()).toBe(200);
-  expect(await logo.text()).toContain('#ffd60a');
-  const icon = await page.request.get('/icon.svg');
-  expect(icon.status()).toBe(200);
+  const logo = page.locator('header').first().locator('img[src="/brand/vybecrew-logo.png"]');
+  await expect(logo).toBeVisible();
+  expect(await logo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(100); // it actually loaded
+  for (const url of ['/brand/vybecrew-logo.png', '/icon.png', '/opengraph-image.png']) {
+    const res = await page.request.get(url);
+    expect(res.status(), url).toBe(200);
+    expect(res.headers()['content-type'], url).toContain('image/png');
+  }
 });
