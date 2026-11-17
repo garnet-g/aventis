@@ -76,7 +76,7 @@ export async function addUpload(page: Page) {
 export async function addName(page: Page, name: string) {
   await expect(page.getByTestId('text-input')).toBeEnabled();
   await page.getByTestId('text-input').fill(name);
-  await page.getByRole('button', { name: 'Add name' }).click();
+  await page.getByRole('button', { name: 'Add text' }).click();
   await page.waitForTimeout(500);
 }
 

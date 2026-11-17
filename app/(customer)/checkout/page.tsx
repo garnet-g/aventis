@@ -12,6 +12,8 @@ import { kes } from '@/lib/labels';
 import { getPaymentProvider } from '@/lib/payments';
 import { getServiceClient } from '@/lib/supabase/server';
 
+export const metadata = { title: 'Checkout' };
+
 export default function CheckoutPage() {
   return (
     <>

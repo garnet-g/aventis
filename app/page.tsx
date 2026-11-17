@@ -19,14 +19,7 @@ const STEPS = [
 export default function HomePage() {
   return (
     <>
-      <SiteHeader
-        right={
-          <>
-            <Link href="/cart">Cart</Link>
-            <Link href="/orders">My orders</Link>
-          </>
-        }
-      />
+      <SiteHeader />
 
       <section className="bg-ink text-white">
         <div className="shell grid items-center gap-10 py-12 lg:grid-cols-2 lg:py-20">
@@ -43,7 +36,7 @@ export default function HomePage() {
               <Link href="/catalogue" className="btn sm:min-w-56">
                 Shop the catalogue
               </Link>
-              <Link href="/design" className="btn btn-ink border-white sm:min-w-56">
+              <Link href="/design" prefetch={false} className="btn btn-ink border-white sm:min-w-56">
                 Start designing &rarr;
               </Link>
             </div>
@@ -97,7 +90,7 @@ export default function HomePage() {
                     </Suspense>
                     <p className="text-sm text-mute">White or black &middot; S to XL &middot; front and back printing</p>
                   </div>
-                  <Link href="/design" className="btn btn-sm shrink-0">
+                  <Link href="/design" prefetch={false} className="btn btn-sm shrink-0">
                     Design
                   </Link>
                 </li>

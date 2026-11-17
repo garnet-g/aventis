@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { adminPage, PASSWORD, signUp, uniqueEmail } from './helpers';
+import { addName, adminPage, fillDeliveryAndPay, goToCheckout, PASSWORD, service, signUp, uniqueEmail, userId } from './helpers';
 
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
@@ -113,4 +113,60 @@ test('wrong links get the VybeCrew 404 page; non-admins never see the admin menu
   } finally {
     await admin.context.close();
   }
+});
+
+test('the account page: download my data, then delete the account for good', async ({ page }) => {
+  const email = uniqueEmail('acct');
+  await signUp(page, email);
+  await expect(page.getByTestId('account-link')).toHaveAttribute('href', '/account');
+  await page.goto('/account');
+  await expect(page.getByRole('heading', { name: 'Your account', exact: true })).toBeVisible();
+  await expect(page.getByText(email)).toBeVisible();
+
+  const download = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Download my data' }).click();
+  const file = await (await download).path();
+  const data = JSON.parse((await import('node:fs')).readFileSync(file, 'utf8'));
+  expect(data.account.email).toBe(email);
+  expect(Array.isArray(data.orders)).toBe(true);
+
+  const button = page.getByRole('button', { name: 'Delete my account' });
+  await expect(button).toBeDisabled();
+  await page.getByLabel('Type DELETE to confirm').fill('delete');
+  await button.click();
+  await page.waitForURL('**/?account=deleted');
+  const { data: users } = await service().auth.admin.listUsers({ perPage: 1000 });
+  expect(users.users.some((u) => u.email === email)).toBe(false);
+
+  // the old password no longer works
+  await page.goto('/login');
+  await page.getByPlaceholder('Email').fill(email);
+  await page.getByPlaceholder(/password/i).fill(PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByText(/email and password don.t match/i)).toBeVisible();
+});
+
+test('an account with orders waits until they arrive, then closes and keeps the orders', async ({ page }) => {
+  const email = uniqueEmail('keep');
+  await signUp(page, email);
+  await addName(page, 'Keep me');
+  await page.getByTestId('continue').click();
+  await goToCheckout(page);
+  await fillDeliveryAndPay(page);
+  const id = await userId(email);
+  const { data: order } = await service().from('orders').select('id').eq('user_id', id).single();
+
+  await page.goto('/account');
+  await page.getByLabel('Type DELETE to confirm').fill('DELETE');
+  await page.getByRole('button', { name: 'Delete my account' }).click();
+  await expect(page.getByText(/order on its way/)).toBeVisible();
+
+  await service().from('orders').update({ status: 'delivered' }).eq('id', order!.id);
+  await page.getByRole('button', { name: 'Delete my account' }).click();
+  await page.waitForURL('**/?account=deleted');
+  // the order is kept for the records; the login no longer names the person and cannot sign in
+  expect((await service().from('orders').select('id').eq('id', order!.id)).data).toHaveLength(1);
+  const { data: user } = await service().auth.admin.getUserById(id);
+  expect(user.user?.email).toBe(`deleted-${id}@deleted.invalid`);
+  expect((await service().from('designs').select('id').eq('user_id', id)).data).toHaveLength(1); // only the ordered one
 });

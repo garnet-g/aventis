@@ -3,6 +3,8 @@ import { PriceForm } from '@/components/PriceForm';
 import { requireAdmin } from '@/lib/auth';
 import { supabasePriceStore } from '@/lib/pricesStore';
 
+export const metadata = { title: 'Prices (admin)' };
+
 export default function SettingsPage() {
   return (
     <Suspense fallback={<p className="p-4 text-sm text-mute">Loading…</p>}>

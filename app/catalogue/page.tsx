@@ -18,14 +18,7 @@ const FILTERS: { id: 'all' | ProductId; label: string }[] = [
 export default function CataloguePage({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   return (
     <>
-      <SiteHeader
-        right={
-          <>
-            <a href="/cart">Cart</a>
-            <a href="/orders">My orders</a>
-          </>
-        }
-      />
+      <SiteHeader />
       <main className="shell py-10">
         <p className="eyebrow">Ready to wear</p>
         <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">The catalogue</h1>
@@ -62,7 +55,7 @@ async function Grid({ searchParams }: { searchParams: Promise<{ p?: string }> })
       {items.length === 0 ? (
         <p data-testid="catalogue-empty" className="mt-10 text-mute">
           {all.length === 0 ? 'New designs are coming soon.' : 'Nothing here yet.'} Meanwhile, you can{' '}
-          <Link className="underline" href="/design">
+          <Link className="underline" href="/design" prefetch={false}>
             design your own
           </Link>
           .

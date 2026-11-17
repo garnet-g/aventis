@@ -214,6 +214,57 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
         </p>
       )}
 
+      {/* first under the canvas, so on a phone adding art or text is in reach without scrolling */}
+      <section className="flex flex-col gap-3" aria-label="Add to your design">
+        <label className="rounded-xl border-2 border-dashed border-ink bg-white/40 p-3 text-center text-sm font-bold">
+          &#8679; Upload art (PNG, JPG or WebP)
+          <input
+            data-testid="upload-input"
+            disabled={!ready}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="sr-only"
+            onChange={onFile}
+          />
+        </label>
+        {uploadProgress !== null && (
+          <div>
+            <div
+              role="progressbar"
+              aria-label="Upload progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={uploadProgress}
+              className="h-2.5 overflow-hidden rounded-full border-2 border-ink bg-white/60"
+            >
+              <div className="h-full bg-marigold transition-[width]" style={{ width: `${uploadProgress}%` }} />
+            </div>
+            <p className="mt-1 text-xs font-semibold text-mute">{uploadProgress < 100 ? `Uploading ${uploadProgress}%` : 'Finishing…'}</p>
+          </div>
+        )}
+        {error && (
+          <p role="alert" className="text-sm font-semibold text-vermilion">
+            {error}
+          </p>
+        )}
+        <div className="flex gap-2">
+          <input
+            data-testid="text-input"
+            disabled={!ready}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Add your text"
+            className="field min-w-0 flex-1"
+          />
+          <button disabled={!ready} className="btn btn-ink btn-sm" onClick={addText}>
+            Add text
+          </button>
+        </div>
+        <button className="self-start text-sm underline" onClick={() => editor.current?.removeSelected()}>
+          Remove selected
+        </button>
+      </section>
+
       {selection && (
         <section className="ticket flex flex-col gap-3" aria-label="Selected item">
           {selection.kind === 'image' && (
@@ -355,55 +406,6 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
         </div>
       </section>
 
-      <section className="flex flex-col gap-3" aria-label="Add to your design">
-        <label className="rounded-xl border-2 border-dashed border-ink bg-white/40 p-3 text-center text-sm font-bold">
-          &#8679; Upload art (PNG, JPG or WebP)
-          <input
-            data-testid="upload-input"
-            disabled={!ready}
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            className="sr-only"
-            onChange={onFile}
-          />
-        </label>
-        {uploadProgress !== null && (
-          <div>
-            <div
-              role="progressbar"
-              aria-label="Upload progress"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={uploadProgress}
-              className="h-2.5 overflow-hidden rounded-full border-2 border-ink bg-white/60"
-            >
-              <div className="h-full bg-marigold transition-[width]" style={{ width: `${uploadProgress}%` }} />
-            </div>
-            <p className="mt-1 text-xs font-semibold text-mute">{uploadProgress < 100 ? `Uploading ${uploadProgress}%` : 'Finishing…'}</p>
-          </div>
-        )}
-        {error && (
-          <p role="alert" className="text-sm font-semibold text-vermilion">
-            {error}
-          </p>
-        )}
-        <div className="flex gap-2">
-          <input
-            data-testid="text-input"
-            disabled={!ready}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Add your text"
-            className="field min-w-0 flex-1"
-          />
-          <button disabled={!ready} className="btn btn-ink btn-sm" onClick={addText}>
-            Add name
-          </button>
-        </div>
-        <button className="self-start text-sm underline" onClick={() => editor.current?.removeSelected()}>
-          Remove selected
-        </button>
-      </section>
 
       {children}
       {showLayersJson && (

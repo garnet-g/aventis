@@ -15,7 +15,7 @@ export const metadata = { title: 'Thank you', robots: { index: false } };
 export default function ThankYouPage({ params }: { params: Promise<{ id: string }> }) {
   return (
     <>
-      <SiteHeader right={<Link href="/orders">My orders</Link>} />
+      <SiteHeader />
       <Suspense fallback={<p className="shell py-8 text-sm text-mute">Loading…</p>}>
         <ThankYou params={params} />
       </Suspense>

@@ -24,14 +24,7 @@ export const metadata = { title: 'Your prints' };
 export default function MyOrdersPage() {
   return (
     <>
-      <SiteHeader
-        right={
-          <span className="flex gap-4">
-            <Link href="/cart">Cart</Link>
-            <Link href="/design">+ New</Link>
-          </span>
-        }
-      />
+      <SiteHeader />
       <Suspense fallback={<p className="p-4 text-sm text-mute">Loading…</p>}>
         <MyOrders />
       </Suspense>
@@ -107,7 +100,7 @@ async function MyOrders() {
       <h1 className="font-display text-3xl font-extrabold tracking-tight">Your prints</h1>
       {!cards.length && (
         <p className="text-mute">
-          Nothing here yet. <Link className="underline" href="/design">Start your first design</Link> or <Link className="underline" href="/catalogue">pick one from the catalogue</Link>.
+          Nothing here yet. <Link className="underline" href="/design" prefetch={false}>Start your first design</Link> or <Link className="underline" href="/catalogue">pick one from the catalogue</Link>.
         </p>
       )}
       {ordered.length > 0 && (

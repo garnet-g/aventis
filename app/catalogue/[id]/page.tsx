@@ -27,14 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default function CatalogueItemPage({ params }: { params: Promise<{ id: string }> }) {
   return (
     <>
-      <SiteHeader
-        right={
-          <>
-            <a href="/cart">Cart</a>
-            <a href="/orders">My orders</a>
-          </>
-        }
-      />
+      <SiteHeader />
       <Suspense fallback={<p className="shell py-10 text-sm text-mute">Loading…</p>}>
         <Item params={params} />
       </Suspense>

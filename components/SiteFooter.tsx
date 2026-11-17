@@ -17,7 +17,7 @@ export function SiteFooter() {
         <div className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm font-bold sm:grid-cols-3 [&_a:hover]:text-marigold">
           <nav aria-label="Shop" className="flex flex-col gap-2">
             <Link href="/catalogue">Catalogue</Link>
-            <Link href="/design">Design your own</Link>
+            <Link href="/design" prefetch={false}>Design your own</Link>
             <Link href="/cart">Cart</Link>
             <Link href="/orders">My orders</Link>
           </nav>

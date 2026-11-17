@@ -16,7 +16,7 @@ export default function NotFound() {
           <Link href="/catalogue" className="btn sm:min-w-56">
             Shop the catalogue
           </Link>
-          <Link href="/design" className="btn btn-ink sm:min-w-56">
+          <Link href="/design" prefetch={false} className="btn btn-ink sm:min-w-56">
             Design your own
           </Link>
         </div>

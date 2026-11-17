@@ -633,7 +633,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       ref={wrapRef}
       data-testid="editor-wrap"
       data-side={side}
-      className="relative mx-auto w-full max-w-[400px] lg:max-w-[520px] overflow-hidden rounded-2xl border-2 border-ink bg-paper-2"
+      className="relative mx-auto w-full max-w-[min(400px,37svh)] lg:max-w-[520px] overflow-hidden rounded-2xl border-2 border-ink bg-paper-2"
     >
       <canvas ref={canvasEl} />
       {/* Crop marks show where printing can happen; art cannot leave this box. */}

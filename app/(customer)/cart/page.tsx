@@ -10,10 +10,12 @@ import { supabaseCartStore } from '@/lib/cartStore';
 import { supabaseDesignStore } from '@/lib/designsStore';
 import { kes } from '@/lib/labels';
 
+export const metadata = { title: 'Your cart' };
+
 export default function CartPage() {
   return (
     <>
-      <SiteHeader right={<Link href="/orders">My prints</Link>} />
+      <SiteHeader />
       <Suspense fallback={<p className="p-4 text-sm text-mute">Loading…</p>}>
         <Cart />
       </Suspense>
@@ -31,7 +33,7 @@ async function Cart() {
 
       {cart.lines.length === 0 ? (
         <p className="text-mute">
-          Your cart is empty. <Link className="underline" href="/design">Start a design</Link>.
+          Your cart is empty. <Link className="underline" href="/design" prefetch={false}>Start a design</Link>.
         </p>
       ) : (
         <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]">
@@ -98,7 +100,7 @@ async function Cart() {
             Checkout &rarr;
           </Link>
           {!cart.canCheckout && <p className="text-center text-sm font-semibold text-vermilion">Fix the items marked above to continue.</p>}
-          <Link className="text-center text-sm underline" href="/design">
+          <Link className="text-center text-sm underline" href="/design" prefetch={false}>
             Add another design
           </Link>
           </aside>

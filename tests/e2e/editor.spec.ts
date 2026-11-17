@@ -44,7 +44,7 @@ test('dragging an uploaded image beyond the dashed box leaves it inside the box'
 test('entering Arabic-script text creates a right-to-left text layer', async ({ page }) => {
   await page.goto('/dev/editor');
   await page.getByTestId('text-input').fill('علی احمد');
-  await page.getByRole('button', { name: 'Add name' }).click();
+  await page.getByRole('button', { name: 'Add text' }).click();
   await expect.poll(async () => (await layers(page)).length).toBe(1);
   const [l] = await layers(page);
   expect(l.kind).toBe('text');
@@ -128,7 +128,7 @@ test('print quality is shown for the selected image and gets worse as it is enla
 async function addName(page: Page, name: string) {
   await expect(page.getByTestId('text-input')).toBeEnabled();
   await page.getByTestId('text-input').fill(name);
-  await page.getByRole('button', { name: 'Add name' }).click();
+  await page.getByRole('button', { name: 'Add text' }).click();
 }
 
 async function setRange(page: Page, label: string, value: number) {

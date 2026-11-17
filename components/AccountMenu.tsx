@@ -58,6 +58,9 @@ export function AccountMenu({ showAdminLink = true }: { showAdminLink?: boolean 
   }
   return (
     <>
+      <Link href="/account" prefetch={false} data-testid="account-link">
+        Account
+      </Link>
       {who.admin && showAdminLink && (
         <Link href="/admin/orders" data-testid="admin-link" className="rounded bg-marigold px-2 py-1 text-xs font-extrabold uppercase tracking-widest text-ink hover:!bg-white hover:!text-ink">
           Admin

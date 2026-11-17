@@ -28,6 +28,7 @@ export const LIMITS = {
   saveDesign: [900, 60 * 60],
   cart: [300, 60 * 60],
   paymentStatus: [200, 10 * 60],
+  account: [10, 60 * 60],
 } as const satisfies Record<string, readonly [number, number]>;
 
 export const limit = (name: keyof typeof LIMITS, userId: string) => rateLimit(`${name}:${userId}`, LIMITS[name][0], LIMITS[name][1]);

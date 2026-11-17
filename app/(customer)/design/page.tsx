@@ -1,4 +1,9 @@
-import Link from 'next/link';
+// The fonts customers can pick for their text: only the designer needs them, so only this page loads them.
+import '@fontsource/noto-sans/700.css';
+import '@fontsource/bricolage-grotesque/800.css';
+import '@fontsource/bebas-neue/400.css';
+import '@fontsource/pacifico/400.css';
+import '@fontsource/noto-naskh-arabic/700.css';
 import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { DesignFlow } from '@/components/DesignFlow';
@@ -11,17 +16,12 @@ import { getServiceClient } from '@/lib/supabase/server';
 const SIGNED_LINK_SECONDS = 3600;
 
 // Reading the session happens at request time, so it streams in behind a Suspense boundary (Cache Components).
+export const metadata = { title: 'Design your own' };
+
 export default function DesignPage({ searchParams }: { searchParams: Promise<{ d?: string }> }) {
   return (
     <>
-      <SiteHeader
-        right={
-          <span className="flex gap-4">
-            <Link href="/cart">Cart</Link>
-            <Link href="/orders">My orders</Link>
-          </span>
-        }
-      />
+      <SiteHeader />
       <Suspense fallback={<p className="p-4 text-sm text-mute">Loading…</p>}>
         <SignedInDesign searchParams={searchParams} />
       </Suspense>
