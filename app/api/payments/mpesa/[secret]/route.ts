@@ -32,7 +32,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ secret:
   }
   const done = await finalizePayment(deps, payment.id, { providerRef: cb.receipt ?? `MPESA-${cb.requestId}`, amountKes: cb.amountKes });
   if (done.status === 'paid' && done.created) after(() => afterOrdersPaid(done.payment, done.orders));
-  if (done.status === 'needs_refund' && done.payment) {
+  if (done.status === 'needs_refund' && done.flagged && done.payment) {
     const flagged = done.payment;
     after(() => afterRefundNeeded(flagged));
   }

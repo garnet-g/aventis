@@ -1,12 +1,28 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { CatalogueOrder } from '@/components/CatalogueOrder';
 import { SiteHeader } from '@/components/SiteHeader';
 import { catalog } from '@/lib/catalog';
+import { previewKey } from '@/lib/catalogueItems';
 import { cataloguePictureUrl, supabaseCatalogueStore } from '@/lib/catalogueStore';
 import { bulkTiersLabel, kes } from '@/lib/labels';
 import { supabasePriceStore } from '@/lib/pricesStore';
+
+/** Each design gets its own title, description and share picture (what WhatsApp shows when the link is shared). */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const item = /^[0-9a-f-]{36}$/i.test(id) ? await supabaseCatalogueStore().get(id).catch(() => null) : null;
+  if (!item || !item.published) return { title: 'Design not found' };
+  const key = previewKey(item, item.colors[0]);
+  const description = item.description || `${catalog[item.product].label} by VybeCrew, printed in Nairobi and delivered across Kenya.`;
+  return {
+    title: item.title,
+    description,
+    openGraph: { title: item.title, description, images: key ? [{ url: cataloguePictureUrl(item.mockups[key]), width: 800, height: 1000 }] : undefined },
+  };
+}
 
 export default function CatalogueItemPage({ params }: { params: Promise<{ id: string }> }) {
   return (

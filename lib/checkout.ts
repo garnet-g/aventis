@@ -153,7 +153,7 @@ export async function startCheckout(deps: Deps, args: { userId: string; delivery
 
 export type FinalizeResult =
   | { status: 'paid'; payment: PaymentRecord; orders: Order[]; created: boolean }
-  | { status: 'failed' | 'needs_refund' | 'pending' | 'expired'; payment: PaymentRecord | null; reason?: string };
+  | { status: 'failed' | 'needs_refund' | 'pending' | 'expired'; payment: PaymentRecord | null; reason?: string; /** True only for the call that moved it to needs_refund (so admins are alerted once). */ flagged?: boolean };
 
 /**
  * Step 3: the money arrived. Records the orders from the payment's own copy of the cart. Safe to call twice (the
@@ -171,7 +171,7 @@ export async function finalizePayment(
       providerRef: args.providerRef,
       failureReason: `Paid KES ${args.amountKes}, expected KES ${p.amountKes}.`,
     });
-    return { status: 'needs_refund', payment: flagged ?? p, reason: 'The amount paid does not match the order.' };
+    return { status: 'needs_refund', payment: flagged ?? p, reason: 'The amount paid does not match the order.', flagged: Boolean(flagged) };
   }
   // A late confirmation can still complete a payment we had given up waiting for ("expired").
   const paid = await deps.payments.transition(p.id, ['pending', 'expired'], 'paid', { providerRef: args.providerRef });
@@ -202,7 +202,7 @@ export async function finalizePayment(
     // Paid, but a design changed or was ordered meanwhile: the money must go back. An admin is alerted.
     console.error('paid checkout could not become orders', p.id, e);
     const flagged = await deps.payments.transition(p.id, ['paid'], 'needs_refund', { failureReason: 'A design changed or was already ordered after payment started.' });
-    return { status: 'needs_refund', payment: flagged ?? paid, reason: 'One of these designs changed while you were paying. We will refund you.' };
+    return { status: 'needs_refund', payment: flagged ?? paid, reason: 'One of these designs changed while you were paying. We will refund you.', flagged: Boolean(flagged) };
   }
 }
 
@@ -229,13 +229,13 @@ export async function paymentStatus(deps: Pick<Deps, 'orders' | 'cart' | 'paymen
   const now = deps.now ?? Date.now;
   const p = await deps.payments.get(paymentId);
   if (!p || p.userId !== userId) throw new HttpError(404, 'Payment not found.');
-  let result: { status: PaymentStatus; reason?: string; orders?: Order[]; created?: boolean } = { status: p.status, reason: p.failureReason ?? undefined };
+  let result: { status: PaymentStatus; reason?: string; orders?: Order[]; created?: boolean; flagged?: boolean } = { status: p.status, reason: p.failureReason ?? undefined };
   if ((p.status === 'pending' || p.status === 'expired') && now() - Date.parse(p.createdAt) > 15_000) {
     const r = await refreshPayment(deps, p);
-    result = { status: r.status as PaymentStatus, reason: 'reason' in r ? r.reason : undefined, orders: 'orders' in r ? r.orders : undefined, created: 'created' in r ? r.created : undefined };
+    result = { status: r.status as PaymentStatus, reason: 'reason' in r ? r.reason : undefined, orders: 'orders' in r ? r.orders : undefined, created: 'created' in r ? r.created : undefined, flagged: 'flagged' in r ? r.flagged : undefined };
   }
   const orders = result.orders ?? (result.status === 'paid' ? (await deps.orders.findCheckoutOrders(p.reference)) ?? [] : []);
-  return { status: result.status, reason: result.reason, orderIds: orders.map((o) => o.id), orders, created: result.created ?? false };
+  return { status: result.status, reason: result.reason, orderIds: orders.map((o) => o.id), orders, created: result.created ?? false, flagged: result.flagged ?? false };
 }
 
 /** Draws the printer's files for new orders. A failure never undoes a payment: the order is flagged for "Regenerate". */

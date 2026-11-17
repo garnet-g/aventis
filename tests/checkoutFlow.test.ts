@@ -108,6 +108,9 @@ describe('paying with M-Pesa', () => {
     const done = await finalizePayment(deps(), r.payment!.id, { providerRef: 'R1', amountKes: 1 });
     expect(done.status).toBe('needs_refund');
     expect(await pgOrderStore(db).findCheckoutOrders(r.payment!.reference)).toBeNull();
+    // only the call that flagged it says so, so the admins are alerted once however often the page asks
+    expect(done).toMatchObject({ flagged: true });
+    expect(await finalizePayment(deps(), r.payment!.id, { providerRef: 'R1', amountKes: 1 })).toMatchObject({ status: 'needs_refund', flagged: false });
   });
 
   test('a design edited while paying: the payment is held for a refund (the database refuses unchecked art)', async () => {

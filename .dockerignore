@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+test-results
+playwright-report
+supabase/.temp
+.env*
+!.env.local.example
+docs
+tests
+*.md
+!README.md

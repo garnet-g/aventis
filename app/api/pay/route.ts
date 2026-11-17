@@ -4,7 +4,8 @@ import { startCheckout } from '@/lib/checkout';
 import { HttpError } from '@/lib/errors';
 import { errorResponse, readJsonObject } from '@/lib/http';
 import { afterOrdersPaid, checkoutDeps } from '@/lib/paymentService';
-import { limit } from '@/lib/rateLimit';
+import { toMpesaPhone } from '@/lib/payments/mpesa';
+import { limit, rateLimit } from '@/lib/rateLimit';
 
 /**
  * Starts paying for the signed-in customer's whole cart. The body only carries delivery details, the M-Pesa number
@@ -19,6 +20,10 @@ export async function POST(req: Request) {
     await limit('pay', user.id);
     const { delivery, mpesaPhone, acceptTerms } = await readJsonObject(req);
     if (acceptTerms !== true) throw new HttpError(400, 'Please accept the terms and confirm you own the rights to your designs.');
+    // Prompts go to a phone that must approve them with its PIN, but limit how often any one number is prompted,
+    // so nobody can use the shop to pester someone with M-Pesa requests.
+    const target = toMpesaPhone((typeof mpesaPhone === 'string' && mpesaPhone.trim()) || String((delivery as { phone?: unknown } | undefined)?.phone ?? ''));
+    if (target) await rateLimit(`prompt:${target}`, 5, 10 * 60);
     const result = await startCheckout(checkoutDeps(), { userId: user.id, delivery, mpesaPhone: typeof mpesaPhone === 'string' ? mpesaPhone : undefined });
     if (result.status === 'pending') {
       return NextResponse.json({ status: 'pending', paymentId: result.payment.id, message: result.message });

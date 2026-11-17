@@ -20,4 +20,5 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ['/((?!_next/static|_next/image|garments|favicon.ico).*)'] };
+// Static files (garment photos, the logo, icons, robots and the sitemap) don't need a session, so they skip this.
+export const config = { matcher: ['/((?!_next/static|_next/image|garments/|brand/|favicon.ico|icon.png|apple-icon.png|opengraph-image|robots.txt|sitemap.xml|.*\.(?:png|jpg|jpeg|webp|svg|ico)$).*)'] };
