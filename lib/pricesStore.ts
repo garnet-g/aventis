@@ -8,7 +8,8 @@ export function supabasePriceStore(): PriceStore {
     async get() {
       const { data, error } = await db().from('settings').select('value').eq('key', 'prices').maybeSingle();
       if (error) {
-        console.error('could not read prices, using the defaults', error);
+        // a Supabase error prints as {} in the browser overlay, so log its message (e.g. the database is still starting)
+        console.error(`could not read prices, using the defaults: ${error.message || error.code || 'database unreachable'}`);
         return DEFAULT_PRICES;
       }
       return data ? pricesFromStored(data.value) : DEFAULT_PRICES;

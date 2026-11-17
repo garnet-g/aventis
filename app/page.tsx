@@ -141,9 +141,16 @@ const LiveProductPrice = async ({ id }: { id: 'tee' | 'hoodie' }) => (
   <p className="text-lg font-bold">{kes((await supabasePriceStore().get())[id].priceKes)}</p>
 );
 
-/** The newest published catalogue designs; renders nothing until the first one is posted. */
+/** The newest published catalogue designs; renders nothing until the first one is posted, or if they cannot be read. */
 async function FeaturedCatalogue() {
-  const items = (await supabaseCatalogueStore().list({ publishedOnly: true })).slice(0, 4);
+  let items;
+  try {
+    items = (await supabaseCatalogueStore().list({ publishedOnly: true })).slice(0, 4);
+  } catch (e) {
+    // the rest of the home page still works without this section (e.g. while the database is starting)
+    console.error(`could not load the featured catalogue designs: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
   if (!items.length) return null;
   return (
     <section className="shell pt-14" aria-label="From the catalogue">
