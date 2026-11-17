@@ -146,9 +146,15 @@ test.describe('on a computer', () => {
 test('the brand is VybeCrew, with the logo in the header and as the page icon', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/VybeCrew/);
-  const logo = page.locator('header').first().locator('img[src="/brand/vybecrew-logo.png"]');
+  const logo = page.locator('header').first().locator('img').first();
   await expect(logo).toBeVisible();
-  expect(await logo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(100); // it actually loaded
+  expect(await logo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(40); // it actually loaded
+  // the header gets a small resized copy, not the full 480 KB file
+  const src = await logo.evaluate((img: HTMLImageElement) => img.currentSrc);
+  expect(src).toContain('/_next/image');
+  const small = await page.request.get(src);
+  expect(small.status()).toBe(200);
+  expect((await small.body()).length).toBeLessThan(60_000);
   for (const url of ['/brand/vybecrew-logo.png', '/icon.png', '/opengraph-image.png']) {
     const res = await page.request.get(url);
     expect(res.status(), url).toBe(200);

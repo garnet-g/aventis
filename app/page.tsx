@@ -1,7 +1,8 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { unstable_rethrow } from 'next/navigation';
 import { Suspense } from 'react';
-import { SiteHeader } from '@/components/SiteHeader';
+import { logoImage, SiteHeader } from '@/components/SiteHeader';
 import { catalog } from '@/lib/catalog';
 import { previewKey } from '@/lib/catalogueItems';
 import { cataloguePictureUrl, supabaseCatalogueStore } from '@/lib/catalogueStore';
@@ -58,8 +59,8 @@ export default function HomePage() {
               <br />
               yours
             </div>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/vybecrew-logo.png" alt="" width={640} height={635} className="relative h-full max-h-full w-auto -rotate-2 p-6" />
+            {/* The largest thing on the first screen, so it loads first rather than lazily. */}
+            <Image src={logoImage} alt="" sizes="(min-width: 1024px) 448px, (min-width: 640px) 384px, 320px" loading="eager" fetchPriority="high" className="relative h-full max-h-full w-auto -rotate-2 p-6" />
           </div>
         </div>
         <div className="tape" aria-hidden />
