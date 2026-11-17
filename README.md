@@ -1,56 +1,96 @@
 # VybeCrew
 
-A phone-first web app where customers in Kenya put a design or a name on a T-shirt or hoodie, inside a fixed print area, pass a safety check, and pay. The owners get a paid order with two files to give to their printer:
+A phone-first print-on-demand shop for Kenya. Customers design their own T-shirt or hoodie (pictures and text inside a fixed print area, front and back) or order a ready-made design from the catalogue, pass a safety check, and pay with M-Pesa. The owners get a paid order with the files for their printer:
 
 - the **mockup** (the garment with the design on it), and
-- the **design file** (the artwork alone, a transparent PNG at print resolution).
+- the **design file** (the artwork alone, a transparent PNG at print resolution), for each printed side.
 
-Design spec: `docs/design/design-spec.md`
-Build plan: `docs/design/implementation-plan.md`
+The design notes in `docs/design/` describe the first version and are kept for history; this README is current.
 
 ## How an order flows
 
-1. The customer opens `/design`, picks item, color and size, uploads an image and/or adds a name. Art can only sit inside the dashed print area.
+1. The customer opens `/design`, picks item, colour and size, uploads pictures and adds text. Art can only sit inside the print area (T-shirt front 27 x 32 cm, back 28 x 32 cm; hoodie front and back 25 x 28 cm). Big phone photos are shrunk in the browser first (4000 px, still over 300 dpi at full size), so uploads use little data.
 2. **Add to cart** saves the design and runs the safety check:
    - clearly fine: it goes into the cart (`/cart`)
-   - unsure: payment is blocked, the customer sees "Waiting for review" (see `/orders`)
+   - unsure: payment is blocked, the customer sees "Waiting for review" (on `/orders`)
    - clearly explicit: rejected with a reason
-3. An admin reviews "unsure" designs at `/admin/review`. Approving emails the customer a payment link; rejecting emails the reason.
-4. The customer pays. The cart holds several designs, each with a quantity of 1 to 50. One payment covers the whole cart: the server computes the amount (prices x quantities, plus one delivery fee) from `lib/catalog.ts` and `lib/pricing.ts`, records one paid order per design, and renders the mockup and design file from a **snapshot** of the design.
-5. Admins see the order at `/admin/orders`, download both files (60-second signed links), hand them to the printer, and move the order through **Paid → At printer → Shipped → Delivered**. The customer is emailed when an order ships and when it is delivered.
+3. An admin reviews "unsure" designs at `/admin/review`, which shows why each one is there. Approving emails the customer; rejecting emails the reason.
+4. Checkout (`/checkout`): delivery details (pre-filled from the last order), the M-Pesa number and acceptance of the terms. The server works out the amount (prices x quantities, bulk discount over every piece in the cart, one delivery fee by county) and sends an M-Pesa prompt to the phone. The page waits ("Check your phone") and moves to the thank-you page once Safaricom confirms. One paid order is recorded per design, and the printer files are drawn from a **snapshot** of the design.
+5. The customer gets an email receipt and an SMS. Admins get an alert, see the order at `/admin/orders`, download the files, and move it through **Paid → At printer → Shipped (courier and tracking number) → Delivered**. The customer gets an email and an SMS when it ships and when it is delivered.
 
 ## Run it locally
 
-You need Node 20+, Docker Desktop (for the local Supabase stack) and the Supabase CLI (`npx supabase`).
+You need Node 22, Docker Desktop (for the local Supabase stack) and the Supabase CLI (`npx supabase`).
 
 ```bash
 npm install
-npx supabase start          # prints the local URL, anon key and service_role key
-cp .env.local.example .env.local   # then paste the keys in
+npx supabase start                  # prints the local URL, anon key and service_role key
+cp .env.local.example .env.local    # then paste the keys in
 npm run dev
+node --env-file=.env.local scripts/create-demo-accounts.mjs   # local test logins (local database only)
 ```
 
-Environment variables (`.env.local`):
+Every setting is described in `.env.local.example`. Without the optional ones the app still runs: payments are in test mode, emails and SMS are printed to the server log, and the picture check passes everything (development only).
 
-| Variable | Purpose |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase connection |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only key; never expose it to the browser |
-| `PAYMENT_PROVIDER` | `dummy` (default). The only provider in v1 |
-| `OPENAI_API_KEY` | Enables the image-safety check (see below). Without it, local dev treats every image as safe and production sends every image to human review |
-| `RESEND_API_KEY`, `EMAIL_FROM` | Real email. Without them emails are printed to the server console |
-| `NEXT_PUBLIC_SITE_URL` | Used in the links inside emails (default `http://localhost:3000`) |
+After pulling new code, apply new database changes with `npx supabase migration up`.
 
-### Make someone an admin
+## Taking M-Pesa payments
 
-Admins are set directly in the database. After the person has signed up, run in the Supabase SQL editor:
+Payments use Safaricom's Daraja API (STK push: the customer gets a prompt on their phone and enters their M-Pesa PIN).
+
+1. Create an app on https://developer.safaricom.co.ke and copy the consumer key and secret. The sandbox gives a test shortcode and passkey.
+2. Set `PAYMENT_PROVIDER=mpesa`, `MPESA_ENV=sandbox` and the `MPESA_*` values (see `.env.local.example`). Paybill: `MPESA_TRANSACTION_TYPE=paybill`. Till (Buy Goods): `till`, plus `MPESA_TILL_NUMBER`.
+3. Set `MPESA_CALLBACK_SECRET` to a long random string. Safaricom reports each payment to `https://<your site>/api/payments/mpesa/<secret>`; the app also asks Safaricom directly before trusting a report, so a forged callback cannot mark an order paid.
+4. For real money, complete Safaricom's Go Live for your paybill or till, then switch to `MPESA_ENV=production` with the production keys. `NEXT_PUBLIC_SITE_URL` must be your public https address.
+
+How it behaves:
+
+- A prompt nobody answers expires after about four minutes; the customer can try again. Prompts are limited per account and per phone number, so nobody can flood a stranger's phone.
+- If money arrives but the order cannot be made (for example the design changed at that moment), the payment is marked **Refund needed**, the admins are emailed, and it appears on `/admin/payments`. Send the money back through M-Pesa, then record the refund reference there.
+- With `PAYMENT_PROVIDER=dummy` checkout shows a TEST MODE banner and every payment succeeds at once.
+
+## SMS (Celcom Africa)
+
+Set `CELCOM_API_KEY`, `CELCOM_PARTNER_ID` and `CELCOM_SHORTCODE` (your approved sender name). Customers then get an SMS when they pay, when their order ships (with the tracking number) or is delivered, and if an order is cancelled. A failed SMS is logged and never blocks the order. Without the settings, messages are printed to the server log.
+
+## Hosting in Kenya
+
+The app runs anywhere Docker runs, so it can be hosted on a Kenyan cloud or VPS (for example Safaricom Cloud, Truehost or Sasahost) or a nearby region.
+
+```bash
+docker build -t vybecrew .
+docker run -d --restart unless-stopped -p 3000:3000 --env-file /etc/vybecrew.env vybecrew
+```
+
+- The image runs the standalone Next.js server on port 3000 in Nairobi time, with a health check at `/api/health`. Put a reverse proxy with HTTPS (Caddy or Nginx with Let's Encrypt) in front of it.
+- `NEXT_PUBLIC_*` values are read at build time: build the image with the production values present (for example `--build-arg` or a `.env.production` file that is not committed).
+- Database, storage and sign-in are Supabase. Create the hosted project in the closest region, run `npx supabase link` and `npx supabase db push` to apply the migrations, and turn on **email confirmations** in Authentication settings (admins can only be added once their email is confirmed).
+- Daily housekeeping: have cron call the cleanup once a day. It deletes drafts untouched for 90 days (never ordered, not in a cart) with their pictures, and old rate-limit records:
+
+  ```bash
+  curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://<your site>/api/cron/cleanup
+  ```
+
+- Data protection: register with the Office of the Data Protection Commissioner (ODPC) as a data controller and fill in the business details (`NEXT_PUBLIC_BUSINESS_*`, `NEXT_PUBLIC_CONTACT_*`), which appear on the terms, privacy, refunds, delivery and contact pages. Customers can download their data and delete their account at `/account`.
+
+## Admins
+
+The first admin is set in the database. After the person has signed up, run in the Supabase SQL editor:
 
 ```sql
 update public.profiles set is_admin = true
 where id = (select id from auth.users where email = 'owner@example.com');
 ```
 
-Non-admins get a 404 on every `/admin` page and API.
+After that, admins add and remove each other at `/admin/admins` (the person must have signed up and confirmed their email; nobody can remove themselves). Non-admins get a 404 on every `/admin` page and API.
+
+What admins can do:
+
+- **Orders** (`/admin/orders`): search by name, phone, town, county, order number, tracking number, payment reference or private note; filter by status and date; export CSV for the accountant. On an order: move it on (courier and tracking when it ships), move it back a step after a mis-click, cancel it before it ships (the customer is told why by email and SMS), record an M-Pesa refund, add a private note, regenerate missing files.
+- **Payments** (`/admin/payments`): payments that need a refund, and the latest payments with their status.
+- **Review queue** (`/admin/review`): designs the automatic check was unsure about, with the reason, the customer and how long it has waited.
+- **Catalogue** (`/admin/catalogue`): post, edit (title, description, colours), feature (listed first), publish, hide and delete ready-made designs.
+- **Prices** (`/admin/settings`): selling prices, print costs, back print, both delivery fees (Nairobi area and the rest of Kenya) and bulk discounts.
 
 ## Tests
 
@@ -59,47 +99,36 @@ npx vitest run          # unit and database tests (no Docker needed)
 npx playwright test     # browser tests (starts its own dev server on port 3100)
 # If `npm run dev` is already running (Next.js allows one per project), test against it instead:
 #   E2E_BASE_URL=http://localhost:3000 npx playwright test
-# The full-flow tests need the local database: `npx supabase start`
+# The browser tests need the local database: `npx supabase start`
 ```
 
-The database rules (row-level security, the freeze-after-order trigger, the order-matches-design trigger) are tested against a real in-process Postgres (PGlite) using the actual migration.
+The database rules (row-level security, the freeze-after-order trigger, the order-matches-design trigger) are tested against a real in-process Postgres (PGlite) using the actual migrations.
 
-## Things you must fill in before real customers
-
-These are **placeholders** I could not know. Each lives in one place:
+## Before real customers
 
 | What | Where |
 |---|---|
-| Selling prices (KES 1,500 tee / 2,200 hoodie) and the delivery fee (KES 250) | `lib/catalog.ts` |
-| Print-area sizes in cm (tee front 27×32 is set; tee back 28×32 and hoodie 25×28 are placeholders) and the minimum print resolution (150 DPI) | `lib/catalog.ts`. **Confirm with your printer**, along with file format and whether dark garments need a white underlayer |
-| How the print area lines up on the garment pictures (`GEOMETRY`: pixels per cm and collar position; the tee front is calibrated to the photos) | `lib/editorGeometry.ts` |
-| Garment photos (real photos, front and back, for both items) | `assets/garments/` → `node scripts/make-garments.mjs` → `public/garments/` |
-| The banned-word list | `lib/moderation/banned-words.json` |
-
-Your known print costs (hoodie KES 1,300, tee KES 800) are already in `lib/catalog.ts`; the admin order page shows profit as *price + delivery − cost*.
+| Selling prices, print costs, delivery fees, bulk discounts | the admin Prices page |
+| Print areas (confirmed: tee front 27 x 32 cm, hoodie front and back 25 x 28 cm; tee back 28 x 32 cm) and the minimum print resolution (150 dpi) | `lib/catalog.ts`. Confirm file format and white underlayer for dark garments with your printer |
+| M-Pesa Go Live, Celcom sender name, Resend domain (`vybecrew.co.ke`), OpenAI key | environment settings, see above |
+| Business name, registration name, contact phone, WhatsApp and email | `NEXT_PUBLIC_BUSINESS_*` and `NEXT_PUBLIC_CONTACT_*` |
+| The banned-word list (English, Swahili and Sheng) | `lib/moderation/banned-words.json` |
+| Have a lawyer read the terms, privacy and refunds pages | `app/terms`, `app/privacy`, `app/refunds` |
 
 ## Safety checks: what they do and don't catch
 
-- **Text** is matched against a word list in English, Swahili and Sheng, after removing invisible characters and accents and mapping look-alike letters. Words that are also names (for example "Dick") go to human review instead of being rejected. It does **not** catch masked spellings such as `f*ck` or slang that is not on the list. Add words as real cases appear.
-- **Images** are scored by OpenAI's moderation model (`OPENAI_API_KEY`). Unsure scores go to human review; a failed check always goes to human review, never straight to payment.
-- Anything unusual (mixed alphabets inside one word, odd Latin letters) is sent to human review.
+- **Text** is matched against a word list in English, Swahili and Sheng, after removing invisible characters and accents and mapping look-alike letters. Words that are also ordinary words or names go to human review instead of being rejected. It does **not** catch masked spellings such as `f*ck` or slang that is not on the list. Add words as real cases appear.
+- **Pictures** are checked by OpenAI's moderation model (`OPENAI_API_KEY`) on a 768 px copy. Clearly sexual pictures are rejected; possibly sexual ones, and pictures that may show hate, violence, harassment or self-harm, go to human review. A failed check always goes to human review, never straight to payment.
+- The reasons are shown to admins only; customers just see "Waiting for review", so the check doesn't teach anyone how to get around it.
 
-Treat the text filter as a first line, not a guarantee. Review the queue regularly.
+Treat the checks as a first line, not a guarantee. Review the queue regularly.
 
-## Adding a real payment provider
+## Known limits
 
-For Kenya the natural choice is M-Pesa (Safaricom Daraja STK push, or an aggregator such as Pesapal or Flutterwave that also takes cards). Amounts are whole Kenya shillings (KES); phone numbers are Kenyan mobiles (07xx, 01xx or +254) and delivery addresses use the 47 counties.
-
-Implement `PaymentProvider` in `lib/payments/` (see `lib/payments/index.ts`) and add it to `getPaymentProvider()`. The provider **must** treat `reference` (a fingerprint of the cart) as an idempotency key, so a retry or a double click can never charge a customer twice. The same cart can only ever be paid once. Until a real provider is added, checkout shows a **TEST MODE** banner and no money moves.
-
-## Known limits and recommendations
-
-- **Hosting body limit:** serverless hosts such as Vercel cap request bodies (around 4.5 MB), below the app's 10 MB upload limit. Before deploying there, switch uploads to direct-to-storage signed URLs or lower the limit.
-- **Rendering runs inside the web server.** During testing, one full test run had a native crash (heap corruption) in the image library that I could not reproduce again in 13 further runs or 1,400 stress renders. Before real traffic, move mockup/design-file rendering into a separate worker process so a crash cannot take down the website, and queue it for bursts of orders.
-- Emails are English only; the app UI is English only (Arabic-script text on garments is supported).
-- If a customer edits a design in the few moments between paying and the order being recorded, the order is refused and that payment has to be refunded by hand (no unchecked art can reach the printer: the database re-checks approval when the order is written).
-- One design per order (several pieces of it via quantity); no guest checkout; a single admin role; no refunds screen.
-- Local development uses a permissive stand-in for the image-safety check when no key is set; do not run that way in production.
+- **Rendering runs inside the web server.** During testing, one full test run had a native crash in the image library that never happened again in many further runs. Before heavy traffic, move mockup and design-file rendering into a separate worker so a crash cannot take down the website.
+- Customers need an account to design (no guest designing yet).
+- Emails and the app are in English (Arabic-script text on garments is supported).
+- A single admin role: every admin can do everything.
 
 ## Project map
 
@@ -127,7 +156,7 @@ tests/              vitest unit/database tests; tests/e2e for Playwright
 
 ## Printing on the back, and saving for later
 
-- **Front and back.** The design page has Front and Back tabs. Each side has its own artwork, its own undo history, and its own garment photo and print area. Printing the back adds a fixed extra to the price and to your cost, set in `lib/catalog.ts` (`BACK_PRINT_PRICE_KES` KES 500, `BACK_PRINT_COST_KES` KES 400): **placeholders, confirm with your printer**, as are the back print-area sizes (`backPrintArea`) and the garment back photos in `public/garments/*-back-*.png`.
+- **Front and back.** The design page has Front and Back tabs. Each side has its own artwork, its own undo history, and its own garment photo and print area. Printing the back adds a fixed extra to the price and to your cost, with starting values in `lib/catalog.ts` (KES 500 to the customer, KES 400 cost) that the admin Prices page overrides. Confirm the T-shirt back print area (28 x 32 cm) with your printer; the hoodie back (25 x 28 cm) is confirmed.
 - **One check covers both sides.** Safety review, approval and payment all apply to front and back together; changing either side sends an approved design back to draft.
 - **Orders keep both sides.** The admin order page then offers four downloads (front and back mockup, front and back design file).
 - **Saved as you go.** A design is saved automatically about a second after each change, once it has anything on it, and also when the page is hidden. **Save for later** saves and goes to My prints, where a draft has a **Continue designing** link that reopens it with its pictures and text. A design that is waiting for review, or already ordered, cannot be reopened for editing.
@@ -142,10 +171,10 @@ tests/              vitest unit/database tests; tests/e2e for Playwright
 ## Admin tools
 
 - **Existing databases:** apply `npx supabase migration up` (adds `order_notes` and `settings`; both are server-only, customers cannot read them).
-- **Orders** (`/admin/orders`): search by name, phone, city, order id, item or note, and filter by status.
+- **Orders** (`/admin/orders`): see the Admins section above.
 - **Private note** on each order page; customers never see it.
 - **Alerts:** the admin menu shows how many designs wait for review and how many paid orders are new, and every new paid checkout emails the admins. Set `ADMIN_ALERT_EMAILS` (comma separated) to choose who; otherwise every admin account is emailed.
-- **Prices** (`/admin/settings`): customer price and printer cost for each item, the back-print extra, and the delivery fee. They apply to new carts and checkouts; paid orders keep the price they were paid at. The numbers in `lib/catalog.ts` are only the starting values.
+- **Prices** (`/admin/settings`): customer price and printer cost for each item, the back-print extra, and the delivery fees. They apply to new carts and checkouts; paid orders keep the price they were paid at. The numbers in `lib/catalog.ts` are only the starting values.
 
 ## Crop and background removal
 
@@ -168,7 +197,7 @@ The shop is set up for Nairobi: amounts are in Kenya shillings (KES), delivery a
 
 ## Bulk prices
 
-Customers pay less per piece when they order more of the same design. The owner sets up to five bulk prices on the admin Prices page ("Order 10 or more and save 10%"); the biggest one a line reaches applies to every piece on that line, garment and back print alike. The starting set is 5+ save 5%, 10+ save 10%, 25+ save 15%. Bulk prices lower what the customer pays but not what the printer charges, so profit on those orders is smaller. The paid order keeps the discounted price. Customers see the offer on the home page and the catalogue design page, and a "Bulk price" badge on the cart line once it applies.
+Customers pay less per piece when they order more. The owner sets up to five bulk prices on the admin Prices page ("Order 10 or more and save 10%"). Every piece in the cart counts towards them, across designs (up to 500 pieces), and the biggest one reached applies to every piece, garment and back print alike. The starting set is 5+ save 5%, 10+ save 10%, 25+ save 15%. Bulk prices lower what the customer pays but not what the printer charges, so profit on those orders is smaller. The paid order keeps the discounted price. Customers see the offer on the home page and the catalogue design page, and a "Bulk price" badge in the cart once it applies.
 
 The header shows an Admin link to signed-in admins.
 

@@ -1,4 +1,5 @@
 import type { AccountStore } from '@/lib/account';
+import type { PaymentStatus } from '@/lib/checkout';
 import type { OrderStatus } from '@/lib/orders';
 import { getServiceClient } from '@/lib/supabase/server';
 
@@ -20,6 +21,11 @@ export function supabaseAccountStore(): AccountStore {
       const { data, error } = await db().from('orders').select('status').eq('user_id', userId);
       if (error) throw new Error(error.message);
       return (data ?? []).map((r) => r.status as OrderStatus);
+    },
+    async paymentStatuses(userId) {
+      const { data, error } = await db().from('payments').select('status').eq('user_id', userId);
+      if (error) throw new Error(error.message);
+      return (data ?? []).map((r) => r.status as PaymentStatus);
     },
     async deleteEverything(userId) {
       await removeUploads(userId, new Set());
