@@ -55,10 +55,10 @@ const layerSchema = z.discriminatedUnion('kind', [
   }),
   z.object({
     kind: z.literal('text'),
-    text: z.string().min(1).max(60),
+    text: z.string().min(1, 'Text cannot be empty.').max(60, 'Keep text under 60 characters.'),
     // Old designs stored a CSS font stack; anything that is not a known font key becomes the default.
     font: z.string().max(200).transform(normalizeFont),
-    fill: z.string().regex(/^#[0-9a-f]{6}$/i),
+    fill: z.string().regex(/^#[0-9a-f]{6}$/i, 'Pick a text colour from the palette.'),
     direction: z.enum(['ltr', 'rtl']),
     fontSize: z.number().positive().max(1),
     rect: rectSchema,
@@ -67,11 +67,11 @@ const layerSchema = z.discriminatedUnion('kind', [
 ]);
 
 const inputSchema = z.object({
-  product: z.enum(Object.keys(catalog) as [keyof typeof catalog, ...(keyof typeof catalog)[]]),
-  color: z.enum(COLORS),
-  size: z.enum(SIZES),
-  layers: z.array(layerSchema).max(20),
-  backLayers: z.array(layerSchema).max(20).default([]),
+  product: z.enum(Object.keys(catalog) as [keyof typeof catalog, ...(keyof typeof catalog)[]], { message: 'Choose T-shirt or hoodie.' }),
+  color: z.enum(COLORS, { message: 'Choose a garment colour.' }),
+  size: z.enum(SIZES, { message: 'Choose a size.' }),
+  layers: z.array(layerSchema).max(20, 'Use at most 20 items on each side.'),
+  backLayers: z.array(layerSchema).max(20, 'Use at most 20 items on each side.').default([]),
 });
 
 export type DesignInput = z.input<typeof inputSchema>;

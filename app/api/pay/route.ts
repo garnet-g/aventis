@@ -3,7 +3,7 @@ import { supabaseArtifactGenerator } from '@/lib/artifactsService';
 import { apiUser } from '@/lib/auth';
 import { supabaseCartStore } from '@/lib/cartStore';
 import { supabaseDesignStore } from '@/lib/designsStore';
-import { errorResponse } from '@/lib/http';
+import { errorResponse, readJsonObject } from '@/lib/http';
 import { adminAlertRecipients, getEmailSender, getSiteUrl, notifyNewOrder } from '@/lib/notify';
 import { placeCheckout } from '@/lib/orders';
 import { supabasePriceStore } from '@/lib/pricesStore';
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   try {
     const user = await apiUser();
     if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
-    const { delivery } = await req.json();
+    const { delivery } = await readJsonObject(req);
     const { orders, created } = await placeCheckout(
       {
         designs: supabaseDesignStore(),
