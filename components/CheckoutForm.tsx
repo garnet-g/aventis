@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { errorText, json, send } from '@/lib/clientFetch';
 import { kes } from '@/lib/labels';
 import { COUNTIES } from '@/lib/counties';
 
@@ -16,14 +17,10 @@ export function CheckoutForm({ totalKes, testMode }: { totalKes: number; testMod
     setError('');
     const f = new FormData(e.currentTarget);
     const delivery = Object.fromEntries(['name', 'phone', 'city', 'county', 'address'].map((k) => [k, String(f.get(k) ?? '')]));
-    const res = await fetch('/api/pay', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ delivery }),
-    });
-    const body = await res.json().catch(() => ({}));
+    const r = await send('/api/pay', json('POST', { delivery }));
     setBusy(false);
-    if (!res.ok) return setError(body.error ?? 'Payment failed. Please try again.');
+    // A dropped connection is safe to retry: paying for the same cart twice never charges twice.
+    if (!r.ok) return setError(errorText(r, 'Payment failed. Please try again.'));
     router.push('/orders');
   }
 

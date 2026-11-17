@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { errorText, send } from '@/lib/clientFetch';
 
 export function OrderActions({
   orderId,
@@ -19,9 +20,9 @@ export function OrderActions({
   async function post(path: string) {
     setBusy(true);
     setError('');
-    const res = await fetch(`/api/admin/orders/${orderId}/${path}`, { method: 'POST' });
+    const r = await send(`/api/admin/orders/${orderId}/${path}`, { method: 'POST' });
     setBusy(false);
-    if (!res.ok) return setError((await res.json().catch(() => ({}))).error ?? 'That did not work.');
+    if (!r.ok) return setError(errorText(r, 'That did not work.'));
     router.refresh();
   }
 

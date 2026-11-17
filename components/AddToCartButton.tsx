@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { errorText, json, send } from '@/lib/clientFetch';
 
 /** Puts an approved design in the cart, then goes to `href`. Used by "Pay now". */
 export function AddToCartButton({ designId, label, href }: { designId: string; label: string; href: string }) {
@@ -12,14 +13,10 @@ export function AddToCartButton({ designId, label, href }: { designId: string; l
   async function onClick() {
     setBusy(true);
     setError('');
-    const res = await fetch('/api/cart', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ designId }),
-    });
-    if (!res.ok) {
+    const r = await send('/api/cart', json('POST', { designId }));
+    if (!r.ok) {
       setBusy(false);
-      return setError((await res.json().catch(() => ({}))).error ?? 'Could not add it to your cart.');
+      return setError(errorText(r, 'Could not add it to your cart.'));
     }
     router.push(href);
   }

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DesignWorkbench, type InitialDesign, type WorkbenchState } from '@/components/DesignWorkbench';
-import { catalog, type ProductId } from '@/lib/catalog';
+import { type ProductId } from '@/lib/catalog';
+import { errorText, json, send } from '@/lib/clientFetch';
 import { postFormWithProgress } from '@/lib/clientUpload';
 import { kes } from '@/lib/labels';
 import type { Prices } from '@/lib/prices';
@@ -40,19 +41,19 @@ export function DesignFlow({ initial, prices }: { initial?: Initial; prices: Pri
 
 function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; prices: Prices; onFinished: () => void }) {
   const router = useRouter();
-  const state = useRef<WorkbenchState>(
-    initial
-      ? { product: initial.product, color: initial.color, size: initial.size, layers: initial.layers, backLayers: initial.backLayers }
-      : { product: 'tee', color: 'white', size: 'M', layers: [], backLayers: [] },
-  );
+  // The design this page starts from. Only its first value is used (by the refs and states below).
+  const start: WorkbenchState = initial
+    ? { product: initial.product, color: initial.color, size: initial.size, layers: initial.layers, backLayers: initial.backLayers }
+    : { product: 'tee', color: 'white', size: 'M', layers: [], backLayers: [] };
+  const state = useRef<WorkbenchState>(start);
   const designId = useRef<string | null>(initial?.id ?? null);
   const creating = useRef<Promise<string> | null>(null);
   const saveChain = useRef<Promise<unknown>>(Promise.resolve());
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSaved = useRef<string | null>(initial ? snapshot(state.current) : null);
-  const [product, setProduct] = useState<ProductId>(state.current.product);
-  const [hasBack, setHasBack] = useState(state.current.backLayers.length > 0);
-  const [hasAnything, setHasAnything] = useState(hasContent(state.current));
+  const lastSaved = useRef<string | null>(initial ? snapshot(start) : null);
+  const [product, setProduct] = useState<ProductId>(start.product);
+  const [hasBack, setHasBack] = useState(start.backLayers.length > 0);
+  const [hasAnything, setHasAnything] = useState(hasContent(start));
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initial ? 'saved' : 'idle');
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -60,22 +61,15 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
   const [error, setError] = useState('');
   const [outcome, setOutcome] = useState<Outcome | null>(null);
 
-  const jsonHeaders = { 'content-type': 'application/json' };
-
   /** Makes sure the design exists on the server (uploads and saves both need its id). Only ever creates one. */
   async function ensureDesign(): Promise<string> {
     if (designId.current) return designId.current;
     creating.current ??= (async () => {
       const { product, color, size } = state.current;
-      const res = await fetch('/api/designs', {
-        method: 'POST',
-        headers: jsonHeaders,
-        body: JSON.stringify({ product, color, size, layers: [], backLayers: [] }),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? 'Could not start your design.');
-      designId.current = body.id;
-      return body.id as string;
+      const r = await send('/api/designs', json('POST', { product, color, size, layers: [], backLayers: [] }));
+      if (!r.ok) throw new Error(errorText(r, 'Could not start your design.'));
+      designId.current = String(r.body.id);
+      return designId.current;
     })().finally(() => {
       creating.current = null;
     });
@@ -87,15 +81,10 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
     const run = async () => {
       const id = await ensureDesign();
       const s = state.current;
-      const res = await fetch('/api/designs', {
-        method: 'POST',
-        headers: jsonHeaders,
-        body: JSON.stringify({ id, product: s.product, color: s.color, size: s.size, layers: s.layers, backLayers: s.backLayers }),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? 'Could not save your design.');
+      const r = await send('/api/designs', json('POST', { id, product: s.product, color: s.color, size: s.size, layers: s.layers, backLayers: s.backLayers }));
+      if (!r.ok) throw new Error(errorText(r, 'Could not save your design.'));
       lastSaved.current = snapshot(s);
-      return body.id as string;
+      return String(r.body.id);
     };
     const next = saveChain.current.then(run, run);
     saveChain.current = next.catch(() => undefined);
@@ -159,16 +148,16 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
     try {
       const id = await save();
       setSaveStatus('saved');
-      const res = await fetch(`/api/designs/${id}/submit`, { method: 'POST' });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? 'Could not check your design.');
-      if (body.status === 'approved') {
-        const add = await fetch('/api/cart', { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ designId: id }) });
-        if (!add.ok) throw new Error((await add.json().catch(() => ({}))).error ?? 'Could not add it to your cart.');
+      const checked = await send(`/api/designs/${id}/submit`, { method: 'POST' });
+      if (!checked.ok) throw new Error(errorText(checked, 'Could not check your design.'));
+      const result = checked.body as Outcome;
+      if (result.status === 'approved') {
+        const add = await send('/api/cart', json('POST', { designId: id }));
+        if (!add.ok) throw new Error(errorText(add, 'Could not add it to your cart.'));
         onFinished();
         return router.push('/cart');
       }
-      setOutcome(body);
+      setOutcome(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
     } finally {

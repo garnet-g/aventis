@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { errorText, send } from '@/lib/clientFetch';
 
 /** The form that posts a new design to the catalogue. */
 export function CatalogueForm() {
@@ -16,9 +17,9 @@ export function CatalogueForm() {
     setBusy(true);
     setError('');
     setDone(false);
-    const res = await fetch('/api/admin/catalogue', { method: 'POST', body: new FormData(e.currentTarget) });
+    const r = await send('/api/admin/catalogue', { method: 'POST', body: new FormData(e.currentTarget) });
     setBusy(false);
-    if (!res.ok) return setError((await res.json().catch(() => ({}))).error ?? 'Could not post the design.');
+    if (!r.ok) return setError(errorText(r, 'Could not post the design.'));
     formRef.current?.reset();
     setDone(true);
     router.refresh();
@@ -92,9 +93,9 @@ export function CatalogueRowActions({ id, published, title }: { id: string; publ
   async function call(init: RequestInit) {
     setBusy(true);
     setError('');
-    const res = await fetch(`/api/admin/catalogue/${id}`, init);
+    const r = await send(`/api/admin/catalogue/${id}`, init);
     setBusy(false);
-    if (!res.ok) return setError((await res.json().catch(() => ({}))).error ?? 'That did not work.');
+    if (!r.ok) return setError(errorText(r, 'That did not work.'));
     router.refresh();
   }
 

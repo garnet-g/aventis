@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { errorText, json, send } from '@/lib/clientFetch';
 import type { Prices } from '@/lib/prices';
 
 type Field = { id: string; label: string; get: (p: Prices) => number; set: (p: Prices, n: number) => Prices };
@@ -49,16 +50,12 @@ export function PriceForm({ initial }: { initial: Prices }) {
     // a row left completely empty is ignored; a half-filled one is reported by the server
     const num = (v: string) => (v.trim() === '' ? Number.NaN : Number(v));
     prices = { ...prices, bulkTiers: rows.filter((r) => r.min.trim() !== '' || r.pct.trim() !== '').map((r) => ({ minQuantity: num(r.min), percentOff: num(r.pct) })) };
-    const res = await fetch('/api/admin/prices', {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(prices),
-    });
+    const r = await send('/api/admin/prices', json('PUT', prices));
     setBusy(false);
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) return setError(body.error ?? 'Could not save the prices.');
-    setSaved(body.prices);
-    setRows(body.prices.bulkTiers.map((t: { minQuantity: number; percentOff: number }) => ({ min: String(t.minQuantity), pct: String(t.percentOff) })));
+    if (!r.ok) return setError(errorText(r, 'Could not save the prices.'));
+    const stored = r.body.prices as Prices;
+    setSaved(stored);
+    setRows(stored.bulkTiers.map((t) => ({ min: String(t.minQuantity), pct: String(t.percentOff) })));
     setDone(true);
   }
 

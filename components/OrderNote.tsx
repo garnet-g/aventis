@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { errorText, json, send } from '@/lib/clientFetch';
 
 /** The private note admins keep on an order (customers never see it). */
 export function OrderNote({ orderId, initial }: { orderId: string; initial: string }) {
@@ -12,16 +13,12 @@ export function OrderNote({ orderId, initial }: { orderId: string; initial: stri
   async function save() {
     setBusy(true);
     setError('');
-    const res = await fetch(`/api/admin/orders/${orderId}/note`, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ note }),
-    });
+    const r = await send(`/api/admin/orders/${orderId}/note`, json('PUT', { note }));
     setBusy(false);
-    if (!res.ok) return setError((await res.json().catch(() => ({}))).error ?? 'Could not save the note.');
-    const body = await res.json();
-    setNote(body.note);
-    setSaved(body.note);
+    if (!r.ok) return setError(errorText(r, 'Could not save the note.'));
+    const stored = typeof r.body.note === 'string' ? r.body.note : note;
+    setNote(stored);
+    setSaved(stored);
   }
 
   return (

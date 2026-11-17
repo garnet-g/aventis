@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { errorText, json, send } from '@/lib/clientFetch';
 
 export function ReviewActions({ designId }: { designId: string }) {
   const router = useRouter();
@@ -12,13 +13,9 @@ export function ReviewActions({ designId }: { designId: string }) {
   async function decide(decision: 'approve' | 'reject') {
     setBusy(true);
     setError('');
-    const res = await fetch(`/api/admin/designs/${designId}/decision`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ decision, reason: decision === 'reject' ? reason : undefined }),
-    });
+    const r = await send(`/api/admin/designs/${designId}/decision`, json('POST', { decision, reason: decision === 'reject' ? reason : undefined }));
     setBusy(false);
-    if (!res.ok) return setError((await res.json().catch(() => ({}))).error ?? 'Could not save your decision.');
+    if (!r.ok) return setError(errorText(r, 'Could not save your decision.'));
     router.refresh();
   }
 

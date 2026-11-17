@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SIZES, type Color, type Size } from '@/lib/catalog';
+import { errorText, json, send } from '@/lib/clientFetch';
 import { MAX_QUANTITY } from '@/lib/pricing';
 
 const SWATCH: Record<Color, string> = { white: '#ffffff', black: '#0a0a0a' };
@@ -34,19 +35,14 @@ export function CatalogueOrder({
   const sides = (['front', 'back'] as const).filter((s) => previews[`${color}-${s}`]);
   const shown = previews[`${color}-${side}`] ?? previews[`${color}-${sides[0]}`];
 
-  async function send(customise: boolean) {
+  async function order(customise: boolean) {
     setBusy(customise ? 'customise' : 'cart');
     setError('');
-    const res = await fetch(`/api/catalogue/${itemId}/order`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ color, size, quantity, customise }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (res.status === 401) return router.push('/login');
+    const r = await send(`/api/catalogue/${itemId}/order`, json('POST', { color, size, quantity, customise }));
+    if (r.status === 401) return router.push('/login');
     setBusy(null);
-    if (!res.ok) return setError(body.error ?? 'Something went wrong. Please try again.');
-    router.push(customise ? `/design?d=${body.designId}` : '/cart');
+    if (!r.ok) return setError(errorText(r, 'Something went wrong. Please try again.'));
+    router.push(customise ? `/design?d=${String(r.body.designId)}` : '/cart');
   }
 
   return (
@@ -130,10 +126,10 @@ export function CatalogueOrder({
           </p>
         )}
         <div className="flex flex-col gap-4 sm:flex-row">
-          <button className="btn sm:min-w-56" disabled={busy !== null} onClick={() => void send(false)}>
+          <button className="btn sm:min-w-56" disabled={busy !== null} onClick={() => void order(false)}>
             {busy === 'cart' ? 'Adding…' : 'Add to cart'}
           </button>
-          <button className="btn btn-ink sm:min-w-56" disabled={busy !== null} onClick={() => void send(true)}>
+          <button className="btn btn-ink sm:min-w-56" disabled={busy !== null} onClick={() => void order(true)}>
             {busy === 'customise' ? 'Opening…' : 'Customise this design'}
           </button>
         </div>
