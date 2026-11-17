@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { BACK_PRINT_PRICE_KES, catalog, COLORS, SIZES, type Color, type ProductId, type Side, type Size } from '@/lib/catalog';
 import { kes } from '@/lib/labels';
 import type { DesignLayer } from '@/lib/designLayers';
@@ -30,6 +30,9 @@ type Props = {
   backPriceKes?: number;
   children?: ReactNode;
 };
+
+/** For useSyncExternalStore: "is this running in the browser" never changes, so there is nothing to subscribe to. */
+const noSubscribe = () => () => {};
 
 const COLOR_SWATCH: Record<Color, string> = { white: '#ffffff', black: '#16120f' };
 const QUALITY_BADGE = { great: 'badge-forest', ok: 'badge-gold', low: 'badge-red' } as const;
@@ -63,15 +66,18 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
   // The text box keeps its own copy while typing, so the cursor never jumps while the canvas catches up.
   const [textDraft, setTextDraft] = useState('');
   const selectedText = selection?.kind === 'text' ? selection.text : null;
-  useEffect(() => {
+  // When a different text is selected on the canvas, the box shows it (React's "adjust state on change" pattern).
+  const [shownText, setShownText] = useState<string | null>(null);
+  if (selectedText !== shownText) {
+    setShownText(selectedText);
     if (selectedText !== null) setTextDraft(selectedText);
-  }, [selectedText]);
-  // The page is server-rendered first. Until React has attached its handlers, a chosen file or a typed name would be
-  // silently lost, so those controls stay disabled until the page is interactive.
-  const [ready, setReady] = useState(false);
+  }
+  // The page is server-rendered first. Until React has attached its handlers, a chosen file or typed text would be
+  // silently lost, so those controls stay disabled until the page is interactive (false on the server and while
+  // hydrating, true once running in the browser).
+  const ready = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [cropping, setCropping] = useState<{ url: string; uploadPath: string; natural: { width: number; height: number } } | null>(null);
   const [editStatus, setEditStatus] = useState('');
-  useEffect(() => setReady(true), []);
 
   // Resuming a saved design: draw what was saved (the editor itself starts empty).
   useEffect(() => {

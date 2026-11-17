@@ -40,7 +40,10 @@ function analyse(text: string): { tokens: string[]; squashed: string; mixed: boo
   for (const w of words) {
     if ([...w].length === 1) run += w;
     else {
-      if (run) joined.push(run), (run = '');
+      if (run) {
+        joined.push(run);
+        run = '';
+      }
       joined.push(w);
     }
   }
