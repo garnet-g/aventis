@@ -5,6 +5,10 @@ import { Suspense } from 'react';
 import { requireAdmin } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase/server';
 
+// The whole admin area depends on who is signed in, so it renders on the server per request. This tells Next.js not
+// to flag that in development (see "Opting out" in the instant-navigation guide).
+export const instant = false;
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={<p className="shell py-8 text-sm text-mute">Loading…</p>}>

@@ -39,8 +39,9 @@ export function CatalogueOrder({
     setBusy(customise ? 'customise' : 'cart');
     setError('');
     const r = await send(`/api/catalogue/${itemId}/order`, json('POST', { color, size, quantity, customise }));
-    if (r.status === 401) return router.push(`/login?next=${encodeURIComponent(`/catalogue/${itemId}`)}`);
+    // Reset first: Next.js keeps this page's state, so it would still say "Adding…" when they come back after signing in.
     setBusy(null);
+    if (r.status === 401) return router.push(`/login?next=${encodeURIComponent(`/catalogue/${itemId}`)}`);
     if (!r.ok) return setError(errorText(r, 'Something went wrong. Please try again.'));
     router.push(customise ? `/design?d=${String(r.body.designId)}` : '/cart');
   }

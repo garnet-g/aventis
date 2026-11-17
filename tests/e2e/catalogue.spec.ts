@@ -49,19 +49,18 @@ test('an admin posts a design; it stays hidden until published; a customer order
     await page.getByRole('button', { name: 'L', exact: true }).click();
     await page.getByRole('button', { name: 'Increase quantity' }).click();
     await page.getByRole('button', { name: 'Add to cart' }).click();
-    await page.waitForURL('**/login'); // signed out: asked to sign in first
+    await page.waitForURL(`**/login?next=${encodeURIComponent(`/catalogue/${row!.id}`)}`); // signed out: asked to sign in first
 
     const email = uniqueEmail('shop');
     await page.getByRole('button', { name: /create an account/i }).click();
     await page.getByPlaceholder('Email').fill(email);
     await page.getByPlaceholder(/password/i).fill('e2e-password-123');
     await page.getByRole('button', { name: 'Sign up' }).click();
-    await page.waitForURL('**/design');
-
-    await page.goto(`/catalogue/${row!.id}`);
-    await page.getByRole('button', { name: 'Black' }).click();
-    await page.getByRole('button', { name: 'L', exact: true }).click();
-    await page.getByRole('button', { name: 'Increase quantity' }).click();
+    await page.waitForURL(`**/catalogue/${row!.id}`); // back to the design they were ordering
+    // their choices are still there, and the button is ready again
+    await expect(page.getByRole('button', { name: 'Black' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'L', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('quantity')).toHaveText('2');
     await page.getByRole('button', { name: 'Add to cart' }).click();
     await page.waitForURL('**/cart');
     await expect(page.getByTestId('cart-line')).toHaveCount(1);
