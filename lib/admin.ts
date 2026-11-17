@@ -24,7 +24,8 @@ export async function decideDesign(
 
   let patch: Parameters<DesignStore['update']>[1];
   if (decision === 'approve') {
-    if (d.moderatedHash !== layersHash(d.layers)) {
+    // Both sides: the approval covers exactly what was checked, front and back (as at checkout).
+    if (d.moderatedHash !== layersHash(d.layers, d.backLayers)) {
       throw new HttpError(409, 'The design changed after it was checked. Ask the customer to submit it again.');
     }
     patch = { status: 'approved', rejectReason: null };

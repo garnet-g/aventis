@@ -64,8 +64,8 @@ let db: PGlite;
 let designs: MemoryDesignStore;
 let alice: string;
 
-async function designWith(content: string) {
-  const d = await saveDesign(designs, alice, { product: 'tee', color: 'white', size: 'M', layers: [text(content)] });
+async function designWith(content: string, back?: string) {
+  const d = await saveDesign(designs, alice, { product: 'tee', color: 'white', size: 'M', layers: [text(content)], backLayers: back ? [text(back)] : [] });
   await submitDesign(designs, new StubImageSafetyProvider(0), d.id, alice);
   return (await designs.get(d.id))!;
 }
@@ -107,6 +107,20 @@ describe('decideDesign', () => {
   test('approve is refused when the design changed after it was checked', async () => {
     const d = await designWith('Dick');
     await designs.update(d.id, { layers: [text('Something else')] }); // changed behind the moderation result
+    await expect(decideDesign({ designs }, d.id, 'approve')).rejects.toThrow(/changed/i);
+  });
+
+  test('a design printed on the back can be approved too', async () => {
+    const d = await designWith('Dick', 'Crew 2026');
+    expect(d.status).toBe('pending_review');
+    const out = await decideDesign({ designs }, d.id, 'approve');
+    expect(out.status).toBe('approved');
+    expect(out.moderatedHash).toBe(layersHash(out.layers, out.backLayers));
+  });
+
+  test('approve is refused when only the back changed after it was checked', async () => {
+    const d = await designWith('Dick', 'Crew 2026');
+    await designs.update(d.id, { backLayers: [text('Something else')] });
     await expect(decideDesign({ designs }, d.id, 'approve')).rejects.toThrow(/changed/i);
   });
 
