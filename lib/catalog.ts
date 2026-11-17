@@ -65,9 +65,10 @@ export const catalog: Record<ProductId, Product> = {
     priceKes: 2200, // PLACEHOLDER: confirm with owner/printer
     // Every colour except orange, which has no hoodie photo.
     colors: COLORS.filter((c) => c !== 'orange'),
-    printArea: { widthCm: 25, heightCm: 28, topOffsetCm: 10 }, // PLACEHOLDER: confirm with owner/printer
+    // 25 cm wide x 28 cm tall on the front and on the back, as set by the owner.
+    printArea: { widthCm: 25, heightCm: 28, topOffsetCm: 10 },
     // On the back this is measured from the bottom of the hood, not the collar, so the print never lands on the hood.
-    backPrintArea: { widthCm: 25, heightCm: 28, topOffsetCm: 2 }, // PLACEHOLDER: confirm with owner/printer
+    backPrintArea: { widthCm: 25, heightCm: 28, topOffsetCm: 2 },
     garmentImage: (c, side = 'front') => (side === 'back' ? `/garments/hoodie-back-${c}.jpg` : `/garments/hoodie-${c}.jpg`),
   },
 };

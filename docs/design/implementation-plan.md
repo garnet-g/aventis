@@ -1,3 +1,5 @@
+> **Historical document.** This is the original design from before the shop moved to Kenya. It still mentions Pakistan, PKR, provinces and Urdu, which no longer apply: the shop now sells in Kenya shillings to the 47 counties of Kenya, takes M-Pesa, and the README is the current reference.
+
 # Custom Apparel Platform Implementation Plan
 
 

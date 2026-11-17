@@ -80,7 +80,7 @@ Your known print costs (hoodie KES 1,300, tee KES 800) are already in `lib/catal
 
 ## Safety checks: what they do and don't catch
 
-- **Text** is matched against a word list in English, Swahili, Roman Urdu and Urdu script, after removing invisible characters and accents and mapping look-alike letters. Words that are also names (for example "Dick") go to human review instead of being rejected. It does **not** catch masked spellings such as `f*ck` or slang that is not on the list. Add words as real cases appear.
+- **Text** is matched against a word list in English, Swahili and Sheng, after removing invisible characters and accents and mapping look-alike letters. Words that are also names (for example "Dick") go to human review instead of being rejected. It does **not** catch masked spellings such as `f*ck` or slang that is not on the list. Add words as real cases appear.
 - **Images** are scored by OpenAI's moderation model (`OPENAI_API_KEY`). Unsure scores go to human review; a failed check always goes to human review, never straight to payment.
 - Anything unusual (mixed alphabets inside one word, odd Latin letters) is sent to human review.
 

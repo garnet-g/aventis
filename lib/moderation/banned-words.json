@@ -1,58 +1,7 @@
 {
   "explicit": {
-    "english": [
-      "fuck",
-      "fucking",
-      "fucker",
-      "cunt",
-      "porn",
-      "porno",
-      "nude",
-      "nudes",
-      "blowjob",
-      "handjob",
-      "rape",
-      "rapist",
-      "whore",
-      "slut",
-      "bitch",
-      "pussy",
-      "asshole"
-    ],
-    "romanUrdu": [
-      "chutiya",
-      "chutia",
-      "madarchod",
-      "behenchod",
-      "bhenchod",
-      "bhosdi",
-      "bhosda",
-      "gandu",
-      "randi",
-      "kanjri"
-    ],
-    "urdu": [
-      "چوتیا",
-      "مادرچود",
-      "بہنچود",
-      "گانڈو",
-      "رنڈی",
-      "کنجری"
-    ],
-    "swahili": [
-      "malaya",
-      "kuma",
-      "kumbafu",
-      "mavi"
-    ]
+    "english": ["fuck", "fucking", "fucker", "cunt", "porn", "porno", "nude", "nudes", "blowjob", "handjob", "rape", "rapist", "whore", "slut", "bitch", "pussy", "asshole"],
+    "swahiliAndSheng": ["malaya", "kuma", "kumamako", "kumanyoko", "kumanyina", "nyoko", "msenge", "mkundu", "kumbafu", "kumbavu", "mavi"]
   },
-  "ambiguous": [
-    "dick",
-    "cock",
-    "lund",
-    "lun",
-    "harami",
-    "sex",
-    "sexy"
-  ]
+  "ambiguous": ["dick", "cock", "sex", "sexy", "ngono", "uchi", "matako"]
 }

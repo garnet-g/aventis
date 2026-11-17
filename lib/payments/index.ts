@@ -14,6 +14,5 @@ export interface PaymentProvider {
 export function getPaymentProvider(): PaymentProvider {
   const name = process.env.PAYMENT_PROVIDER ?? 'dummy';
   if (name === 'dummy') return new DummyProvider();
-  // Real providers (JazzCash, Easypaisa, a bank gateway) are added here as they are set up.
   throw new Error(`Unknown PAYMENT_PROVIDER "${name}"`);
 }

@@ -21,7 +21,7 @@ describe('moderateText', () => {
   test('other invisible characters (soft hyphen, hangul filler, ZWNJ) do not hide a banned word', () => {
     expect(moderateText(['fu­ck'])).toBe('explicit');
     expect(moderateText(['fuㅤck'])).toBe('explicit');
-    expect(moderateText(['چو‌تیا'])).toBe('explicit');
+    expect(moderateText(['mal‌aya'])).toBe('explicit'); // zero-width non-joiner inside a Swahili word
   });
 
   test('combining marks do not hide a banned word', () => {
@@ -57,15 +57,21 @@ describe('moderateText', () => {
     expect(moderateText(['what the f_u_c_k_i_n_g hell'])).toBe('explicit');
   });
 
-  test('Urdu text with ordinary diacritics stays clear', () => {
+  test('Arabic-script text with ordinary diacritics stays clear', () => {
     expect(moderateText(['عَلِی'])).toBe('clear');
   });
 
-  test('roman urdu banned word is explicit', () => {
-    expect(moderateText(['tu chutiya hai'])).toBe('explicit');
+  test('Swahili and Sheng insults are explicit; ordinary Swahili is clear', () => {
+    expect(moderateText(['wewe ni kumanyoko'])).toBe('explicit');
+    expect(moderateText(['MALAYA'])).toBe('explicit');
+    expect(moderateText(['Mama Wanjiku', 'Harambee Stars', 'Hakuna matata'])).toBe('clear');
   });
 
-  test('clean Urdu-script name is clear', () => {
+  test('Swahili words that can be innocent go to a person', () => {
+    expect(moderateText(['matako'])).toBe('unsure');
+  });
+
+  test('a clean Arabic-script name is clear', () => {
     expect(moderateText(['علی احمد'])).toBe('clear');
   });
 
