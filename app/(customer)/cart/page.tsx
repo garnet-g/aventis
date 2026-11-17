@@ -22,7 +22,7 @@ export default function CartPage() {
 }
 
 async function Cart() {
-  const user = await requireUser();
+  const user = await requireUser('/cart');
   const cart = await loadCart({ designs: supabaseDesignStore(), cart: supabaseCartStore(), prices: await supabasePriceStore().get() }, user.id);
 
   return (

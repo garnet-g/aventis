@@ -57,7 +57,7 @@ function Track({ status }: { status: OrderStatus }) {
 }
 
 async function MyOrders() {
-  const user = await requireUser();
+  const user = await requireUser('/orders');
   // These queries run as the customer, so row-level security already limits them to their own rows.
   const db = await getServerClient();
   const [{ data: designRows }, { data: orderRows }] = await Promise.all([

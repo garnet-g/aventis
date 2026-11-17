@@ -22,9 +22,7 @@ export default function HomePage() {
         right={
           <>
             <Link href="/cart">Cart</Link>
-            <Link href="/login" className="rounded-lg border-2 border-marigold px-3 py-1.5 text-marigold hover:!bg-marigold hover:!text-ink">
-              Sign in
-            </Link>
+            <Link href="/orders">My orders</Link>
           </>
         }
       />

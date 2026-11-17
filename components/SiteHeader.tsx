@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { AdminLink } from '@/components/AdminLink';
+import { AccountMenu } from '@/components/AccountMenu';
 
 /** The VybeCrew logo. It is drawn for a dark background, so it is used on the black bars and panels only. */
 export function Logo({ className = 'h-12' }: { className?: string }) {
@@ -16,7 +16,7 @@ export function Logo({ className = 'h-12' }: { className?: string }) {
   );
 }
 
-/** The black bar at the top of every page. `right` holds the page's own links (cart, sign in, ...). */
+/** The black bar at the top of every page. `right` holds the page's own links (cart, orders, ...); the account menu adds sign in or sign out. */
 export function SiteHeader({ right }: { right?: ReactNode }) {
   return (
     <header className="bg-ink text-white">
@@ -32,7 +32,7 @@ export function SiteHeader({ right }: { right?: ReactNode }) {
         </nav>
         <div className="flex items-center gap-4 text-sm font-bold [&_a:hover]:text-marigold">
           {right}
-          <AdminLink />
+          <AccountMenu />
         </div>
       </div>
       <nav aria-label="Main (small screens)" className="shell flex gap-6 pb-3 text-xs font-bold uppercase tracking-wide md:hidden">

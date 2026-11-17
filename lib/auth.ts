@@ -9,12 +9,13 @@ export async function apiUser() {
   return user;
 }
 
-export async function requireUser() {
+/** For pages: the signed-in user, or a redirect to sign-in that comes back to `returnTo` afterwards. */
+export async function requireUser(returnTo?: string) {
   const supabase = await getServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) redirect(returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : '/login');
   return user;
 }
 

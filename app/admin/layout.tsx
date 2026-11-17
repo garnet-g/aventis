@@ -1,10 +1,21 @@
 import Link from 'next/link';
+import { AccountMenu } from '@/components/AccountMenu';
 import { Logo } from '@/components/SiteHeader';
 import { Suspense } from 'react';
 import { requireAdmin } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase/server';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<p className="shell py-8 text-sm text-mute">Loading…</p>}>
+      <AdminShell>{children}</AdminShell>
+    </Suspense>
+  );
+}
+
+/** Non-admins get the ordinary 404 page before anything admin, even the menu, is shown. */
+async function AdminShell({ children }: { children: React.ReactNode }) {
+  await requireAdmin();
   return (
     <>
       <div className="bg-ink text-white">
@@ -14,22 +25,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Suspense fallback={<NavLinks />}>
             <CountedNavLinks />
           </Suspense>
+          <span className="ml-auto flex items-center gap-4">
+            <Link href="/">View shop</Link>
+            <AccountMenu showAdminLink={false} />
+          </span>
         </nav>
         <div className="tape" aria-hidden />
       </div>
-      <div className="shell py-8">
-        <Suspense fallback={<p className="p-4 text-sm text-mute">Loading…</p>}>
-          <AdminGate>{children}</AdminGate>
-        </Suspense>
-      </div>
+      <div className="shell py-8">{children}</div>
     </>
   );
-}
-
-/** Non-admins get a 404 before any admin content renders. */
-async function AdminGate({ children }: { children: React.ReactNode }) {
-  await requireAdmin();
-  return <>{children}</>;
 }
 
 function Count({ n, label }: { n: number; label: string }) {
@@ -59,7 +64,6 @@ function NavLinks({ reviews = 0, newOrders = 0 }: { reviews?: number; newOrders?
 
 /** Shows how many designs wait for review and how many paid orders nobody has picked up yet. */
 async function CountedNavLinks() {
-  await requireAdmin();
   const db = getServiceClient();
   const [reviews, newOrders] = await Promise.all([
     db.from('designs').select('id', { count: 'exact', head: true }).eq('status', 'pending_review'),

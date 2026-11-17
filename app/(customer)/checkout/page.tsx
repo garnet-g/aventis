@@ -23,7 +23,7 @@ export default function CheckoutPage() {
 }
 
 async function Checkout() {
-  const user = await requireUser();
+  const user = await requireUser('/checkout');
   const cart = await loadCart({ designs: supabaseDesignStore(), cart: supabaseCartStore(), prices: await supabasePriceStore().get() }, user.id);
   // Only a cart whose designs are all approved, exactly as they are now, can be paid for.
   if (!cart.canCheckout) redirect('/cart');

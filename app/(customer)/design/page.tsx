@@ -30,7 +30,7 @@ export default function DesignPage({ searchParams }: { searchParams: Promise<{ d
 }
 
 async function SignedInDesign({ searchParams }: { searchParams: Promise<{ d?: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser('/design');
   const { d } = await searchParams;
   const prices = await supabasePriceStore().get();
   if (!d) return <DesignFlow prices={prices} />;
