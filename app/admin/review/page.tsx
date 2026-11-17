@@ -23,8 +23,8 @@ function waiting(since: string, now: number) {
   return hours < 48 ? `${hours} h` : `${Math.round(hours / 24)} days`;
 }
 
-async function ReviewQueue() {
-  await requireAdmin();
+/** The designs waiting, oldest first, with who sent each and how long it has waited (read here, not while rendering). */
+async function loadQueue() {
   await connection();
   const { data } = await getServiceClient()
     .from('designs')
@@ -35,6 +35,12 @@ async function ReviewQueue() {
   const rows = data ?? [];
   const emails = new Map(await Promise.all([...new Set(rows.map((d) => d.user_id as string))].map(async (id) => [id, await emailForUser(id).catch(() => null)] as const)));
   const now = Date.now();
+  return { rows: rows.map((d) => ({ ...d, waitingFor: waiting(d.updated_at as string, now) })), emails };
+}
+
+async function ReviewQueue() {
+  await requireAdmin();
+  const { rows, emails } = await loadQueue();
 
   return (
     <main>
@@ -62,7 +68,7 @@ async function ReviewQueue() {
                 <b>Why it is here:</b> {(d.review_reason as string | null) || 'The automatic check was not sure.'}
               </p>
               <p className="text-xs text-mute">
-                {emails.get(d.user_id as string) ?? 'Unknown customer'} · waiting {waiting(d.updated_at as string, now)}
+                {emails.get(d.user_id as string) ?? 'Unknown customer'} · waiting {d.waitingFor}
               </p>
               <ReviewActions designId={d.id} />
             </li>
