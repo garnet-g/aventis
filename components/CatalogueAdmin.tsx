@@ -2,8 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { catalog, colorHex, colorLabel, type ProductId } from '@/lib/catalog';
-import { errorText, send } from '@/lib/clientFetch';
+import { catalog, colorHex, colorLabel, type Color, type ProductId } from '@/lib/catalog';
+import { errorText, json, send } from '@/lib/clientFetch';
 
 /** The form that posts a new design to the catalogue. */
 export function CatalogueForm() {
@@ -88,40 +88,82 @@ export function CatalogueForm() {
   );
 }
 
-/** Publish / hide and delete buttons for one catalogue design. */
-export function CatalogueRowActions({ id, published, title }: { id: string; published: boolean; title: string }) {
+type RowItem = { id: string; title: string; description: string; product: ProductId; colors: Color[]; published: boolean; featured: boolean };
+
+/** Publish / hide, feature, edit and delete for one catalogue design. */
+export function CatalogueRowActions({ item }: { item: RowItem }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [editing, setEditing] = useState(false);
 
   async function call(init: RequestInit) {
     setBusy(true);
     setError('');
-    const r = await send(`/api/admin/catalogue/${id}`, init);
+    const r = await send(`/api/admin/catalogue/${item.id}`, init);
     setBusy(false);
-    if (!r.ok) return setError(errorText(r, 'That did not work.'));
+    if (!r.ok) return setError(errorText(r, 'That did not work.')), false;
     router.refresh();
+    return true;
   }
+  const patch = (body: Record<string, unknown>) => call(json('PATCH', body));
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
-        <button
-          disabled={busy}
-          className={`btn btn-sm ${published ? 'btn-quiet' : ''}`}
-          onClick={() => void call({ method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ published: !published }) })}
-        >
-          {published ? 'Hide' : 'Publish'}
+        <button disabled={busy} className={`btn btn-sm ${item.published ? 'btn-quiet' : ''}`} onClick={() => void patch({ published: !item.published })}>
+          {item.published ? 'Hide' : 'Publish'}
+        </button>
+        <button disabled={busy} className="btn btn-sm btn-quiet" onClick={() => void patch({ featured: !item.featured })}>
+          {item.featured ? 'Unfeature' : 'Feature'}
+        </button>
+        <button disabled={busy} className="btn btn-sm btn-quiet" onClick={() => setEditing(!editing)} aria-expanded={editing}>
+          Edit
         </button>
         <button
           disabled={busy}
-          aria-label={`Delete ${title}`}
+          aria-label={`Delete ${item.title}`}
           className="btn btn-sm btn-quiet border-vermilion text-vermilion"
-          onClick={() => confirm(`Delete "${title}"? Orders already placed are not affected.`) && void call({ method: 'DELETE' })}
+          onClick={() => confirm(`Delete "${item.title}"? Orders already placed are not affected.`) && void call({ method: 'DELETE' })}
         >
           Delete
         </button>
       </div>
+      {editing && (
+        <form
+          className="flex flex-col gap-2 text-sm"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const data = new FormData(e.currentTarget);
+            const ok = await patch({ title: data.get('title'), description: data.get('description'), colors: data.getAll('colors') });
+            if (ok) setEditing(false);
+          }}
+        >
+          <label className="flex flex-col gap-1 font-bold">
+            Title
+            <input name="title" defaultValue={item.title} required minLength={2} maxLength={80} className="field font-normal" />
+          </label>
+          <label className="flex flex-col gap-1 font-bold">
+            Description
+            <textarea name="description" defaultValue={item.description} maxLength={500} rows={2} className="field font-normal" />
+          </label>
+          <fieldset className="flex flex-col gap-1 font-bold">
+            <legend className="mb-1">Colours (new ones get previews drawn)</legend>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-normal">
+              {catalog[item.product].colors.map((c) => (
+                <label key={c} className="flex items-center gap-2">
+                  <input type="checkbox" name="colors" value={c} defaultChecked={item.colors.includes(c)} />
+                  <span aria-hidden className="h-3 w-3 flex-none rounded-full border border-ink" style={{ background: colorHex(c) }} />
+                  {colorLabel(c)}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <button disabled={busy} className="btn btn-ink btn-sm self-start">
+            {busy ? 'Saving…' : 'Save changes'}
+          </button>
+        </form>
+      )}
       {error && (
         <p role="alert" className="text-sm font-semibold text-vermilion">
           {error}

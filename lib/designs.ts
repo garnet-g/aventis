@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { catalog, COLORS, offersColor, SIZES } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
 import { normalizeFont } from '@/lib/fonts';
-import { moderateDesign } from '@/lib/moderation';
+import { checkDesign } from '@/lib/moderation';
 import type { ImageSafetyProvider } from '@/lib/moderation/image';
 
 export type DesignStatus = 'draft' | 'pending_review' | 'approved' | 'rejected';
@@ -19,6 +19,8 @@ export type Design = {
   backLayers: DesignLayer[];
   status: DesignStatus;
   rejectReason: string | null;
+  /** Why the automatic check wanted a person to look (admins only). */
+  reviewReason?: string | null;
   /** Hash of the layers that were last moderated; lets an unchanged resubmit skip re-moderation. */
   moderatedHash: string | null;
   /** Changes on every write; lets submitDesign detect an edit that happened while it was checking. */
@@ -112,7 +114,7 @@ export async function saveDesign(store: DesignStore, userId: string, input: Desi
   if (!existing || existing.userId !== userId) throw new Error(NOT_FOUND);
   if (await store.hasOrder(id)) throw new Error('This design already has an order and cannot be changed.');
   assertUploadsOwned(userId, id, [...layers, ...backLayers]);
-  return store.update(id, { ...parsed, layers, backLayers, status: 'draft', rejectReason: null });
+  return store.update(id, { ...parsed, layers, backLayers, status: 'draft', rejectReason: null, reviewReason: null });
 }
 
 function resultFor(d: Design): { status: 'approved' | 'pending_review' | 'rejected'; message: string } {
@@ -140,7 +142,7 @@ export async function submitDesign(store: DesignStore, provider: ImageSafetyProv
 
   const texts = everything.flatMap((l) => (l.kind === 'text' ? [l.text] : []));
   const images = await Promise.all(everything.flatMap((l) => (l.kind === 'image' ? [store.downloadUpload(l.uploadPath)] : [])));
-  const verdict = await moderateDesign({ texts, images }, provider);
+  const { verdict, reasons } = await checkDesign({ texts, images }, provider);
 
   const status: DesignStatus = verdict === 'clear' ? 'approved' : verdict === 'unsure' ? 'pending_review' : 'rejected';
   // Only record the verdict if the design is exactly what we checked; otherwise it must be checked again.
@@ -148,6 +150,7 @@ export async function submitDesign(store: DesignStore, provider: ImageSafetyProv
     status,
     moderatedHash: hash,
     rejectReason: status === 'rejected' ? EXPLICIT_REASON : null,
+    reviewReason: status === 'approved' ? null : reasons.join(' ').slice(0, 500) || null,
   });
   if (!updated) throw new Error('Your design changed while it was being checked. Please try again.');
   return resultFor(updated);

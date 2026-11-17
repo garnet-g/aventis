@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { describe, expect, test } from 'vitest';
 import { moderateDesign, moderateImages, moderateText } from '@/lib/moderation';
 import { OpenAIImageSafetyProvider, StubImageSafetyProvider } from '@/lib/moderation/image';
@@ -125,12 +126,34 @@ describe('OpenAIImageSafetyProvider', () => {
       };
     }) as unknown as typeof fetch;
     const provider = new OpenAIImageSafetyProvider('key', fakeFetch);
-    expect((await provider.score(Buffer.from('abc'))).explicit).toBeCloseTo(0.91);
+    const big = await sharp({ create: { width: 3000, height: 2000, channels: 3, background: '#c33' } }).png().toBuffer();
+    const scores = await provider.score(big);
+    expect(scores.explicit).toBeCloseTo(0.91);
+    expect(scores.other?.violence).toBeCloseTo(0.99);
     expect(sentBody).toContain('omni-moderation-latest');
+    // a 768 px copy is sent, not the 3000 px original
+    const sent = JSON.parse(sentBody).input[0].image_url.url.split(',')[1];
+    expect((await sharp(Buffer.from(sent, 'base64')).metadata()).width).toBe(768);
   });
 
   test('non-OK API response throws so the caller fails toward review', async () => {
     const fakeFetch = (async () => ({ ok: false, status: 500, json: async () => ({}) })) as unknown as typeof fetch;
     await expect(new OpenAIImageSafetyProvider('key', fakeFetch).score(img)).rejects.toThrow();
+  });
+});
+
+describe('reasons for the reviewer', () => {
+  test('say which text and which picture caused the check', async () => {
+    const { checkDesign } = await import('@/lib/moderation');
+    const img = Buffer.from('x');
+    const unsure = await checkDesign({ texts: ['Sexy Mama'], images: [img] }, new StubImageSafetyProvider(0.1));
+    expect(unsure.verdict).toBe('unsure');
+    expect(unsure.reasons.join(' ')).toContain('Sexy Mama');
+    const violent = await checkDesign({ texts: [], images: [img] }, { score: async () => ({ explicit: 0.05, other: { violence: 0.8, hate: 0.1 } }) });
+    expect(violent.verdict).toBe('unsure');
+    expect(violent.reasons).toEqual(['The picture may show violence (80%).']);
+    const broken = await checkDesign({ texts: [], images: [img, img] }, { score: async () => Promise.reject(new Error('down')) });
+    expect(broken.reasons).toEqual(['Picture 1 could not be checked automatically.', 'Picture 2 could not be checked automatically.']);
+    expect((await checkDesign({ texts: ['Nairobi'], images: [] }, new StubImageSafetyProvider(0))).reasons).toEqual([]);
   });
 });

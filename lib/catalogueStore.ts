@@ -18,6 +18,7 @@ type Row = {
   back_layers: DesignLayer[];
   mockups: Record<string, string>;
   published: boolean;
+  featured?: boolean;
   created_at: string;
 };
 
@@ -31,6 +32,7 @@ const toItem = (r: Row): CatalogueItem => ({
   backLayers: r.back_layers,
   mockups: r.mockups,
   published: r.published,
+  featured: r.featured ?? false,
   createdAt: r.created_at,
 });
 
@@ -42,7 +44,7 @@ export function supabaseCatalogueStore(): CatalogueStore {
   return {
     async list(opts) {
       await connection(); // what is published changes at any time: read it per request, never while pre-building a page
-      let q = db().from('catalogue_items').select('*').order('created_at', { ascending: false });
+      let q = db().from('catalogue_items').select('*').order('featured', { ascending: false }).order('created_at', { ascending: false });
       if (opts?.publishedOnly) q = q.eq('published', true);
       const { data, error } = await q;
       if (error) throw new Error(error.message);
@@ -75,7 +77,14 @@ export function supabaseCatalogueStore(): CatalogueStore {
     async update(id, patch) {
       const { data } = await db()
         .from('catalogue_items')
-        .update({ ...(patch.published !== undefined && { published: patch.published }), ...(patch.mockups && { mockups: patch.mockups }) })
+        .update({
+          ...(patch.published !== undefined && { published: patch.published }),
+          ...(patch.mockups && { mockups: patch.mockups }),
+          ...(patch.title !== undefined && { title: patch.title }),
+          ...(patch.description !== undefined && { description: patch.description }),
+          ...(patch.colors && { colors: patch.colors }),
+          ...(patch.featured !== undefined && { featured: patch.featured }),
+        })
         .eq('id', id)
         .select('*')
         .maybeSingle();

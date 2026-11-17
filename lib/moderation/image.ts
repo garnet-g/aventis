@@ -1,6 +1,23 @@
+import sharp from 'sharp';
+
+export type SafetyScores = {
+  /** 0 (safe) to 1 (certainly sexually explicit) */
+  explicit: number;
+  /** Other harms by category (hate, violence, ...), 0 to 1. These send a design to a person, never reject it. */
+  other?: Record<string, number>;
+};
+
 export interface ImageSafetyProvider {
-  /** explicit: 0 (safe) to 1 (certainly explicit) */
-  score(image: Buffer): Promise<{ explicit: number }>;
+  score(image: Buffer): Promise<SafetyScores>;
+}
+
+/** Checks look at a 768 px copy: plenty to judge by, and a phone photo no longer means megabytes of upload per check. */
+export async function downsizeForCheck(image: Buffer): Promise<Buffer> {
+  try {
+    return await sharp(image, { failOn: 'none' }).rotate().resize(768, 768, { fit: 'inside', withoutEnlargement: true }).png({ compressionLevel: 9 }).toBuffer();
+  } catch {
+    return image; // not something sharp reads: let the service judge the original
+  }
 }
 
 /** Fixed-score provider for tests and local development. */
@@ -11,14 +28,15 @@ export class StubImageSafetyProvider implements ImageSafetyProvider {
   }
 }
 
-/** OpenAI omni-moderation (accepts images, no per-call cost). Scores the sexual categories. */
+/** OpenAI omni-moderation (accepts images, no per-call cost). Sexual scores can reject; other harms go to review. */
 export class OpenAIImageSafetyProvider implements ImageSafetyProvider {
   constructor(
     private readonly apiKey: string,
     private readonly fetchImpl: typeof fetch = fetch,
   ) {}
 
-  async score(image: Buffer) {
+  async score(original: Buffer): Promise<SafetyScores> {
+    const image = await downsizeForCheck(original);
     const res = await this.fetchImpl('https://api.openai.com/v1/moderations', {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${this.apiKey}` },
@@ -30,7 +48,8 @@ export class OpenAIImageSafetyProvider implements ImageSafetyProvider {
     if (!res.ok) throw new Error(`moderation API returned ${res.status}`);
     const body = (await res.json()) as { results: { category_scores: Record<string, number> }[] };
     const s = body.results[0].category_scores;
-    return { explicit: Math.max(s['sexual'] ?? 0, s['sexual/minors'] ?? 0) };
+    const { sexual = 0, 'sexual/minors': minors = 0, ...other } = s;
+    return { explicit: Math.max(sexual, minors), other };
   }
 }
 

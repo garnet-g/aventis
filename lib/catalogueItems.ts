@@ -20,14 +20,18 @@ export type CatalogueItem = {
   /** "<color>-front" / "<color>-back" -> preview picture path in the catalogue bucket. */
   mockups: Record<string, string>;
   published: boolean;
+  /** Featured designs are listed first. */
+  featured?: boolean;
   createdAt: string;
 };
+
+export type CatalogueEdit = Partial<Pick<CatalogueItem, 'published' | 'mockups' | 'title' | 'description' | 'colors' | 'featured'>>;
 
 export interface CatalogueStore {
   list(opts?: { publishedOnly?: boolean }): Promise<CatalogueItem[]>;
   get(id: string): Promise<CatalogueItem | null>;
   insert(item: Omit<CatalogueItem, 'createdAt'>): Promise<CatalogueItem>;
-  update(id: string, patch: Partial<Pick<CatalogueItem, 'published' | 'mockups'>>): Promise<CatalogueItem | null>;
+  update(id: string, patch: CatalogueEdit): Promise<CatalogueItem | null>;
   remove(id: string): Promise<void>;
 }
 
@@ -96,6 +100,50 @@ export async function createCatalogueItem(
   }
 
   return deps.store.insert({ id, ...fields, layers, backLayers, mockups, published: false });
+}
+
+const editSchema = z.object({
+  title: z.string().trim().min(2, 'Give the design a title.').max(80, 'Keep the title under 80 characters.').optional(),
+  description: z.string().trim().max(500, 'Keep the description under 500 characters.').optional(),
+  colors: z.array(z.enum(COLORS, { message: 'Choose garment colours from the list.' })).min(1, 'Choose at least one garment colour.').transform((c) => [...new Set(c)]).optional(),
+  featured: z.boolean().optional(),
+  published: z.boolean().optional(),
+});
+
+/**
+ * Changes a posted design's words, colours, featured flag or visibility. A colour added gets its previews drawn; a
+ * colour removed loses them. Orders already placed keep their own copy either way.
+ */
+export async function editCatalogueItem(
+  deps: { store: CatalogueStore; renderPreview: (args: { product: ProductId; color: Color; side: Side; layers: DesignLayer[] }) => Promise<{ path: string } | null> },
+  id: string,
+  input: unknown,
+): Promise<CatalogueItem> {
+  const parsed = editSchema.safeParse(input);
+  if (!parsed.success) throw new HttpError(400, parsed.error.issues[0]?.message ?? 'Check the details.');
+  const item = await deps.store.get(id);
+  if (!item) throw new HttpError(404, 'Design not found.');
+  const { colors, ...rest } = parsed.data;
+  const patch: CatalogueEdit = { ...rest };
+  if (colors) {
+    const bad = colors.find((c) => !offersColor(item.product, c));
+    if (bad) throw new HttpError(400, 'That colour is not made for this garment.');
+    const mockups: Record<string, string> = {};
+    for (const color of colors) {
+      for (const [side, layers] of [['front', item.layers], ['back', item.backLayers]] as const) {
+        if (!layers.length) continue;
+        const key = `${color}-${side}`;
+        const existing = item.mockups[key];
+        const preview = existing ? { path: existing } : await deps.renderPreview({ product: item.product, color, side, layers });
+        if (preview) mockups[key] = preview.path;
+      }
+    }
+    patch.colors = colors;
+    patch.mockups = mockups;
+  }
+  const updated = await deps.store.update(id, patch);
+  if (!updated) throw new HttpError(404, 'Design not found.');
+  return updated;
 }
 
 /** The picture to show for a colour: the front if there is one, otherwise the back. */

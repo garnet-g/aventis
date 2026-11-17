@@ -12,13 +12,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params;
     const design = await supabaseDesignStore().get(id);
     if (!design) return NextResponse.json({ error: 'Design not found.' }, { status: 404 });
-    const side = new URL(req.url).searchParams.get('side') === 'back' ? 'back' : 'front';
+    const search = new URL(req.url).searchParams;
+    const side = search.get('side') === 'back' ? 'back' : 'front';
+    // a link carrying the design's current version can be kept by the browser: a change gives a new link
+    const cache = search.get('v') === design.version ? 'private, max-age=604800, immutable' : 'private, no-store';
     const item = { product: design.product, color: design.color, side } as const;
     const layers = side === 'back' ? design.backLayers : design.layers;
     const designPng = await renderDesignPng(item, layers, supabaseImageLoader(design.userId, design.id));
     const mockup = await renderMockup(item, designPng);
     return new NextResponse(new Uint8Array(mockup), {
-      headers: { 'content-type': 'image/jpeg', 'cache-control': 'private, no-store' },
+      headers: { 'content-type': 'image/jpeg', 'cache-control': cache },
     });
   } catch (e) {
     return errorResponse(e);

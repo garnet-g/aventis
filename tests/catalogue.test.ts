@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import type { PGlite } from '@electric-sql/pglite';
 import { printAreaFor } from '@/lib/catalog';
-import { centeredImageLayer, createCatalogueItem, orderFromCatalogue, previewKey, type ArtFile, type CatalogueItem, type CatalogueStore } from '@/lib/catalogueItems';
+import { centeredImageLayer, createCatalogueItem, editCatalogueItem, orderFromCatalogue, previewKey, type ArtFile, type CatalogueItem, type CatalogueStore } from '@/lib/catalogueItems';
 import { layersHash } from '@/lib/designs';
 import { placeCheckout } from '@/lib/checkout';
 import { DummyProvider } from '@/lib/payments/dummy';
@@ -23,7 +23,7 @@ class MemoryCatalogue implements CatalogueStore {
     this.items.set(item.id, full);
     return full;
   }
-  async update(id: string, patch: Partial<Pick<CatalogueItem, 'published' | 'mockups'>>) {
+  async update(id: string, patch: Partial<CatalogueItem>) {
     const cur = this.items.get(id);
     if (!cur) return null;
     const next = { ...cur, ...patch };
@@ -83,6 +83,18 @@ describe('posting a design', () => {
       },
     };
   };
+
+  test('editing: words change, a new colour gets previews, a removed colour loses them', async () => {
+    const { d, previews } = deps();
+    const item = await createCatalogueItem(d, { fields, front: art(1000, 800) });
+    previews.length = 0;
+    const edited = await editCatalogueItem(d, item.id, { title: '  Night Crew ', colors: ['black', 'blue'], featured: true });
+    expect(edited).toMatchObject({ title: 'Night Crew', colors: ['black', 'blue'], featured: true });
+    expect(previews).toEqual(['blue-front']); // black already had one
+    expect(Object.keys(edited.mockups).sort()).toEqual(['black-front', 'blue-front']);
+    await expect(editCatalogueItem(d, item.id, { colors: [] })).rejects.toMatchObject({ status: 400 });
+    await expect(editCatalogueItem(d, 'nope', { title: 'Hello' })).rejects.toMatchObject({ status: 404 });
+  });
 
   test('saves the pictures, makes a preview for each colour and side, and starts hidden', async () => {
     const { d, store, saved, previews } = deps();

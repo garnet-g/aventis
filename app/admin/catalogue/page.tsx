@@ -47,8 +47,9 @@ async function AdminCatalogue() {
                         {catalog[item.product].label} &middot; {item.colors.map(colorLabel).join(', ')}
                       </p>
                       <span className={`badge mt-2 ${item.published ? 'badge-gold' : 'badge-ink'}`}>{item.published ? 'Published' : 'Hidden'}</span>
+                      {item.featured && <span className="badge badge-gold ml-1 mt-2">Featured</span>}
                     </div>
-                    <CatalogueRowActions id={item.id} published={item.published} title={item.title} />
+                    <CatalogueRowActions item={{ id: item.id, title: item.title, description: item.description, product: item.product, colors: item.colors, published: item.published, featured: item.featured ?? false }} />
                   </li>
                 );
               })}

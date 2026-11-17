@@ -51,12 +51,28 @@ function analyse(text: string): { tokens: string[]; squashed: string; mixed: boo
   return { tokens: [...words, ...joined], squashed: words.join(''), mixed };
 }
 
-export function moderateText(texts: string[]): Verdict {
+export type Finding = { verdict: Verdict; reasons: string[] };
+
+/** The verdict for the design's text, with what caused it (shown to the reviewer, never to the customer). */
+export function checkText(texts: string[]): Finding {
   let verdict: Verdict = 'clear';
+  const reasons: string[] = [];
   for (const t of texts) {
     const { tokens, squashed, mixed } = analyse(t);
-    if (tokens.some((w) => EXPLICIT.has(w)) || LONG_EXPLICIT.some((w) => squashed.includes(w))) return 'explicit';
-    if (mixed || tokens.some((w) => AMBIGUOUS.has(w))) verdict = 'unsure'; // a person decides
+    const hit = tokens.find((w) => EXPLICIT.has(w)) ?? LONG_EXPLICIT.find((w) => squashed.includes(w));
+    if (hit) return { verdict: 'explicit', reasons: [`The text "${t.slice(0, 60)}" contains a banned word.`] };
+    const unsure = tokens.find((w) => AMBIGUOUS.has(w));
+    if (unsure) {
+      verdict = 'unsure'; // a person decides
+      reasons.push(`The text "${t.slice(0, 60)}" contains "${unsure}", which can be rude.`);
+    } else if (mixed) {
+      verdict = 'unsure';
+      reasons.push(`The text "${t.slice(0, 60)}" mixes alphabets (a disguised word?).`);
+    }
   }
-  return verdict;
+  return { verdict, reasons };
+}
+
+export function moderateText(texts: string[]): Verdict {
+  return checkText(texts).verdict;
 }
