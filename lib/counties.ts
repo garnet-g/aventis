@@ -51,3 +51,7 @@ export const COUNTIES = [
   'Wajir',
   'West Pokot',
 ] as const;
+
+/** Counties delivered at the Nairobi rate (the city and the towns around it); everywhere else is the upcountry rate. */
+export const NAIROBI_AREA: readonly string[] = ['Nairobi', 'Kiambu', 'Machakos', 'Kajiado'];
+export const isNairobiArea = (county: string | undefined) => !county || NAIROBI_AREA.includes(county);

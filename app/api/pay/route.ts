@@ -1,51 +1,31 @@
-import { NextResponse } from 'next/server';
-import { supabaseArtifactGenerator } from '@/lib/artifactsService';
+import { after, NextResponse } from 'next/server';
 import { apiUser } from '@/lib/auth';
-import { supabaseCartStore } from '@/lib/cartStore';
-import { supabaseDesignStore } from '@/lib/designsStore';
+import { startCheckout } from '@/lib/checkout';
+import { HttpError } from '@/lib/errors';
 import { errorResponse, readJsonObject } from '@/lib/http';
-import { adminAlertRecipients, getEmailSender, getSiteUrl, notifyNewOrder } from '@/lib/notify';
-import { placeCheckout } from '@/lib/orders';
-import { supabasePriceStore } from '@/lib/pricesStore';
-import { supabaseOrderStore } from '@/lib/ordersStore';
-import { getPaymentProvider } from '@/lib/payments';
-import { getServiceClient } from '@/lib/supabase/server';
+import { afterOrdersPaid, checkoutDeps } from '@/lib/paymentService';
+import { limit } from '@/lib/rateLimit';
 
-/** Pays for the signed-in customer's whole cart. The body only carries delivery details: what is bought and what it costs come from the server. */
+/**
+ * Starts paying for the signed-in customer's whole cart. The body only carries delivery details, the M-Pesa number
+ * and the terms checkbox: what is bought and what it costs are worked out on the server.
+ * Answers { status: 'paid', paymentId, orderIds } (test mode) or { status: 'pending', paymentId, message } (M-Pesa:
+ * the customer approves on their phone and the page then asks /api/payments/[id]).
+ */
 export async function POST(req: Request) {
   try {
     const user = await apiUser();
     if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
-    const { delivery } = await readJsonObject(req);
-    const { orders, created } = await placeCheckout(
-      {
-        designs: supabaseDesignStore(),
-        orders: supabaseOrderStore(),
-        cart: supabaseCartStore(),
-        provider: getPaymentProvider(),
-        prices: supabasePriceStore(),
-        artifacts: supabaseArtifactGenerator,
-      },
-      { userId: user.id, delivery },
-    );
-    if (created) await alertAdmins(orders.length, orders.reduce((sum, o) => sum + o.priceKes + o.deliveryFeeKes, 0));
-    return NextResponse.json({ orderIds: orders.map((o) => o.id) });
+    await limit('pay', user.id);
+    const { delivery, mpesaPhone, acceptTerms } = await readJsonObject(req);
+    if (acceptTerms !== true) throw new HttpError(400, 'Please accept the terms and confirm you own the rights to your designs.');
+    const result = await startCheckout(checkoutDeps(), { userId: user.id, delivery, mpesaPhone: typeof mpesaPhone === 'string' ? mpesaPhone : undefined });
+    if (result.status === 'pending') {
+      return NextResponse.json({ status: 'pending', paymentId: result.payment.id, message: result.message });
+    }
+    if (result.created) after(() => afterOrdersPaid(result.payment, result.orders));
+    return NextResponse.json({ status: 'paid', paymentId: result.payment?.id ?? null, orderIds: result.orders.map((o) => o.id) });
   } catch (e) {
     return errorResponse(e);
-  }
-}
-
-/** Emails the admins about a new paid checkout. A failed alert never affects the customer's payment. */
-async function alertAdmins(orderCount: number, totalKes: number) {
-  try {
-    const db = getServiceClient();
-    const to = await adminAlertRecipients(process.env.ADMIN_ALERT_EMAILS, async () => {
-      const { data } = await db.from('profiles').select('id').eq('is_admin', true);
-      const emails = await Promise.all((data ?? []).map(async (p) => (await db.auth.admin.getUserById(p.id as string)).data.user?.email ?? null));
-      return emails.filter((e): e is string => Boolean(e));
-    });
-    if (to.length) await notifyNewOrder(getEmailSender(), getSiteUrl(), { to, orderCount, totalKes });
-  } catch (e) {
-    console.error('could not alert the admins about a new order', e);
   }
 }

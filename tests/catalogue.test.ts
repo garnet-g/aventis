@@ -3,7 +3,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import { printAreaFor } from '@/lib/catalog';
 import { centeredImageLayer, createCatalogueItem, orderFromCatalogue, previewKey, type ArtFile, type CatalogueItem, type CatalogueStore } from '@/lib/catalogueItems';
 import { layersHash } from '@/lib/designs';
-import { placeCheckout } from '@/lib/orders';
+import { placeCheckout } from '@/lib/checkout';
 import { DummyProvider } from '@/lib/payments/dummy';
 import { addUser, asUser, newDb } from './helpers/db';
 import { MemoryCartStore } from './helpers/memoryCart';

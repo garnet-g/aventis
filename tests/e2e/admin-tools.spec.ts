@@ -11,8 +11,7 @@ async function placeOrder(page: Page, text: string) {
   await page.getByTestId('continue').click();
   await goToCheckout(page);
   await fillDeliveryAndPay(page);
-  await page.waitForURL('**/orders');
-  const { data } = await service().from('orders').select('id').eq('design_id', await designIdFor(email)).single();
+    const { data } = await service().from('orders').select('id').eq('design_id', await designIdFor(email)).single();
   return data!.id as string;
 }
 
@@ -92,8 +91,7 @@ test('prices changed on screen reach the customer; paid orders keep their price;
     await expect(page.getByTestId('cart-total')).toHaveText('KES 2,300');
     await goToCheckout(page);
     await fillDeliveryAndPay(page);
-    await page.waitForURL('**/orders');
-    const { data: order } = await service().from('orders').select('price_kes, cost_kes, delivery_fee_kes').eq('design_id', await designIdFor(email)).single();
+        const { data: order } = await service().from('orders').select('price_kes, cost_kes, delivery_fee_kes').eq('design_id', await designIdFor(email)).single();
     expect(order).toEqual({ price_kes: 2000, cost_kes: 950, delivery_fee_kes: 300 });
 
     // the home page shows the new price too

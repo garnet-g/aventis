@@ -64,7 +64,7 @@ export type CartLineView = {
 /** The cart as the customer sees it: every line priced, flagged if it cannot be paid for, with the totals. */
 export async function loadCart(deps: { designs: DesignStore; cart: CartStore; prices?: Prices }, userId: string) {
   const prices = deps.prices ?? DEFAULT_PRICES;
-  const lines: CartLineView[] = [];
+  const found: { design: Design; quantity: number; problem?: string }[] = [];
   for (const item of await deps.cart.list(userId)) {
     const design = await deps.designs.get(item.designId);
     if (!design || design.userId !== userId) continue; // never show (or trust) something that is not the customer's
@@ -76,19 +76,22 @@ export async function loadCart(deps: { designs: DesignStore; cart: CartStore; pr
         : isApproved(design)
           ? undefined
           : 'Needs to be checked again before you can pay.';
-    lines.push({
-      designId: design.id,
-      design,
-      quantity: item.quantity,
-      unitPriceKes: unitPriceKes(design, prices, item.quantity),
-      listUnitPriceKes: listUnitPriceKes(design, prices),
-      bulkPercentOff: bulkPercentOff(item.quantity, prices),
-      ...lineTotals(design, item.quantity, prices),
-      ok: !problem,
-      problem,
-    });
+    found.push({ design, quantity: item.quantity, problem });
   }
-  return { lines, ...checkoutTotals(lines, prices), canCheckout: lines.length > 0 && lines.every((l) => l.ok) };
+  // Bulk prices count every piece in the cart (as checkout does), so mixed sizes of a team order add up.
+  const pieces = found.reduce((n, l) => n + l.quantity, 0);
+  const lines: CartLineView[] = found.map(({ design, quantity, problem }) => ({
+    designId: design.id,
+    design,
+    quantity,
+    unitPriceKes: unitPriceKes(design, prices, pieces),
+    listUnitPriceKes: listUnitPriceKes(design, prices),
+    bulkPercentOff: bulkPercentOff(pieces, prices),
+    ...lineTotals(design, quantity, prices, pieces),
+    ok: !problem,
+    problem,
+  }));
+  return { lines, pieces, ...checkoutTotals(lines, prices), canCheckout: lines.length > 0 && lines.every((l) => l.ok) };
 }
 
 /** A stable key for "this exact cart": the same designs and quantities always give the same key. */

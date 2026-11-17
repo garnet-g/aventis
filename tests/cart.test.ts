@@ -128,13 +128,26 @@ describe('loadCart', () => {
     await addToCart(deps(), 'alice', a.id);
     await addToCart(deps(), 'alice', b.id);
     await setCartQuantity(deps(), 'alice', a.id, 3);
-    await setCartQuantity(deps(), 'alice', b.id, 2);
+    // 4 pieces in all: below the first bulk price (5+)
     const view = await loadCart(deps(), 'alice');
-    expect(view.lines.map((l) => l.priceKes)).toEqual([3 * catalog.tee.priceKes, 2 * (catalog.hoodie.priceKes + BACK_PRINT_PRICE_KES)]);
-    expect(view.subtotalKes).toBe(3 * catalog.tee.priceKes + 2 * (catalog.hoodie.priceKes + BACK_PRINT_PRICE_KES));
+    expect(view.lines.map((l) => l.priceKes)).toEqual([3 * catalog.tee.priceKes, catalog.hoodie.priceKes + BACK_PRINT_PRICE_KES]);
+    expect(view.subtotalKes).toBe(3 * catalog.tee.priceKes + catalog.hoodie.priceKes + BACK_PRINT_PRICE_KES);
     expect(view.deliveryFeeKes).toBe(DELIVERY_FEE_KES);
     expect(view.totalKes).toBe(view.subtotalKes + DELIVERY_FEE_KES);
     expect(view.canCheckout).toBe(true);
+  });
+
+  test('bulk prices count every piece in the cart, across designs', async () => {
+    const a = await design('alice', 'A');
+    const b = await design('alice', 'B');
+    await addToCart(deps(), 'alice', a.id);
+    await addToCart(deps(), 'alice', b.id);
+    await setCartQuantity(deps(), 'alice', a.id, 3);
+    await setCartQuantity(deps(), 'alice', b.id, 2);
+    const view = await loadCart(deps(), 'alice');
+    expect(view.pieces).toBe(5);
+    expect(view.lines.every((l) => l.bulkPercentOff === 5)).toBe(true);
+    expect(view.lines[0].unitPriceKes).toBe(Math.round(catalog.tee.priceKes * 0.95));
   });
 
   test('an item whose design changed since it was approved is flagged and blocks checkout', async () => {

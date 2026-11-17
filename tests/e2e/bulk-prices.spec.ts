@@ -41,8 +41,7 @@ test('bulk prices set by an admin lower the price of bigger orders, are shown to
 
     await goToCheckout(page);
     await fillDeliveryAndPay(page);
-    await page.waitForURL('**/orders');
-    const { data: order } = await service().from('orders').select('quantity, price_kes, cost_kes, delivery_fee_kes').eq('design_id', await designIdFor(email)).single();
+        const { data: order } = await service().from('orders').select('quantity, price_kes, cost_kes, delivery_fee_kes').eq('design_id', await designIdFor(email)).single();
     expect(order).toEqual({ quantity: 2, price_kes: 2400, cost_kes: 1600, delivery_fee_kes: 250 });
   } finally {
     await service().from('settings').delete().eq('key', 'prices'); // back to the defaults for the other tests

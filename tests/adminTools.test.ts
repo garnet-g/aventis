@@ -84,7 +84,7 @@ describe('new-order alerts', () => {
 });
 
 describe('editable prices', () => {
-  const good = { tee: { priceKes: 1800, costKes: 900 }, hoodie: { priceKes: 2600, costKes: 1400 }, backPriceKes: 700, backCostKes: 450, deliveryFeeKes: 300, bulkTiers: [] };
+  const good = { tee: { priceKes: 1800, costKes: 900 }, hoodie: { priceKes: 2600, costKes: 1400 }, backPriceKes: 700, backCostKes: 450, deliveryFeeKes: 300, deliveryFeeUpcountryKes: 450, bulkTiers: [] };
 
   test('valid prices are accepted and saved', async () => {
     let stored = DEFAULT_PRICES;

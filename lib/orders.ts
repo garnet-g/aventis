@@ -1,11 +1,6 @@
 import { z } from 'zod';
-import { cartFingerprint, parseQuantity, type CartStore } from '@/lib/cart';
 import type { DesignLayer } from '@/lib/designLayers';
-import { layersHash, type Design, type DesignStore } from '@/lib/designs';
-import { HttpError } from '@/lib/errors';
-import type { PaymentProvider } from '@/lib/payments';
-import { DEFAULT_PRICES, type PriceStore } from '@/lib/prices';
-import { checkoutTotals, lineTotals } from '@/lib/pricing';
+import type { Design } from '@/lib/designs';
 import { COUNTIES } from '@/lib/counties';
 
 export { HttpError } from '@/lib/errors';
@@ -88,89 +83,3 @@ export class DuplicateCheckoutError extends Error {
   }
 }
 
-/**
- * Charges the whole cart once, with amounts worked out here (never by the browser), and records one order for each
- * design. Everything is checked before anyone is charged, and the orders are created together or not at all.
- */
-export async function placeCheckout(
-  deps: { designs: DesignStore; orders: OrderStore; cart: CartStore; provider: PaymentProvider; prices?: PriceStore; artifacts?: ArtifactGenerator },
-  args: { userId: string; delivery: unknown },
-): Promise<{ orders: Order[]; created: boolean }> {
-  const delivery = deliverySchema.parse(args.delivery);
-  const prices = (await deps.prices?.get()) ?? DEFAULT_PRICES;
-  const items = await deps.cart.list(args.userId);
-  if (items.length === 0) throw new HttpError(400, 'Your cart is empty.');
-
-  const lines: { design: Design; quantity: number; priceKes: number; costKes: number }[] = [];
-  for (const item of items) {
-    const design = await deps.designs.get(item.designId);
-    if (!design || design.userId !== args.userId) throw new HttpError(404, 'Design not found.');
-    // Approved AND the approval must be for exactly these layers (never pay for art that was not checked).
-    if (design.status !== 'approved' || design.moderatedHash !== layersHash(design.layers, design.backLayers)) {
-      throw new HttpError(403, 'This design has not been approved for payment.');
-    }
-    const quantity = parseQuantity(item.quantity);
-    lines.push({ design, quantity, ...lineTotals(design, quantity, prices) });
-  }
-
-  const { deliveryFeeKes, totalKes } = checkoutTotals(lines, prices);
-  const reference = cartFingerprint(items);
-
-  const settle = async (orders: Order[]) => {
-    await deps.cart.clear(args.userId);
-    return { orders, created: false };
-  };
-
-  // The same cart paid for twice never charges twice.
-  const existing = await deps.orders.findCheckoutOrders(reference);
-  if (existing) return settle(existing);
-
-  const paid = await deps.provider.charge({ amountKes: totalKes, reference });
-  if (!paid.ok) throw new HttpError(402, `Payment failed: ${paid.reason}`);
-
-  let orders: Order[];
-  try {
-    orders = await deps.orders.createCheckout({
-      userId: args.userId,
-      reference,
-      paymentRef: paid.paymentRef,
-      totalKes,
-      deliveryFeeKes,
-      delivery,
-      items: lines.map((l) => ({ designId: l.design.id, quantity: l.quantity, priceKes: l.priceKes, costKes: l.costKes })),
-    });
-  } catch (e) {
-    if (e instanceof DuplicateCheckoutError) {
-      const winner = await deps.orders.findCheckoutOrders(reference); // a simultaneous request got there first
-      if (winner) return settle(winner);
-      throw new HttpError(409, 'One of these designs has already been ordered.');
-    }
-    throw e;
-  }
-  await deps.cart.clear(args.userId);
-
-  // Only the request that created the orders generates files. A failure never undoes a payment: the order stays
-  // paid and is flagged so an admin can regenerate its files.
-  if (!deps.artifacts) return { orders, created: true };
-  const designs = new Map(lines.map((l) => [l.design.id, l.design]));
-  const finished: Order[] = [];
-  for (const order of orders) {
-    try {
-      const paths = await deps.artifacts({ order, design: designs.get(order.designId)! });
-      await deps.orders.setArtifacts(order.id, paths);
-      finished.push({
-        ...order,
-        mockupPath: paths.mockupPath,
-        designFilePath: paths.designFilePath,
-        backMockupPath: paths.backMockupPath ?? null,
-        backDesignFilePath: paths.backDesignFilePath ?? null,
-        artifactsFailed: false,
-      });
-    } catch (e) {
-      console.error('artifact generation failed for order', order.id, e);
-      await deps.orders.markArtifactsFailed(order.id).catch(() => undefined);
-      finished.push({ ...order, artifactsFailed: true });
-    }
-  }
-  return { orders: finished, created: true };
-}

@@ -29,8 +29,7 @@ test('customer designs, passes the check, pays in test mode; admin sees the paid
   await expectNoHorizontalScroll(page);
   await page.screenshot({ path: 'test-results/phone-checkout.png', fullPage: true });
   await fillDeliveryAndPay(page);
-  await page.waitForURL('**/orders');
-  await expect(page.getByTestId('design-state').first()).toHaveText('Paid');
+    await expect(page.getByTestId('design-state').first()).toHaveText('Paid');
   await expectNoHorizontalScroll(page);
   await page.screenshot({ path: 'test-results/phone-orders.png', fullPage: true });
 
@@ -96,8 +95,7 @@ test('an unsure design shows Waiting for review, payment is blocked, then the ad
   await page.getByRole('button', { name: 'Pay now' }).click(); // puts it in the cart
   await goToCheckout(page);
   await fillDeliveryAndPay(page);
-  await page.waitForURL('**/orders');
-  await expect(page.getByTestId('design-state').first()).toHaveText('Paid');
+    await expect(page.getByTestId('design-state').first()).toHaveText('Paid');
 });
 
 test('an explicit design is rejected and cannot be paid; the customer can start over', async ({ page }) => {
@@ -111,7 +109,7 @@ test('an explicit design is rejected and cannot be paid; the customer can start 
   const add = await page.request.post('/api/cart', { data: { designId } });
   expect(add.status()).toBe(403); // a rejected design cannot go in the cart
   const pay = await page.request.post('/api/pay', {
-    data: { delivery: { name: 'Wanjiku Mwangi', phone: '0712345678', city: 'Nairobi', county: 'Nairobi', address: 'House 1, Street 2' } },
+    data: { delivery: { name: 'Wanjiku Mwangi', phone: '0712345678', city: 'Nairobi', county: 'Nairobi', address: 'House 1, Street 2' }, acceptTerms: true },
   });
   expect(pay.status()).toBe(400); // and there is nothing to pay for
 
@@ -186,8 +184,7 @@ test('a front-and-back design costs more, and the admin gets four files', async 
   await expect(page.getByText(/front and back/i).first()).toBeVisible(); // the back print is part of the line's price
   await expect(page.getByRole('button', { name: /^Pay KES 2,250/ })).toBeVisible(); // 1,500 + 500 + 250
   await fillDeliveryAndPay(page);
-  await page.waitForURL('**/orders');
-
+  
   const designId = await designIdFor(email);
   const { data: order } = await service()
     .from('orders')
@@ -287,8 +284,7 @@ test('a cart holds several designs with quantities; one payment makes one order 
   await page.waitForURL('**/checkout');
   await expect(page.getByRole('button', { name: /^Pay KES 6,250/ })).toBeVisible();
   await fillDeliveryAndPay(page);
-  await page.waitForURL('**/orders');
-
+  
   const { data: orders } = await service()
     .from('orders')
     .select('id, quantity, price_kes, delivery_fee_kes, payment_ref, position, artifacts_failed')
@@ -398,5 +394,4 @@ test('a cropped picture with its background removed is stored, checked and can b
   expect(meta.width).toBeLessThan(1800);
   await goToCheckout(page);
   await fillDeliveryAndPay(page);
-  await page.waitForURL('**/orders');
-});
+  });

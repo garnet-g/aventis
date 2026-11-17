@@ -10,6 +10,7 @@ import { supabaseCartStore } from '@/lib/cartStore';
 import { supabaseDesignStore } from '@/lib/designsStore';
 import { kes } from '@/lib/labels';
 import { getPaymentProvider } from '@/lib/payments';
+import { getServiceClient } from '@/lib/supabase/server';
 
 export default function CheckoutPage() {
   return (
@@ -24,10 +25,14 @@ export default function CheckoutPage() {
 
 async function Checkout() {
   const user = await requireUser('/checkout');
-  const cart = await loadCart({ designs: supabaseDesignStore(), cart: supabaseCartStore(), prices: await supabasePriceStore().get() }, user.id);
+  const prices = await supabasePriceStore().get();
+  const cart = await loadCart({ designs: supabaseDesignStore(), cart: supabaseCartStore(), prices }, user.id);
   // Only a cart whose designs are all approved, exactly as they are now, can be paid for.
   if (!cart.canCheckout) redirect('/cart');
   const provider = getPaymentProvider();
+  // The last order's delivery details, so a returning customer doesn't type them again.
+  const { data: last } = await getServiceClient().from('orders').select('name, phone, city, county, address').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1);
+  const saved = last?.[0] ? { name: last[0].name as string, phone: last[0].phone as string, city: last[0].city as string, county: last[0].county as string, address: last[0].address as string } : null;
 
   return (
     <main className="shell flex flex-col gap-6 py-8">
@@ -64,17 +69,29 @@ async function Checkout() {
           <p className="pb-1 text-xs text-mute">Back print is included in the prices above.</p>
         )}
         <div className="flex justify-between py-0.5 text-sm">
+          <span>Items</span>
+          <span>{kes(cart.subtotalKes)}</span>
+        </div>
+        <div className="flex justify-between gap-3 py-0.5 text-sm">
           <span>Delivery</span>
-          <span>{kes(cart.deliveryFeeKes)}</span>
+          <span className="text-right">
+            {kes(prices.deliveryFeeKes)} Nairobi area
+            <br />
+            {kes(prices.deliveryFeeUpcountryKes)} rest of Kenya
+          </span>
         </div>
-        <div className="mt-1 flex items-baseline justify-between">
-          <span className="font-bold">Total</span>
-          <span className="font-display text-2xl font-extrabold">{kes(cart.totalKes)}</span>
-        </div>
+        <p className="mt-1 text-xs text-mute">The total for your county is on the Pay button.</p>
       </section>
 
       <div className="lg:order-1">
-        <CheckoutForm totalKes={cart.totalKes} testMode={provider.isTestMode} />
+        <CheckoutForm
+          subtotalKes={cart.subtotalKes}
+          deliveryNairobiKes={prices.deliveryFeeKes}
+          deliveryUpcountryKes={prices.deliveryFeeUpcountryKes}
+          testMode={provider.isTestMode}
+          mpesa={provider.name === 'mpesa'}
+          saved={saved}
+        />
       </div>
       </div>
     </main>

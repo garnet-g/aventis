@@ -1,12 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { apiUser } from '@/lib/auth';
+import { errorResponse } from '@/lib/http';
+import { limit } from '@/lib/rateLimit';
 import { getServerClient, getServiceClient } from '@/lib/supabase/server';
 import { declaredSizeTooLarge, MAX_UPLOAD_BYTES, normalizeUpload } from '@/lib/upload';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await apiUser();
   if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
+  try {
+    await limit('upload', user.id);
+  } catch (e) {
+    return errorResponse(e);
+  }
   const { id } = await params;
 
   // Row-level security makes this return nothing unless the design is the caller's own.

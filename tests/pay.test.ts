@@ -4,7 +4,8 @@ import { BACK_PRINT_COST_KES, BACK_PRINT_PRICE_KES, catalog, DELIVERY_FEE_KES } 
 import type { DesignLayer } from '@/lib/designLayers';
 import { saveDesign, submitDesign } from '@/lib/designs';
 import { StubImageSafetyProvider } from '@/lib/moderation/image';
-import { HttpError, placeCheckout, type ArtifactGenerator } from '@/lib/orders';
+import { HttpError, type ArtifactGenerator } from '@/lib/orders';
+import { placeCheckout } from '@/lib/checkout';
 import { DummyProvider } from '@/lib/payments/dummy';
 import type { PaymentProvider } from '@/lib/payments';
 import { addUser, newDb } from './helpers/db';
@@ -20,10 +21,13 @@ const text = (t: string): DesignLayer => ({
 class SpyProvider implements PaymentProvider {
   name = 'spy';
   isTestMode = true;
-  charges: { amountKes: number; reference: string }[] = [];
-  async charge(args: { amountKes: number; reference: string }) {
+  charges: { amountKes: number; reference: string; phone: string }[] = [];
+  async start(args: { amountKes: number; reference: string; phone: string; description: string }) {
     this.charges.push(args);
-    return { ok: true as const, paymentRef: `TEST-${args.reference}` };
+    return { status: 'paid' as const, paymentRef: `TEST-${args.reference}` };
+  }
+  async check() {
+    return { status: 'paid' as const };
   }
 }
 
@@ -202,7 +206,7 @@ describe('what an order records', () => {
 describe('paying safely', () => {
   test('a failed payment creates no order and keeps the cart', async () => {
     const d = await makeDesign(alice, 'Ali');
-    const failing: PaymentProvider = { name: 'f', isTestMode: false, charge: async () => ({ ok: false, reason: 'card declined' }) };
+    const failing: PaymentProvider = { name: 'f', isTestMode: false, start: async () => ({ status: 'failed', reason: 'card declined' }), check: async () => ({ status: 'pending' }) };
     await expect(checkout(alice, [{ id: d.id }], { provider: failing })).rejects.toMatchObject({ status: 402 });
     expect(await orderCount()).toBe(0);
     expect(await cart.list(alice)).toHaveLength(1);
@@ -291,7 +295,7 @@ describe('artifacts at payment', () => {
 });
 
 describe('prices set by the owner', () => {
-  const custom = { tee: { priceKes: 1800, costKes: 900 }, hoodie: { priceKes: 2600, costKes: 1400 }, backPriceKes: 700, backCostKes: 450, deliveryFeeKes: 300, bulkTiers: [] };
+  const custom = { tee: { priceKes: 1800, costKes: 900 }, hoodie: { priceKes: 2600, costKes: 1400 }, backPriceKes: 700, backCostKes: 450, deliveryFeeKes: 300, deliveryFeeUpcountryKes: 450, bulkTiers: [] };
   const priceStore = (prices = custom) => ({ get: async () => prices, set: async () => undefined });
 
   test('the customer is charged the saved prices and the order records them', async () => {

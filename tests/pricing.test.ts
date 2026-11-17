@@ -87,7 +87,7 @@ describe('saving bulk prices', () => {
 
   test.each([
     ['a start below 2', [{ minQuantity: 1, percentOff: 5 }]],
-    ['a start above the most that can be ordered', [{ minQuantity: 51, percentOff: 5 }]],
+    ['a start above 500 pieces', [{ minQuantity: 501, percentOff: 5 }]],
     ['a discount of 0%', [{ minQuantity: 5, percentOff: 0 }]],
     ['a discount over 90%', [{ minQuantity: 5, percentOff: 95 }]],
     ['a fraction', [{ minQuantity: 5.5, percentOff: 5 }]],

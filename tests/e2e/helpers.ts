@@ -86,7 +86,10 @@ export async function fillDeliveryAndPay(page: Page) {
   await page.getByPlaceholder('City').fill('Nairobi');
   await page.locator('select[name=county]').selectOption('Nairobi');
   await page.getByPlaceholder('Full address').fill('Apt 4, Ngong Road, Kilimani');
+  await page.getByLabel(/I agree to the/).check();
   await page.getByRole('button', { name: /^Pay KES/ }).click();
+  // test mode pays at once and shows the thank-you page
+  await page.waitForURL('**/orders/thank-you/*');
 }
 
 /** From the cart (where an approved design lands) to the checkout page. */

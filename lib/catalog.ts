@@ -42,6 +42,8 @@ export const isLightColor = (c: Color) => {
 
 // PLACEHOLDER: confirm with owner/printer
 export const DELIVERY_FEE_KES = 250;
+// PLACEHOLDER: delivery to counties outside the Nairobi area
+export const DELIVERY_FEE_UPCOUNTRY_KES = 400;
 // PLACEHOLDER: confirm with owner/printer
 export const MIN_DPI = 150;
 // PLACEHOLDER: what the customer pays extra, and what the printer charges extra, when the back is printed too.
@@ -85,3 +87,6 @@ export function fallbackColor(product: ProductId, c: Color): Color {
 export function printAreaFor(product: ProductId, side: Side = 'front'): PrintArea {
   return side === 'back' ? catalog[product].backPrintArea : catalog[product].printArea;
 }
+
+// PLACEHOLDER: how long printing and delivery usually take, shown to customers after they pay.
+export const TURNAROUND = { printing: '2 to 4 working days', nairobi: '1 to 2 days', upcountry: '2 to 5 days' } as const;

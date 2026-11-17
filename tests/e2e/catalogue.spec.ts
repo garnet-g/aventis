@@ -69,8 +69,7 @@ test('an admin posts a design; it stays hidden until published; a customer order
 
     await goToCheckout(page);
     await fillDeliveryAndPay(page);
-    await page.waitForURL('**/orders');
-
+    
     const { data: order } = await service()
       .from('orders')
       .select('id, quantity, layers_snapshot, mockup_path, design_file_path, artifacts_failed, designs(color, size)')

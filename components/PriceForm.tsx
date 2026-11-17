@@ -28,7 +28,13 @@ const FIELDS: { group: string; fields: Field[] }[] = [
       { id: 'back-cost', label: 'Printer charges extra', get: (p) => p.backCostKes, set: (p, n) => ({ ...p, backCostKes: n }) },
     ],
   },
-  { group: 'Delivery', fields: [{ id: 'delivery', label: 'Fee per checkout', get: (p) => p.deliveryFeeKes, set: (p, n) => ({ ...p, deliveryFeeKes: n }) }] },
+  {
+    group: 'Delivery (charged once per checkout)',
+    fields: [
+      { id: 'delivery', label: 'Nairobi, Kiambu, Machakos, Kajiado', get: (p) => p.deliveryFeeKes, set: (p, n) => ({ ...p, deliveryFeeKes: n }) },
+      { id: 'delivery-upcountry', label: 'Rest of Kenya', get: (p) => p.deliveryFeeUpcountryKes, set: (p, n) => ({ ...p, deliveryFeeUpcountryKes: n }) },
+    ],
+  },
 ];
 
 /** The prices form. Values are kept as text while typing so a half-typed number is never rewritten. */

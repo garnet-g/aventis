@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { apiUser } from '@/lib/auth';
+import { limit } from '@/lib/rateLimit';
 import { supabaseCartStore } from '@/lib/cartStore';
 import { orderFromCatalogue } from '@/lib/catalogueItems';
 import { copyCatalogueArtToUploads, supabaseCatalogueStore } from '@/lib/catalogueStore';
@@ -11,6 +12,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const user = await apiUser();
     if (!user) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
+    await limit('catalogueOrder', user.id);
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const { design, inCart } = await orderFromCatalogue(
