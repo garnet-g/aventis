@@ -3,7 +3,7 @@ import { authErrorMessage, safeNextPath } from '@/lib/authFlow';
 import { OFFLINE_MESSAGE } from '@/lib/clientFetch';
 
 describe('authErrorMessage', () => {
-  test.each([
+  test.each<[{ code?: string; status?: number; message?: string }, RegExp]>([
     [{ code: 'invalid_credentials', status: 400, message: 'Invalid login credentials' }, /don't match/],
     [{ code: 'user_already_exists', status: 422, message: 'User already registered' }, /already an account/],
     [{ code: 'email_not_confirmed', status: 400 }, /confirm your email/i],
