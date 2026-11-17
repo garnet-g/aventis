@@ -71,9 +71,9 @@ These are **placeholders** I could not know. Each lives in one place:
 | What | Where |
 |---|---|
 | Selling prices (KES 1,500 tee / 2,200 hoodie) and the delivery fee (KES 250) | `lib/catalog.ts` |
-| Print-area sizes in cm (tee front 27×15 is set; tee back 28×32 and hoodie 25×28 are placeholders) and the minimum print resolution (150 DPI) | `lib/catalog.ts`. **Confirm with your printer**, along with file format and whether dark garments need a white underlayer |
+| Print-area sizes in cm (tee front 27×32 is set; tee back 28×32 and hoodie 25×28 are placeholders) and the minimum print resolution (150 DPI) | `lib/catalog.ts`. **Confirm with your printer**, along with file format and whether dark garments need a white underlayer |
 | How the print area lines up on the garment pictures (`GEOMETRY`: pixels per cm and collar position; the tee front is calibrated to the photos) | `lib/editorGeometry.ts` |
-| Garment photos: tee fronts are real photos; tee backs and hoodies are drawn placeholders | `assets/garments/tee/` → `node scripts/make-garments.mjs` → `public/garments/` |
+| Garment photos (real photos, front and back, for both items) | `assets/garments/` → `node scripts/make-garments.mjs` → `public/garments/` |
 | The banned-word list | `lib/moderation/banned-words.json` |
 
 Your known print costs (hoodie KES 1,300, tee KES 800) are already in `lib/catalog.ts`; the admin order page shows profit as *price + delivery − cost*.
@@ -180,11 +180,11 @@ The logo's original is `assets/brand/vybecrew-logo-source.jpg` (light art on bla
 
 ## Garment colours and photos
 
-T-shirts come in ten colours: black, white, grey, navy blue, blue, green, maroon, red, orange and yellow. Hoodies stay white and black until there are hoodie photos. The colours, their names and swatches are in `lib/garmentColors.json`; which item comes in which colour is `colors` in `lib/catalog.ts`; migration `0010_more_colours.sql` holds the database to the same list.
+T-shirts come in ten colours: black, white, heather grey, navy blue, royal blue, green, burgundy, red, orange and yellow. Hoodies come in the same colours except orange. The colours, their names and swatches are in `lib/garmentColors.json` (the ids stay short: `grey`, `blue`, `maroon`); which item comes in which colour is `colors` in `lib/catalog.ts`; migrations `0010` and `0011` hold the database to the same lists.
 
-The tee front pictures are real photos, kept at full size in `assets/garments/tee/<colour>.jpeg` (1122×1402). `node scripts/make-garments.mjs` turns them into the 800×1000 JPEGs in `public/garments/`, and draws the placeholder backs and hoodies. To add a colour: add a photo with the same framing, add the colour to `garmentColors.json` and the `Color` type, update the migration's lists, and run the script.
+Every picture is a real photo. The originals are in `assets/garments/<tee|hoodie>/<colour>.webp`: 1448 x 1086, front on the left half, back on the right. `node scripts/make-garments.mjs` splits each one, pads each half at the sides with the backdrop colour to the app's 4:5 frame (nothing is cropped), and writes 800 x 1000 JPEGs to `public/garments/`. To add a colour: add the photo with the same framing, add the colour to `garmentColors.json` and the `Color` type, update the migration lists, and run the script.
 
-The print area is placed on the photos by measurement: the shirt is about 620 px across the chest at 1122 px wide, which is a size M's 51 cm, and the front collar seam is at y = 142 (`GEOMETRY` in `lib/editorGeometry.ts`). The tee front print area is 27 cm wide by 15 cm tall, starting 8 cm below the collar.
+The print areas are placed by measurement (`GEOMETRY` in `lib/editorGeometry.ts`): the T-shirt is about 415 px across the chest per half, a size M's 51 cm, so 8.14 px per cm; hoodies share the scale (same model and camera). Each area is centred on the body and measured down from the collar seam, except the hoodie back, which starts 2 cm below the hood. The T-shirt front is 27 cm wide by 32 cm tall.
 
 Mockups (customer previews, catalogue pictures, the printer's reference mockup) are JPEGs, a tenth of the size of a PNG with a photo behind them. The printer's design file stays a transparent PNG at 150 DPI.
 

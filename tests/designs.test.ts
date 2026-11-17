@@ -129,7 +129,8 @@ describe('saveDesign', () => {
     for (const color of ['maroon', 'navy', 'yellow'] as const) {
       expect((await saveDesign(store, 'alice', { ...base, color, layers: [text('Crew')] })).color).toBe(color);
     }
-    await expect(saveDesign(store, 'alice', { ...base, product: 'hoodie', color: 'maroon', layers: [text('Crew')] })).rejects.toThrow(/not available for this item/i);
+    await expect(saveDesign(store, 'alice', { ...base, product: 'hoodie', color: 'orange', layers: [text('Crew')] })).rejects.toThrow(/not available for this item/i);
+    expect((await saveDesign(store, 'alice', { ...base, product: 'hoodie', color: 'maroon', layers: [text('Crew')] })).color).toBe('maroon');
     expect((await saveDesign(store, 'alice', { ...base, product: 'hoodie', color: 'black', layers: [text('Crew')] })).color).toBe('black');
   });
 

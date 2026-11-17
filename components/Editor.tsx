@@ -256,7 +256,12 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       for (const o of [...canvas.getObjects()]) canvas.remove(o);
       for (const layer of layers) {
         const obj = await buildObject(layer);
-        if (obj) canvas.add(obj);
+        if (!obj) continue;
+        canvas.add(obj);
+        // Redrawn text can measure a hair taller than when it was saved (font metrics), and a design saved for a
+        // larger print area may not fit this one. Either would put it outside the area, and the server refuses to
+        // save that, so every restored item is kept inside, exactly as while editing.
+        constrain(obj);
       }
       canvas.requestRenderAll();
     } finally {

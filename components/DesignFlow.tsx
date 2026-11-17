@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DesignWorkbench, type InitialDesign, type WorkbenchState } from '@/components/DesignWorkbench';
 import { type ProductId } from '@/lib/catalog';
-import { errorText, json, send } from '@/lib/clientFetch';
+import { errorText, json, OFFLINE_MESSAGE, send } from '@/lib/clientFetch';
 import { postFormWithProgress } from '@/lib/clientUpload';
 import { kes } from '@/lib/labels';
 import type { Prices } from '@/lib/prices';
@@ -55,6 +55,7 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
   const [hasBack, setHasBack] = useState(start.backLayers.length > 0);
   const [hasAnything, setHasAnything] = useState(hasContent(start));
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initial ? 'saved' : 'idle');
+  const [saveError, setSaveError] = useState(SAVE_TEXT.error);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -97,7 +98,9 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
     try {
       await save();
       setSaveStatus('saved');
-    } catch {
+    } catch (e) {
+      // Say why (e.g. "Design must stay inside the print area."); only a lost connection is about the connection.
+      setSaveError(e instanceof Error && e.message !== OFFLINE_MESSAGE ? `Could not save: ${e.message}` : SAVE_TEXT.error);
       setSaveStatus('error');
     }
   }
@@ -192,7 +195,7 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
           ))}
         </ol>
         <span data-testid="save-status" aria-live="polite" className="text-xs font-semibold text-mute">
-          {SAVE_TEXT[saveStatus]}
+          {saveStatus === 'error' ? saveError : SAVE_TEXT[saveStatus]}
         </span>
       </div>
 

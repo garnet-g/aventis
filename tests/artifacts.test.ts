@@ -7,7 +7,7 @@ import { printAreaRect } from '@/lib/editorGeometry';
 
 const item = { product: 'tee', color: 'white' } as const;
 const TEE_W = 1594; // 27 cm at 150 DPI
-const TEE_H = 886; // 15 cm at 150 DPI
+const TEE_H = 1890; // 32 cm at 150 DPI
 
 async function red(width: number, height: number) {
   return sharp({ create: { width, height, channels: 3, background: '#ff0000' } }).png().toBuffer();

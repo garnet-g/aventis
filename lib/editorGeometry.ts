@@ -6,28 +6,32 @@ export const CANVAS_W = 400;
 export const CANVAS_H = 500;
 
 /**
- * How each garment picture maps to real life, in canvas pixels: how many pixels make one centimetre of fabric, and
- * where the collar seam is (print areas are measured down from it).
+ * How each garment picture maps to real life, in canvas pixels: how many pixels make one centimetre of fabric, where
+ * print areas are measured down from (the collar seam; on a hoodie's back, the bottom of the hood), and the middle of
+ * the garment (the model doesn't stand exactly in the centre).
  *
- * T-shirt front: measured on the photos (1122 x 1402). The body is about 620 px across just below the sleeves, which
- * is a size M's 51 cm chest (12.2 px per cm), and the front collar seam is at y = 142. At canvas scale (x 0.3565) that
- * is 4.33 px per cm and y = 51. The drawings (T-shirt back, hoodie) keep their placeholder scale until photographed.
+ * Measured on the photos (each side is 724 x 1086, padded to 869 wide, so canvas = (x + 72) * 0.4603, y * 0.4603):
+ * the T-shirt body is about 415 px across below the sleeves, a size M's 51 cm chest, so 8.14 px per cm (3.75 on the
+ * canvas). It is the same model and camera for the hoodies, so they share the scale. Collar seams: T-shirt front
+ * y = 115, back y = 58; hoodie front neckline y = 126; the hood hangs to y = 278 on the back. Body middles: T-shirt
+ * front x = 376, back x = 364; hoodie front x = 367, back x = 360.
  */
-const GEOMETRY: Record<ProductId, Record<Side, { pxPerCm: number; collarY: number }>> = {
-  tee: { front: { pxPerCm: 4.33, collarY: 51 }, back: { pxPerCm: 4.4, collarY: 60 } },
-  hoodie: { front: { pxPerCm: 4.4, collarY: 60 }, back: { pxPerCm: 4.4, collarY: 60 } },
+const PX_PER_CM = 3.75;
+const GEOMETRY: Record<ProductId, Record<Side, { topY: number; centerX: number }>> = {
+  tee: { front: { topY: 52.9, centerX: 206.4 }, back: { topY: 26.7, centerX: 200.7 } },
+  hoodie: { front: { topY: 58, centerX: 202.1 }, back: { topY: 128, centerX: 198.6 } },
 };
 
-/** The fixed print area in canvas pixels, centered on the garment. */
+/** The fixed print area in canvas pixels, centered on the garment's body. */
 export function printAreaRect(product: ProductId, side: Side = 'front'): Rect {
   const a = printAreaFor(product, side);
-  const { pxPerCm, collarY } = GEOMETRY[product][side];
-  const width = a.widthCm * pxPerCm;
+  const { topY, centerX } = GEOMETRY[product][side];
+  const width = a.widthCm * PX_PER_CM;
   return {
-    x: (CANVAS_W - width) / 2,
-    y: collarY + a.topOffsetCm * pxPerCm,
+    x: centerX - width / 2,
+    y: topY + a.topOffsetCm * PX_PER_CM,
     width,
-    height: a.heightCm * pxPerCm,
+    height: a.heightCm * PX_PER_CM,
   };
 }
 

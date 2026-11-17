@@ -119,7 +119,7 @@ describe('posting a design', () => {
     ['an unknown item', { fields: { ...fields, product: 'cap' }, front: art(900, 900) }],
     ['no colour', { fields: { ...fields, colors: [] }, front: art(900, 900) }],
     ['an unknown colour', { fields: { ...fields, colors: ['pink'] }, front: art(900, 900) }],
-    ['a hoodie in a colour hoodies do not come in', { fields: { ...fields, product: 'hoodie', colors: ['black', 'yellow'] }, front: art(900, 900) }],
+    ['a hoodie in a colour hoodies do not come in', { fields: { ...fields, product: 'hoodie', colors: ['black', 'orange'] }, front: art(900, 900) }],
     ['a long description', { fields: { ...fields, description: 'x'.repeat(501) }, front: art(900, 900) }],
   ])('refuses %s with 400 and stores nothing', async (_name, input) => {
     const { d, store, saved } = deps();

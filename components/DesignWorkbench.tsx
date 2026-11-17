@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { BACK_PRINT_PRICE_KES, catalog, colorHex, colorLabel, COLORS, fallbackColor, SIZES, type Color, type ProductId, type Side, type Size } from '@/lib/catalog';
+import { BACK_PRINT_PRICE_KES, catalog, colorHex, colorLabel, fallbackColor, SIZES, type Color, type ProductId, type Side, type Size } from '@/lib/catalog';
 import { kes } from '@/lib/labels';
 import type { DesignLayer } from '@/lib/designLayers';
 import { Editor, MAX_TEXT_SIZE, MIN_TEXT_SIZE, type EditorHandle, type HistoryState, type Selection } from '@/components/Editor';
@@ -339,9 +339,6 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
               />
             ))}
           </div>
-          {catalog[state.product].colors.length < COLORS.length && (
-            <p className="text-xs text-mute">{catalog[state.product].label}s come in {catalog[state.product].colors.map(colorLabel).join(' and ').toLowerCase()} for now.</p>
-          )}
         </div>
 
         <div className="flex justify-between" role="group" aria-label="Size">

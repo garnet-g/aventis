@@ -15,12 +15,15 @@ describe('catalog', () => {
       expect(colorHex(c)).toMatch(/^#[0-9a-f]{6}$/);
     }
     expect(colorLabel('navy')).toBe('Navy blue');
+    expect(colorLabel('maroon')).toBe('Burgundy');
+    expect(colorLabel('grey')).toBe('Heather grey');
   });
 
-  test('T-shirts come in every colour; hoodies in white and black until there are hoodie photos', () => {
+  test('T-shirts come in every colour; hoodies in every colour but orange (there is no orange hoodie photo)', () => {
     expect(catalog.tee.colors).toEqual(COLORS);
-    expect(catalog.hoodie.colors).toEqual(['white', 'black']);
-    expect(offersColor('hoodie', 'maroon')).toBe(false);
+    expect(catalog.hoodie.colors).toEqual(COLORS.filter((c) => c !== 'orange'));
+    expect(offersColor('hoodie', 'orange')).toBe(false);
+    expect(offersColor('hoodie', 'maroon')).toBe(true);
   });
 
   test('every colour an item is sold in has its front and back picture on disk', () => {
@@ -32,7 +35,8 @@ describe('catalog', () => {
         }
       }
     }
-    expect(catalog.tee.garmentImage('maroon')).toBe('/garments/tee-maroon.jpg'); // the real photo
+    expect(catalog.tee.garmentImage('maroon')).toBe('/garments/tee-maroon.jpg');
+    expect(catalog.hoodie.garmentImage('maroon', 'back')).toBe('/garments/hoodie-back-maroon.jpg');
   });
 
   test('light and dark colours are told apart (dark ink on light shirts, white ink on dark ones)', () => {
@@ -40,8 +44,8 @@ describe('catalog', () => {
   });
 
   test('switching to an item that does not come in the colour picks the nearest of light or dark', () => {
-    expect(fallbackColor('hoodie', 'navy')).toBe('black');
-    expect(fallbackColor('hoodie', 'yellow')).toBe('white');
+    expect(fallbackColor('hoodie', 'orange')).toBe('white'); // orange counts as a light colour
+    expect(fallbackColor('hoodie', 'navy')).toBe('navy');
     expect(fallbackColor('hoodie', 'black')).toBe('black');
     expect(fallbackColor('tee', 'maroon')).toBe('maroon');
   });

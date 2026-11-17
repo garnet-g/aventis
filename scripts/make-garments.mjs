@@ -1,64 +1,51 @@
-// Builds the garment pictures the designer and the printer mockups draw on, into public/garments (800 x 1000):
-//   tee-<colour>.jpg        the front, from the real photos in assets/garments/tee/<colour>.jpeg
-//   tee-back-<colour>.png   the back, a flat drawing in that colour (placeholder until back photos exist)
-//   hoodie-<white|black>.png, hoodie-back-<white|black>.png   flat drawings (placeholder until hoodie photos exist)
-// Colours come from lib/garmentColors.json, the same list the app uses. Run with: node scripts/make-garments.mjs
-import { existsSync, readFileSync } from 'node:fs';
+// Builds the garment pictures the designer and the mockups draw on, into public/garments (800 x 1000 JPEG):
+//   <tee|hoodie>-<colour>.jpg        the front
+//   <tee|hoodie>-back-<colour>.jpg   the back
+// from the photos in assets/garments/<tee|hoodie>/<colour>.webp. Each photo is 1448 x 1086 with the front on the left
+// half and the back on the right half. A half (724 x 1086) is padded at the sides to the app's 4:5 frame (869 x 1086,
+// repeating the plain background) and resized to 800 x 1000, so nothing is cropped off.
+// Colours come from lib/garmentColors.json. Run with: node scripts/make-garments.mjs
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import sharp from 'sharp';
 
 const W = 800, H = 1000;
-const COLORS = JSON.parse(readFileSync('lib/garmentColors.json', 'utf8'));
-const HOODIE_COLORS = ['white', 'black'];
+const HALF = 724, SRC_H = 1086;
+const FRAME_W = Math.round((SRC_H * 4) / 5); // 869: the 4:5 frame at the photo's height
+const PAD_LEFT = Math.floor((FRAME_W - HALF) / 2);
+const PAD_RIGHT = FRAME_W - HALF - PAD_LEFT;
+const COLORS = JSON.parse(readFileSync('lib/garmentColors.json', 'utf8')).map((c) => c.id);
 
-// ---- T-shirt fronts: real photos ---------------------------------------------------------------------------------
-for (const { id } of COLORS) {
-  const src = `assets/garments/tee/${id}.jpeg`;
-  if (!existsSync(src)) throw new Error(`missing photo ${src}`);
-  // The photos are 1122 x 1402, the same 4:5 shape, so this is a plain resize (no cropping).
-  await sharp(src).resize(W, H, { fit: 'cover' }).jpeg({ quality: 82, mozjpeg: true }).toFile(`public/garments/tee-${id}.jpg`);
+/** The average colour of small patches in the two top corners of a half photo. */
+async function backdrop(half) {
+  const patch = async (left) => (await sharp(half).extract({ left, top: 0, width: 40, height: 60 }).resize(1, 1).removeAlpha().raw().toBuffer());
+  const [l, r] = [await patch(0), await patch(HALF - 40)];
+  return { r: Math.round((l[0] + r[0]) / 2), g: Math.round((l[1] + r[1]) / 2), b: Math.round((l[2] + r[2]) / 2), alpha: 1 };
 }
 
-// ---- Flat drawings ---------------------------------------------------------------------------------------------
-const shapes = {
-  tee: `M300 120 Q400 190 500 120 L690 200 L750 380 L640 410 L620 360 L620 900 L180 900 L180 360 L160 410 L50 380 L110 200 Z`,
-  hoodie: `M290 110 Q400 70 510 110 L700 200 L760 640 L650 660 L630 400 L630 920 L170 920 L170 400 L150 660 L40 640 L100 200 Z`,
-};
-// From behind, the neckline sits higher and flatter.
-const backShapes = {
-  tee: `M300 120 Q400 140 500 120 L690 200 L750 380 L640 410 L620 360 L620 900 L180 900 L180 360 L160 410 L50 380 L110 200 Z`,
-  hoodie: shapes.hoodie,
-};
-
-/** A darker shade of the fill for the outline (white keeps a black outline so it shows on the pale background). */
-function strokeFor(hex) {
-  if (hex.toLowerCase() === '#f2f1f6') return '#0a0a0a';
-  const n = parseInt(hex.slice(1), 16);
-  const dark = (v) => Math.round(v * 0.55).toString(16).padStart(2, '0');
-  return `#${dark(n >> 16)}${dark((n >> 8) & 255)}${dark(n & 255)}`;
-}
-
-function collar(p, side, fill, stroke) {
-  if (p === 'hoodie') {
-    return side === 'front'
-      ? `<path d="M300 112 Q400 40 500 112 Q400 175 300 112 Z" fill="${fill}" stroke="${stroke}" stroke-width="4"/>`
-      : `<path d="M295 112 Q400 40 505 112 L530 250 Q400 285 270 250 Z" fill="${fill}" stroke="${stroke}" stroke-width="4" stroke-linejoin="round"/>`;
+for (const product of ['tee', 'hoodie']) {
+  const dir = `assets/garments/${product}`;
+  for (const file of readdirSync(dir)) {
+    const id = file.replace(/\.webp$/, '');
+    if (!COLORS.includes(id)) throw new Error(`${dir}/${file}: not a colour in lib/garmentColors.json`);
   }
-  return side === 'front'
-    ? `<path d="M300 120 Q400 200 500 120" fill="none" stroke="${stroke}" stroke-width="6"/>`
-    : `<path d="M300 120 Q400 148 500 120" fill="none" stroke="${stroke}" stroke-width="6"/>`;
-}
-
-async function drawing(p, side, hex, file) {
-  const fill = hex, stroke = strokeFor(hex);
-  const d = (side === 'front' ? shapes : backShapes)[p];
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect width="100%" height="100%" fill="#F0F0EC"/><path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="4" stroke-linejoin="round"/>${collar(p, side, fill, stroke)}</svg>`;
-  await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toFile(`public/garments/${file}`);
-}
-
-for (const { id, hex } of COLORS) await drawing('tee', 'back', hex, `tee-back-${id}.png`);
-for (const id of HOODIE_COLORS) {
-  const { hex } = COLORS.find((c) => c.id === id);
-  await drawing('hoodie', 'front', hex, `hoodie-${id}.png`);
-  await drawing('hoodie', 'back', hex, `hoodie-back-${id}.png`);
+  for (const id of COLORS) {
+    const src = `${dir}/${id}.webp`;
+    if (!existsSync(src)) continue; // this item isn't sold in this colour
+    const meta = await sharp(src).metadata();
+    if (meta.width !== HALF * 2 || meta.height !== SRC_H) throw new Error(`${src}: expected ${HALF * 2} x ${SRC_H}`);
+    for (const [side, left] of [['front', 0], ['back', HALF]]) {
+      const half = await sharp(src).extract({ left, top: 0, width: HALF, height: SRC_H }).toBuffer();
+      const name = side === 'front' ? `${product}-${id}.jpg` : `${product}-back-${id}.jpg`;
+      // Pad with the plain backdrop colour (sampled from the top corners, which are always backdrop). Repeating the
+      // edge pixels instead would smear an arm that touches the edge. Two steps: sharp always resizes before it extends
+      // within one pipeline, whatever the call order.
+      const background = await backdrop(half);
+      const framed = await sharp(half).extend({ left: PAD_LEFT, right: PAD_RIGHT, background }).toBuffer();
+      await sharp(framed)
+        .resize(W, H)
+        .jpeg({ quality: 82, mozjpeg: true })
+        .toFile(`public/garments/${name}`);
+    }
+  }
 }
 console.log('ok');

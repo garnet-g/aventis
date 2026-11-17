@@ -57,7 +57,7 @@ await square(180, 0.92, 'app/apple-icon.png');
 // The catalogue centres a picture in the print area, as large as fits. For a smaller print (a chest logo) the logo is
 // placed on a transparent canvas the same shape as the print area, so it lands where we want it.
 // Front print areas in cm; keep in step with lib/catalog.ts.
-const AREAS = { tee: { w: 27, h: 15 }, hoodie: { w: 25, h: 28 } };
+const AREAS = { tee: { w: 27, h: 32 }, hoodie: { w: 25, h: 28 } };
 const CHEST_LOGO_CM = 9; // a left-chest print
 const PX_PER_CM = 60;
 await sharp(trimmed).resize({ width: 1600, kernel: 'lanczos3' }).png().toFile('assets/brand/art-full.png');

@@ -9,10 +9,10 @@ import {
 } from '@/lib/editorGeometry';
 
 describe('printAreaRect', () => {
-  test('is centered horizontally and fully inside the canvas for every product', () => {
-    for (const p of ['tee', 'hoodie'] as const) {
-      const r = printAreaRect(p);
-      expect(r.x + r.width / 2).toBeCloseTo(CANVAS_W / 2);
+  test('sits near the middle (centred on the body in the photo) and fully inside the canvas, every product and side', () => {
+    for (const p of ['tee', 'hoodie'] as const) for (const side of ['front', 'back'] as const) {
+      const r = printAreaRect(p, side);
+      expect(Math.abs(r.x + r.width / 2 - CANVAS_W / 2)).toBeLessThan(10);
       expect(r.x).toBeGreaterThanOrEqual(0);
       expect(r.y).toBeGreaterThanOrEqual(0);
       expect(r.x + r.width).toBeLessThanOrEqual(CANVAS_W);
@@ -20,9 +20,9 @@ describe('printAreaRect', () => {
     }
   });
 
-  test('tee front area has the aspect ratio of its print area in cm (27 x 15)', () => {
+  test('tee front area has the aspect ratio of its print area in cm (27 x 32)', () => {
     const r = printAreaRect('tee');
-    expect(r.width / r.height).toBeCloseTo(27 / 15);
+    expect(r.width / r.height).toBeCloseTo(27 / 32);
   });
 });
 

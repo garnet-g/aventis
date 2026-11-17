@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { catalog, colorHex, colorLabel, COLORS, type ProductId } from '@/lib/catalog';
+import { catalog, colorHex, colorLabel, type ProductId } from '@/lib/catalog';
 import { errorText, send } from '@/lib/clientFetch';
 
 /** The form that posts a new design to the catalogue. */
@@ -58,7 +58,6 @@ export function CatalogueForm() {
               </label>
             ))}
           </div>
-          {catalog[product].colors.length < COLORS.length && <p className="text-xs font-normal text-mute">Hoodies come in white and black for now.</p>}
         </fieldset>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">

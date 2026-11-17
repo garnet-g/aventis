@@ -54,7 +54,7 @@ export const catalogueFieldsSchema = z.object({
     .min(1, 'Choose at least one garment colour.')
     .transform((c) => [...new Set(c)]),
 }).refine((f) => f.colors.every((c) => offersColor(f.product, c)), {
-  message: 'Hoodies only come in white and black for now. Untick the other colours.',
+  message: 'Hoodies don’t come in orange. Untick it.',
   path: ['colors'],
 });
 export type CatalogueFields = z.output<typeof catalogueFieldsSchema>;

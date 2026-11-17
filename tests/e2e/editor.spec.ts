@@ -118,7 +118,7 @@ test('print quality is shown for the selected image and gets worse as it is enla
   await expect(page.getByTestId('print-quality')).toContainText('Great');
   await page.getByRole('button', { name: 'Remove selected' }).click();
   await expect(page.getByTestId('print-quality')).toHaveCount(0);
-  // 250 px printed about 9 cm wide (the most a square fits in the 15 cm tall front) is far too soft
+  // 250 px printed many centimetres wide on the 27 x 32 cm front is far too soft
   const small = await sharp({ create: { width: 250, height: 250, channels: 3, background: '#d33' } }).png().toBuffer();
   await upload.setInputFiles({ name: 'small.png', mimeType: 'image/png', buffer: small });
   await expect(page.getByTestId('print-quality')).toContainText('Low');

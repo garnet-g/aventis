@@ -340,6 +340,7 @@ test('a design edited after it went in the cart must be checked again before it 
   await page.goto(`/design?d=${designId}`);
   await expect(page.getByRole('tab', { name: /Front/ })).toContainText('(1)');
   await addName(page, 'More');
+  await expect(page.getByRole('tab', { name: /Front/ })).toContainText('(2)');
   // the page already says "Saved" for the loaded design, so wait for the edit itself to reach the database
   await expect
     .poll(async () => (await service().from('designs').select('layers').eq('id', designId).single()).data?.layers.length)

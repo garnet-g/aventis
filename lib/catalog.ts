@@ -54,21 +54,21 @@ export const catalog: Record<ProductId, Product> = {
     costKes: 800,
     priceKes: 1500, // PLACEHOLDER: confirm with owner/printer
     colors: COLORS,
-    // Front: 27 cm wide x 15 cm tall, as set by the owner. Its top sits 8 cm below the collar seam (placement placeholder).
-    printArea: { widthCm: 27, heightCm: 15, topOffsetCm: 8 },
+    // Front: 27 cm wide x 32 cm tall, as set by the owner. Its top sits 8 cm below the collar seam (placement placeholder).
+    printArea: { widthCm: 27, heightCm: 32, topOffsetCm: 8 },
     backPrintArea: { widthCm: 28, heightCm: 32, topOffsetCm: 6 }, // PLACEHOLDER: confirm with owner/printer
-    // The front is a real photo; the back is a flat drawing in the same colour until back photos exist.
-    garmentImage: (c, side = 'front') => (side === 'back' ? `/garments/tee-back-${c}.png` : `/garments/tee-${c}.jpg`),
+    garmentImage: (c, side = 'front') => (side === 'back' ? `/garments/tee-back-${c}.jpg` : `/garments/tee-${c}.jpg`),
   },
   hoodie: {
     label: 'Hoodie',
     costKes: 1300,
     priceKes: 2200, // PLACEHOLDER: confirm with owner/printer
-    // Only these two until there are hoodie photos in more colours.
-    colors: ['white', 'black'],
+    // Every colour except orange, which has no hoodie photo.
+    colors: COLORS.filter((c) => c !== 'orange'),
     printArea: { widthCm: 25, heightCm: 28, topOffsetCm: 10 }, // PLACEHOLDER: confirm with owner/printer
-    backPrintArea: { widthCm: 25, heightCm: 28, topOffsetCm: 8 }, // PLACEHOLDER: confirm with owner/printer
-    garmentImage: (c, side = 'front') => (side === 'back' ? `/garments/hoodie-back-${c}.png` : `/garments/hoodie-${c}.png`),
+    // On the back this is measured from the bottom of the hood, not the collar, so the print never lands on the hood.
+    backPrintArea: { widthCm: 25, heightCm: 28, topOffsetCm: 2 }, // PLACEHOLDER: confirm with owner/printer
+    garmentImage: (c, side = 'front') => (side === 'back' ? `/garments/hoodie-back-${c}.jpg` : `/garments/hoodie-${c}.jpg`),
   },
 };
 

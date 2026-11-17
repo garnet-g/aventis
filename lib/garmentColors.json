@@ -1,12 +1,12 @@
 [
-  { "id": "black", "label": "Black", "hex": "#151515" },
-  { "id": "white", "label": "White", "hex": "#f2f1f6" },
-  { "id": "grey", "label": "Grey", "hex": "#a4a3a8" },
-  { "id": "navy", "label": "Navy blue", "hex": "#121c3a" },
-  { "id": "blue", "label": "Blue", "hex": "#012ca8" },
-  { "id": "green", "label": "Green", "hex": "#027920" },
-  { "id": "maroon", "label": "Maroon", "hex": "#66051e" },
-  { "id": "red", "label": "Red", "hex": "#d3031d" },
-  { "id": "orange", "label": "Orange", "hex": "#fa5b03" },
-  { "id": "yellow", "label": "Yellow", "hex": "#fdd803" }
+  { "id": "black", "label": "Black", "hex": "#171719" },
+  { "id": "white", "label": "White", "hex": "#f1f0f7" },
+  { "id": "grey", "label": "Heather grey", "hex": "#b6b6bb" },
+  { "id": "navy", "label": "Navy blue", "hex": "#151d37" },
+  { "id": "blue", "label": "Royal blue", "hex": "#082f98" },
+  { "id": "green", "label": "Green", "hex": "#05652e" },
+  { "id": "maroon", "label": "Burgundy", "hex": "#6c081d" },
+  { "id": "red", "label": "Red", "hex": "#ca041f" },
+  { "id": "orange", "label": "Orange", "hex": "#f75a09" },
+  { "id": "yellow", "label": "Yellow", "hex": "#fdd21c" }
 ]
