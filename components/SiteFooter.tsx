@@ -4,7 +4,7 @@ import { business, whatsappLink } from '@/lib/business';
 
 export function SiteFooter() {
   return (
-    <footer className="mt-auto bg-ink text-white">
+    <footer className="site-footer mt-auto bg-ink text-white">
       <div className="tape" aria-hidden />
       <div className="shell flex flex-col gap-8 py-8 lg:flex-row lg:justify-between">
         <div className="max-w-sm">

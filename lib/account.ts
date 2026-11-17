@@ -14,8 +14,11 @@ export interface AccountStore {
 }
 
 const FINISHED: OrderStatus[] = ['delivered', 'cancelled'];
-/** Payments where money moved: their records are kept, like orders. */
-const MONEY_MOVED: PaymentStatus[] = ['paid', 'refunded'];
+/**
+ * Only an account whose payments all clearly failed is deleted outright. Any other payment record is kept (the
+ * account is closed instead): money moved, or, for an unanswered prompt, Safaricom may still report a late payment.
+ */
+const NOTHING_MOVED: PaymentStatus[] = ['failed'];
 
 /**
  * Deletes a customer's account. Paid orders are business records Kenyan tax law says to keep (five years), so an
@@ -31,7 +34,7 @@ export async function deleteAccount(store: AccountStore, userId: string, confirm
   const payments = await store.paymentStatuses(userId);
   if (payments.includes('pending')) throw new HttpError(409, 'A payment is still going through. Try again in a few minutes.');
   if (payments.includes('needs_refund')) throw new HttpError(409, 'We still owe you a refund. You can delete your account once it has been sent.');
-  if (!statuses.length && !payments.some((p) => MONEY_MOVED.includes(p))) {
+  if (!statuses.length && payments.every((p) => NOTHING_MOVED.includes(p))) {
     await store.deleteEverything(userId);
     return 'deleted';
   }

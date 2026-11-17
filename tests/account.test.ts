@@ -41,7 +41,9 @@ describe('deleting an account', () => {
     }
     const refunded = store([], ['refunded']);
     expect(await deleteAccount(refunded.s, 'u1', 'DELETE')).toBe('closed');
-    const nothingMoved = store([], ['failed', 'expired']);
+    const unanswered = store([], ['failed', 'expired']); // a late payment could still be reported
+    expect(await deleteAccount(unanswered.s, 'u1', 'DELETE')).toBe('closed');
+    const nothingMoved = store([], ['failed']);
     expect(await deleteAccount(nothingMoved.s, 'u1', 'DELETE')).toBe('deleted');
   });
 

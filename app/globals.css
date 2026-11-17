@@ -232,3 +232,8 @@ body {
     transition: none;
   }
 }
+
+/* The admin area has its own navigation: no shop footer there. Pure CSS, so the footer stays server-rendered. */
+body:has([data-admin-area]) .site-footer {
+  display: none;
+}

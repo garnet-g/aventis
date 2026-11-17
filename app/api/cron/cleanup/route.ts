@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { cronAuthorized, staleBefore } from '@/lib/cleanup';
-import { supabaseDesignStore } from '@/lib/designsStore';
 import { getServiceClient } from '@/lib/supabase/server';
 
 /**
@@ -14,26 +13,23 @@ export async function POST(req: Request) {
   const db = getServiceClient();
   const now = new Date();
 
-  const { data: stale } = await db.from('designs').select('id').eq('status', 'draft').lt('updated_at', staleBefore(now)).limit(500);
-  const ids = (stale ?? []).map((d) => d.id as string);
-  const [{ data: ordered }, { data: carted }] = ids.length
-    ? await Promise.all([db.from('orders').select('design_id').in('design_id', ids), db.from('cart_items').select('design_id').in('design_id', ids)])
-    : [{ data: [] }, { data: [] }];
-  const keep = new Set([...(ordered ?? []), ...(carted ?? [])].map((r) => r.design_id as string));
-  const store = supabaseDesignStore();
-  let drafts = 0;
-  for (const id of ids) {
-    if (keep.has(id)) continue;
-    try {
-      await store.remove(id);
-      drafts++;
-    } catch (e) {
-      console.error('cleanup: could not delete draft', id, e);
-    }
+  // the check and the delete happen together in the database
+  const { data: deleted, error } = await db.rpc('delete_stale_drafts', { p_before: staleBefore(now), p_limit: 500 });
+  if (error) {
+    console.error('cleanup: could not delete stale drafts', error.message);
+    return NextResponse.json({ error: 'Cleanup failed.' }, { status: 500 });
+  }
+  const rows = (deleted ?? []) as { id: string; user_id: string }[];
+  const uploads = db.storage.from('uploads');
+  for (const { id, user_id } of rows) {
+    // best effort: a picture left behind costs a little storage, nothing more
+    const folder = `${user_id}/${id}`;
+    const { data: files } = await uploads.list(folder, { limit: 100 });
+    if (files?.length) await uploads.remove(files.map((f) => `${folder}/${f.name}`));
   }
 
   // a rate-limit row older than a day is past every window
   const { count: limits } = await db.from('rate_limits').delete({ count: 'exact' }).lt('window_start', new Date(now.getTime() - 86_400_000).toISOString());
 
-  return NextResponse.json({ drafts, rateLimits: limits ?? 0 });
+  return NextResponse.json({ drafts: rows.length, rateLimits: limits ?? 0 });
 }

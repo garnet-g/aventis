@@ -22,7 +22,8 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
   await requireAdmin();
   return (
     <>
-      <div className="bg-ink text-white">
+      {/* data-admin-area: the shop footer hides itself when this is on the page (see globals.css) */}
+      <div className="bg-ink text-white" data-admin-area>
         <nav aria-label="Admin" className="shell flex flex-wrap items-center gap-x-6 gap-y-2 py-3 text-sm font-bold [&_a:hover]:text-marigold">
           <Logo className="h-9" />
           <span className="rounded bg-marigold px-1.5 py-0.5 text-[0.65rem] uppercase tracking-widest text-ink">Admin</span>
