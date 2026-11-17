@@ -98,3 +98,16 @@ export async function goToCheckout(page: Page) {
   await page.getByRole('link', { name: /^Checkout/ }).click();
   await page.waitForURL('**/checkout');
 }
+
+/** The printer's files are drawn just after the customer pays (in the background); wait until every order of `userId` has them. */
+export async function waitForOrderFiles(userId: string, count = 1) {
+  await expect
+    .poll(
+      async () => {
+        const { data } = await service().from('orders').select('design_file_path, mockup_path').eq('user_id', userId);
+        return (data ?? []).filter((o) => o.design_file_path && o.mockup_path).length;
+      },
+      { timeout: 30_000 },
+    )
+    .toBeGreaterThanOrEqual(count);
+}

@@ -7,7 +7,7 @@ const dev = process.env.NODE_ENV !== "production";
 const csp = [
   "default-src 'self'",
   // Next.js adds small inline scripts; the background remover needs WebAssembly and its loader from jsDelivr.
-  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net${dev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net${dev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${supabase}`,
   "font-src 'self' data:",

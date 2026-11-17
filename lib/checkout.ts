@@ -65,6 +65,8 @@ type Deps = {
   payments: PaymentStore;
   prices?: PriceStore;
   now?: () => number;
+  /** Called just before a prompt is really sent (after every check), e.g. to rate-limit prompts per phone. */
+  beforePrompt?: (phone: string) => Promise<void>;
 };
 
 export type CheckoutResult =
@@ -127,6 +129,7 @@ export async function startCheckout(deps: Deps, args: { userId: string; delivery
     if (settled.status === 'pending') await deps.payments.transition(open.id, ['pending'], 'expired', { failureReason: 'No answer from the phone.' });
   }
 
+  await deps.beforePrompt?.(phone);
   const payment = await deps.payments.create({
     userId: args.userId,
     reference: prep.reference,

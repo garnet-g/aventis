@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import sharp from 'sharp';
-import { adminPage, bigPng, fillDeliveryAndPay, goToCheckout, service, signUp, uniqueEmail, userId } from './helpers';
+import { adminPage, bigPng, fillDeliveryAndPay, goToCheckout, service, signUp, uniqueEmail, userId, waitForOrderFiles } from './helpers';
 
 test.describe.configure({ mode: 'serial', timeout: 180_000 });
 
@@ -69,7 +69,7 @@ test('an admin posts a design; it stays hidden until published; a customer order
 
     await goToCheckout(page);
     await fillDeliveryAndPay(page);
-    
+    await waitForOrderFiles(await userId(email));
     const { data: order } = await service()
       .from('orders')
       .select('id, quantity, layers_snapshot, mockup_path, design_file_path, artifacts_failed, designs(color, size)')

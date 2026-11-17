@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import sharp from 'sharp';
-import { addName, addUpload, adminPage, designIdFor, fillDeliveryAndPay, goToCheckout, service, signUp, uniqueEmail, userId } from './helpers';
+import { addName, addUpload, adminPage, designIdFor, fillDeliveryAndPay, goToCheckout, service, signUp, uniqueEmail, userId, waitForOrderFiles } from './helpers';
 import { printAreaRect } from '@/lib/editorGeometry';
 
 async function expectNoHorizontalScroll(page: Page) {
@@ -29,14 +29,19 @@ test('customer designs, passes the check, pays in test mode; admin sees the paid
   await expectNoHorizontalScroll(page);
   await page.screenshot({ path: 'test-results/phone-checkout.png', fullPage: true });
   await fillDeliveryAndPay(page);
-    await expect(page.getByTestId('design-state').first()).toHaveText('Paid');
+  // the thank-you page shows the order and the payment reference
+  await expect(page.getByRole('heading', { name: /We have your order/ })).toBeVisible();
+  await expect(page.getByTestId('thank-you-line')).toHaveCount(1);
   await expectNoHorizontalScroll(page);
+  await page.goto('/orders');
+  await expect(page.getByTestId('design-state').first()).toHaveText('Paid');
   await page.screenshot({ path: 'test-results/phone-orders.png', fullPage: true });
 
   // admin
   const admin = await adminPage(browser);
   await admin.page.goto('/admin/orders');
   const designId = await designIdFor(email);
+  await waitForOrderFiles(await userId(email));
   const { data: order } = await service().from('orders').select('id, mockup_path, design_file_path, artifacts_failed, layers_snapshot').eq('design_id', designId).single();
   expect(order!.artifacts_failed).toBe(false);
   expect(order!.mockup_path).toBeTruthy();
@@ -95,7 +100,8 @@ test('an unsure design shows Waiting for review, payment is blocked, then the ad
   await page.getByRole('button', { name: 'Pay now' }).click(); // puts it in the cart
   await goToCheckout(page);
   await fillDeliveryAndPay(page);
-    await expect(page.getByTestId('design-state').first()).toHaveText('Paid');
+  await page.goto('/orders');
+  await expect(page.getByTestId('design-state').first()).toHaveText('Paid');
 });
 
 test('an explicit design is rejected and cannot be paid; the customer can start over', async ({ page }) => {
@@ -186,6 +192,7 @@ test('a front-and-back design costs more, and the admin gets four files', async 
   await fillDeliveryAndPay(page);
   
   const designId = await designIdFor(email);
+  await waitForOrderFiles(await userId(email));
   const { data: order } = await service()
     .from('orders')
     .select('id, price_kes, cost_kes, artifacts_failed, back_mockup_path, back_design_file_path, back_layers_snapshot')
@@ -284,6 +291,8 @@ test('a cart holds several designs with quantities; one payment makes one order 
   await page.waitForURL('**/checkout');
   await expect(page.getByRole('button', { name: /^Pay KES 6,250/ })).toBeVisible();
   await fillDeliveryAndPay(page);
+  
+  await waitForOrderFiles(await userId(email), 2);
   
   const { data: orders } = await service()
     .from('orders')
