@@ -164,6 +164,18 @@ describe('ordering a catalogue design', () => {
     await items.update(itemId, { published: true });
   });
 
+  test('ordering the same design, colour and size again adds to the quantity; another size is its own line', async () => {
+    const first = await run({ color: 'black', size: 'L', quantity: 2 });
+    const again = await run({ color: 'black', size: 'L', quantity: 3 });
+    expect(again.design.id).toBe(first.design.id);
+    expect(await cart.list(userId)).toEqual([{ designId: first.design.id, quantity: 5 }]);
+    expect(copies).toHaveLength(2); // no second copy of the pictures
+    await run({ color: 'black', size: 'M', quantity: 1 });
+    expect(await cart.list(userId)).toHaveLength(2);
+    await run({ color: 'black', size: 'L', quantity: 50 });
+    expect((await cart.list(userId)).find((l) => l.designId === first.design.id)?.quantity).toBe(50); // capped
+  });
+
   test('puts an approved copy in the cart, with the pictures copied into the customer’s own folder', async () => {
     const { design, inCart } = await run({ color: 'black', size: 'L', quantity: 3 });
     expect(inCart).toBe(true);

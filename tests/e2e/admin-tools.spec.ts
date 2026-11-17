@@ -117,7 +117,7 @@ test('an admin can give another account admin rights and take them away, but not
 
   await admin.page.getByLabel('Add an admin by email').fill('nobody-here@example.com');
   await admin.page.getByRole('button', { name: 'Add admin' }).click();
-  await expect(admin.page.getByText(/sign up first/)).toBeVisible();
+  await expect(admin.page.getByText(/sign up and confirm/)).toBeVisible();
 
   await admin.page.getByLabel('Add an admin by email').fill(email.toUpperCase());
   await admin.page.getByRole('button', { name: 'Add admin' }).click();

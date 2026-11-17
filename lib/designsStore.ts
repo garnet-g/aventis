@@ -12,6 +12,7 @@ export type DesignRow = {
   status: Design['status'];
   reject_reason: string | null;
   moderated_hash: string | null;
+  catalogue_item_id?: string | null;
   updated_at: string;
 };
 
@@ -26,6 +27,7 @@ export const toDesign = (r: DesignRow): Design => ({
   status: r.status,
   rejectReason: r.reject_reason,
   moderatedHash: r.moderated_hash,
+  catalogueItemId: r.catalogue_item_id ?? null,
   version: r.updated_at,
 });
 
@@ -38,6 +40,7 @@ const toRow = (p: Partial<Omit<Design, 'id' | 'userId' | 'version'>>) => ({
   ...(p.status && { status: p.status }),
   ...(p.rejectReason !== undefined && { reject_reason: p.rejectReason }),
   ...(p.moderatedHash !== undefined && { moderated_hash: p.moderatedHash }),
+  ...(p.catalogueItemId !== undefined && { catalogue_item_id: p.catalogueItemId }),
 });
 
 /** Uses the service role: callers (lib/designs.ts) check ownership before every read or write. */
@@ -77,6 +80,16 @@ export function supabaseDesignStore(): DesignStore {
     async hasOrder(id) {
       const { count } = await db().from('orders').select('id', { count: 'exact', head: true }).eq('design_id', id);
       return (count ?? 0) > 0;
+    },
+    async remove(id) {
+      const { data } = await db().from('designs').select('user_id').eq('id', id).maybeSingle();
+      const { error } = await db().from('designs').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+      if (!data) return;
+      // the pictures uploaded for it: best effort, a leftover is swept up later
+      const folder = `${data.user_id}/${id}`;
+      const { data: files } = await db().storage.from('uploads').list(folder, { limit: 100 });
+      if (files?.length) await db().storage.from('uploads').remove(files.map((f) => `${folder}/${f.name}`));
     },
     async downloadUpload(path) {
       const { data, error } = await db().storage.from('uploads').download(path);

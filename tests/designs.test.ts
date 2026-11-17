@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import type { DesignLayer } from '@/lib/designLayers';
-import { layersHash, saveDesign, submitDesign } from '@/lib/designs';
+import { layersHash, saveDesign, submitDesign, deleteDesign } from '@/lib/designs';
 import { StubImageSafetyProvider } from '@/lib/moderation/image';
 import { MemoryDesignStore } from './helpers/memoryStore';
 
@@ -253,5 +253,18 @@ describe('the moderation hash', () => {
     expect(layersHash([text('a')], [])).not.toBe(layersHash([text('a')], [text('b')]));
     expect(layersHash([text('a')], [text('b')])).not.toBe(layersHash([text('b')], [text('a')]));
     expect(layersHash([text('a')], [text('b')])).toBe(layersHash([text('a')], [text('b')]));
+  });
+});
+
+describe('deleting a design', () => {
+  test('only your own, and never one that was ordered', async () => {
+    const store = new MemoryDesignStore();
+    const mine = await store.insert('u1', { product: 'tee', color: 'black', size: 'M', layers: [] });
+    await expect(deleteDesign(store, mine.id, 'u2')).rejects.toMatchObject({ status: 404 });
+    store.ordered.add(mine.id);
+    await expect(deleteDesign(store, mine.id, 'u1')).rejects.toMatchObject({ status: 409 });
+    store.ordered.delete(mine.id);
+    await deleteDesign(store, mine.id, 'u1');
+    expect(await store.get(mine.id)).toBeNull();
   });
 });

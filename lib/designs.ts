@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { catalog, COLORS, offersColor, SIZES } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
 import { normalizeFont } from '@/lib/fonts';
+import { HttpError } from '@/lib/errors';
 import { checkDesign } from '@/lib/moderation';
 import type { ImageSafetyProvider } from '@/lib/moderation/image';
 
@@ -21,6 +22,8 @@ export type Design = {
   rejectReason: string | null;
   /** Why the automatic check wanted a person to look (admins only). */
   reviewReason?: string | null;
+  /** The catalogue design this was copied from, if any. */
+  catalogueItemId?: string | null;
   /** Hash of the layers that were last moderated; lets an unchanged resubmit skip re-moderation. */
   moderatedHash: string | null;
   /** Changes on every write; lets submitDesign detect an edit that happened while it was checking. */
@@ -36,6 +39,8 @@ export interface DesignStore {
   /** True once the design has been paid for; such designs are frozen. */
   hasOrder(id: string): Promise<boolean>;
   downloadUpload(path: string): Promise<Buffer>;
+  /** Deletes the design and its uploaded pictures. */
+  remove(id: string): Promise<void>;
 }
 
 // Rects are fractions of the print area; anything outside 0..1 would print off the garment's print area.
@@ -96,6 +101,14 @@ function assertUploadsOwned(userId: string, designId: string, layers: DesignLaye
 }
 
 const NOT_FOUND = 'Design not found.';
+
+/** Deletes one of the customer's own designs, unless it has been paid for (orders keep their design). */
+export async function deleteDesign(store: DesignStore, id: string, userId: string) {
+  const d = await store.get(id);
+  if (!d || d.userId !== userId) throw new HttpError(404, NOT_FOUND);
+  if (await store.hasOrder(id)) throw new HttpError(409, 'This design has been ordered, so it is kept with the order.');
+  await store.remove(id);
+}
 const EXPLICIT_REASON = 'This design appears to contain explicit content and cannot be printed.';
 
 /** Creates or updates a design. Any save puts the design back to draft, so it must be checked again. */

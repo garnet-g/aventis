@@ -281,12 +281,18 @@ test('a design is saved as you go, and can be resumed later with its image and t
     .toBe(true);
 });
 
-test('Save for later keeps the design and goes to My prints', async ({ page }) => {
+test('Save for later keeps the design and goes to My prints, where a draft can be deleted', async ({ page }) => {
   await signUp(page, uniqueEmail('later'));
   await addName(page, 'Later');
   await page.getByRole('button', { name: 'Save for later' }).click();
   await page.waitForURL('**/orders');
   await expect(page.getByTestId('design-state').first()).toHaveText('Draft');
+  await expect(page.getByRole('heading', { name: 'Saved designs' })).toBeVisible();
+  await expect(page.getByTestId('print-card').first().locator('img')).toHaveJSProperty('complete', true);
+  page.once('dialog', (d) => void d.accept());
+  await page.getByTestId('print-card').first().getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByTestId('print-card')).toHaveCount(0);
+  await expect(page.getByText('Nothing here yet.')).toBeVisible();
 });
 
 test('a cart holds several designs with quantities; one payment makes one order for each', async ({ page, browser }) => {

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { DesignWorkbench, type InitialDesign, type WorkbenchState } from '@/components/DesignWorkbench';
 import { type ProductId } from '@/lib/catalog';
 import { errorText, json, OFFLINE_MESSAGE, send } from '@/lib/clientFetch';
-import { postFormWithProgress } from '@/lib/clientUpload';
+import { postFormWithProgress, shrinkForUpload } from '@/lib/clientUpload';
 import { kes } from '@/lib/labels';
 import type { Prices } from '@/lib/prices';
 
@@ -130,7 +130,7 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
     try {
       const id = await ensureDesign(); // uploads belong to a design
       const form = new FormData();
-      form.append('file', file);
+      form.append('file', await shrinkForUpload(file)); // big phone photos shrink first: less data, same print
       setUploadProgress(0);
       const { status, body } = await postFormWithProgress(`/api/designs/${id}/upload`, form, setUploadProgress);
       const data = (body ?? {}) as { path?: string; error?: string };

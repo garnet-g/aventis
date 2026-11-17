@@ -32,6 +32,10 @@ export class MemoryDesignStore implements DesignStore {
     return this.update(id, patch);
   }
 
+  async remove(id: string) {
+    this.designs.delete(id);
+  }
+
   async downloadUpload(path: string) {
     const f = this.files.get(path);
     if (!f) throw new Error(`missing file ${path}`);

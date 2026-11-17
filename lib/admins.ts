@@ -14,7 +14,7 @@ export async function addAdmin(dir: AdminDirectory, email: unknown) {
   const clean = typeof email === 'string' ? email.trim().toLowerCase() : '';
   if (!EMAIL.test(clean)) throw new HttpError(400, 'Enter an email address.');
   const id = await dir.findUserByEmail(clean);
-  if (!id) throw new HttpError(404, 'No account uses that email. Ask them to sign up first, then add them.');
+  if (!id) throw new HttpError(404, 'No confirmed account uses that email. Ask them to sign up and confirm their email first, then add them.');
   await dir.setAdmin(id, true);
   return id;
 }

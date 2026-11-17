@@ -6,6 +6,7 @@ import { COLORS, offersColor, printAreaFor, SIZES, type Color, type ProductId, t
 import type { DesignLayer } from '@/lib/designLayers';
 import { layersHash, type Design, type DesignStore } from '@/lib/designs';
 import { HttpError } from '@/lib/errors';
+import { MAX_QUANTITY } from '@/lib/pricing';
 
 /** A ready-made design that an admin posted. Customers order it in a colour and size of their choice. */
 export type CatalogueItem = {
@@ -180,6 +181,20 @@ export async function orderFromCatalogue(
   const customise = input.customise === true;
   const quantity = customise ? 1 : parseQuantity(input.quantity ?? 1);
 
+  if (!customise) {
+    // the same design, colour and size already in the cart, unchanged: add to its quantity instead of a second line
+    for (const line of await deps.cart.list(userId)) {
+      const d = await deps.designs.get(line.designId);
+      if (
+        d && d.userId === userId && d.catalogueItemId === item.id && d.color === color && d.size === size &&
+        d.status === 'approved' && d.moderatedHash === layersHash(d.layers, d.backLayers)
+      ) {
+        await deps.cart.setQuantity(userId, d.id, Math.min(MAX_QUANTITY, line.quantity + quantity));
+        return { design: d, inCart: true };
+      }
+    }
+  }
+
   const draft = await deps.designs.insert(userId, { product: item.product, color, size, layers: [], backLayers: [] });
   const own = async (layers: DesignLayer[]) =>
     Promise.all(
@@ -195,7 +210,7 @@ export async function orderFromCatalogue(
   const backLayers = await own(item.backLayers);
 
   if (customise) {
-    const design = await deps.designs.update(draft.id, { layers, backLayers });
+    const design = await deps.designs.update(draft.id, { layers, backLayers, catalogueItemId: item.id });
     return { design, inCart: false };
   }
   const design = await deps.designs.update(draft.id, {
@@ -204,6 +219,7 @@ export async function orderFromCatalogue(
     status: 'approved',
     moderatedHash: layersHash(layers, backLayers),
     rejectReason: null,
+    catalogueItemId: item.id,
   });
   await deps.cart.add(userId, design.id, quantity);
   return { design, inCart: true };

@@ -72,3 +72,20 @@ describe('postFormWithProgress', () => {
     await expect(promise).rejects.toThrow(/network/i);
   });
 });
+
+describe('shrinking photos before upload', () => {
+  test('only big JPEGs shrink; PNGs (maybe transparent) never do', async () => {
+    const { shouldShrink } = await import('@/lib/clientUpload');
+    expect(shouldShrink({ type: 'image/jpeg', size: 5_000_000 })).toBe(true);
+    expect(shouldShrink({ type: 'image/jpeg', size: 500_000 })).toBe(false);
+    expect(shouldShrink({ type: 'image/jpeg', size: 500_000 }, { width: 6000, height: 4000 })).toBe(true);
+    expect(shouldShrink({ type: 'image/png', size: 9_000_000 })).toBe(false);
+  });
+
+  test('keeps the shape and enough pixels for print', async () => {
+    const { shrinkSize } = await import('@/lib/clientUpload');
+    expect(shrinkSize(6000, 4000)).toEqual({ width: 4000, height: 2667 });
+    expect(shrinkSize(3000, 4500)).toEqual({ width: 2667, height: 4000 });
+    expect(shrinkSize(1200, 900)).toEqual({ width: 1200, height: 900 });
+  });
+});
