@@ -125,6 +125,14 @@ describe('submitDesign safety under attack', () => {
 });
 
 describe('saveDesign', () => {
+  test('every T-shirt colour can be saved; a hoodie only in the colours hoodies come in', async () => {
+    for (const color of ['maroon', 'navy', 'yellow'] as const) {
+      expect((await saveDesign(store, 'alice', { ...base, color, layers: [text('Crew')] })).color).toBe(color);
+    }
+    await expect(saveDesign(store, 'alice', { ...base, product: 'hoodie', color: 'maroon', layers: [text('Crew')] })).rejects.toThrow(/not available for this item/i);
+    expect((await saveDesign(store, 'alice', { ...base, product: 'hoodie', color: 'black', layers: [text('Crew')] })).color).toBe('black');
+  });
+
   test('a design that already has an order cannot be edited', async () => {
     const d = await saveDesign(store, 'alice', { ...base, layers: [text('Ali')] });
     store.ordered.add(d.id);

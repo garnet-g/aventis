@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { catalog, colorHex, colorLabel, COLORS, type ProductId } from '@/lib/catalog';
 import { errorText, send } from '@/lib/clientFetch';
 
 /** The form that posts a new design to the catalogue. */
@@ -11,6 +12,7 @@ export function CatalogueForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+  const [product, setProduct] = useState<ProductId>('tee');
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,21 +41,24 @@ export function CatalogueForm() {
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm font-bold">
           Item
-          <select name="product" className="field font-normal" defaultValue="tee">
+          <select name="product" className="field font-normal" value={product} onChange={(e) => setProduct(e.target.value as ProductId)}>
             <option value="tee">T-shirt</option>
             <option value="hoodie">Hoodie</option>
           </select>
         </label>
         <fieldset className="flex flex-col gap-1 text-sm font-bold">
           <legend className="mb-1">Garment colours it looks right on</legend>
-          <div className="flex gap-4 font-normal">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" name="colors" value="white" defaultChecked /> White
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" name="colors" value="black" defaultChecked /> Black
-            </label>
+          {/* keyed by item, so switching item resets the ticks to that item's colours */}
+          <div key={product} className="grid grid-cols-2 gap-x-4 gap-y-1.5 font-normal">
+            {catalog[product].colors.map((c) => (
+              <label key={c} className="flex items-center gap-2">
+                <input type="checkbox" name="colors" value={c} defaultChecked={c === 'white' || c === 'black'} />
+                <span aria-hidden className="h-3.5 w-3.5 flex-none rounded-full border border-ink" style={{ background: colorHex(c) }} />
+                {colorLabel(c)}
+              </label>
+            ))}
           </div>
+          {catalog[product].colors.length < COLORS.length && <p className="text-xs font-normal text-mute">Hoodies come in white and black for now.</p>}
         </fieldset>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">

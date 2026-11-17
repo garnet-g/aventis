@@ -71,9 +71,9 @@ These are **placeholders** I could not know. Each lives in one place:
 | What | Where |
 |---|---|
 | Selling prices (KES 1,500 tee / 2,200 hoodie) and the delivery fee (KES 250) | `lib/catalog.ts` |
-| Print-area size in cm (tee 28×32, hoodie 25×28) and the minimum print resolution (150 DPI) | `lib/catalog.ts`. **Confirm with your printer**, along with file format and whether black garments need a white underlayer |
-| How the print area lines up on the garment photos (`PX_PER_CM`, collar position) | `lib/editorGeometry.ts` |
-| Garment photos (simple drawn placeholders now) | `public/garments/` (800×1000 PNG per product and color) |
+| Print-area sizes in cm (tee front 27×15 is set; tee back 28×32 and hoodie 25×28 are placeholders) and the minimum print resolution (150 DPI) | `lib/catalog.ts`. **Confirm with your printer**, along with file format and whether dark garments need a white underlayer |
+| How the print area lines up on the garment pictures (`GEOMETRY`: pixels per cm and collar position; the tee front is calibrated to the photos) | `lib/editorGeometry.ts` |
+| Garment photos: tee fronts are real photos; tee backs and hoodies are drawn placeholders | `assets/garments/tee/` → `node scripts/make-garments.mjs` → `public/garments/` |
 | The banned-word list | `lib/moderation/banned-words.json` |
 
 Your known print costs (hoodie KES 1,300, tee KES 800) are already in `lib/catalog.ts`; the admin order page shows profit as *price + delivery − cost*.
@@ -122,7 +122,7 @@ tests/              vitest unit/database tests; tests/e2e for Playwright
 ## Text and layers
 
 - A name or text can be restyled after it is added: edit the words, pick a font, a color from the palette, and a size. Five fonts are offered (four Latin, one Arabic); Arabic-script text switches to the Arabic font automatically. Each font has a web version for the editor and a print file in `assets/fonts` (all open-license), so the printed file matches the screen.
-- Text in the default ink follows the garment color (dark on white, light on black); a color the customer picked is kept.
+- Text in the default ink follows the garment color (dark on light shirts, white on dark ones); a color the customer picked is kept.
 - Undo and redo cover every change, images included. Duplicate, Bring to front and Send to back change the stacking order; the printed file uses the same order.
 
 ## Printing on the back, and saving for later
@@ -176,4 +176,16 @@ The header shows an Admin link to signed-in admins.
 
 The logo's original is `assets/brand/vybecrew-logo-source.jpg` (light art on black). `node scripts/make-brand.mjs` turns it into the transparent site logo (`public/brand/vybecrew-logo.png`), the page icons, the share picture and the catalogue art in `assets/brand/`. The black background becomes transparent, so the logo is meant for black surfaces: the site's black bars and panels, and black garments.
 
-`scripts/seed-brand-catalogue.mjs` posts and publishes eight starter designs (logo on black T-shirts and hoodies: front, back, chest and back, front and back) through the admin page: `ADMIN_EMAIL=... ADMIN_PASSWORD=... node scripts/seed-brand-catalogue.mjs` with the app running. Run it against the live site once it is deployed. The original is only about 830 pixels wide, so the artwork is enlarged for print; ask for a larger or vector version for the best print quality.
+`scripts/seed-brand-catalogue.mjs` posts and publishes eight starter designs (logo on black T-shirts and hoodies: front, back, chest and back, front and back) through the admin page: `ADMIN_EMAIL=... ADMIN_PASSWORD=... node scripts/seed-brand-catalogue.mjs` with the app running. Add `REPLACE=1` to delete and re-post designs that already exist. Run it against the live site once it is deployed. The original is only about 830 pixels wide, so the artwork is enlarged for print; ask for a larger or vector version for the best print quality.
+
+## Garment colours and photos
+
+T-shirts come in ten colours: black, white, grey, navy blue, blue, green, maroon, red, orange and yellow. Hoodies stay white and black until there are hoodie photos. The colours, their names and swatches are in `lib/garmentColors.json`; which item comes in which colour is `colors` in `lib/catalog.ts`; migration `0010_more_colours.sql` holds the database to the same list.
+
+The tee front pictures are real photos, kept at full size in `assets/garments/tee/<colour>.jpeg` (1122×1402). `node scripts/make-garments.mjs` turns them into the 800×1000 JPEGs in `public/garments/`, and draws the placeholder backs and hoodies. To add a colour: add a photo with the same framing, add the colour to `garmentColors.json` and the `Color` type, update the migration's lists, and run the script.
+
+The print area is placed on the photos by measurement: the shirt is about 620 px across the chest at 1122 px wide, which is a size M's 51 cm, and the front collar seam is at y = 142 (`GEOMETRY` in `lib/editorGeometry.ts`). The tee front print area is 27 cm wide by 15 cm tall, starting 8 cm below the collar.
+
+Mockups (customer previews, catalogue pictures, the printer's reference mockup) are JPEGs, a tenth of the size of a PNG with a photo behind them. The printer's design file stays a transparent PNG at 150 DPI.
+
+Designs store positions as fractions of the print area, so changing a print area's size changes how existing designs print. After changing one, re-post the catalogue with `REPLACE=1` (see the logo section above).

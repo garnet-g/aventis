@@ -1,13 +1,49 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { BACK_PRINT_COST_KES, BACK_PRINT_PRICE_KES, catalog, COLORS, printAreaFor, SIZES } from '@/lib/catalog';
+import { BACK_PRINT_COST_KES, BACK_PRINT_PRICE_KES, catalog, colorHex, colorLabel, COLORS, fallbackColor, isLightColor, offersColor, printAreaFor, SIZES } from '@/lib/catalog';
 
 describe('catalog', () => {
   test('has exactly tee and hoodie', () => {
     expect(Object.keys(catalog).sort()).toEqual(['hoodie', 'tee']);
   });
 
-  test('colors are white and black', () => {
-    expect(COLORS).toEqual(['white', 'black']);
+  test('there are ten garment colours, each with a label and a swatch', () => {
+    expect(COLORS).toEqual(['black', 'white', 'grey', 'navy', 'blue', 'green', 'maroon', 'red', 'orange', 'yellow']);
+    for (const c of COLORS) {
+      expect(colorLabel(c).length).toBeGreaterThan(2);
+      expect(colorHex(c)).toMatch(/^#[0-9a-f]{6}$/);
+    }
+    expect(colorLabel('navy')).toBe('Navy blue');
+  });
+
+  test('T-shirts come in every colour; hoodies in white and black until there are hoodie photos', () => {
+    expect(catalog.tee.colors).toEqual(COLORS);
+    expect(catalog.hoodie.colors).toEqual(['white', 'black']);
+    expect(offersColor('hoodie', 'maroon')).toBe(false);
+  });
+
+  test('every colour an item is sold in has its front and back picture on disk', () => {
+    for (const p of Object.values(catalog)) {
+      for (const c of p.colors) {
+        for (const side of ['front', 'back'] as const) {
+          const file = path.join('public', p.garmentImage(c, side));
+          expect(existsSync(file), file).toBe(true);
+        }
+      }
+    }
+    expect(catalog.tee.garmentImage('maroon')).toBe('/garments/tee-maroon.jpg'); // the real photo
+  });
+
+  test('light and dark colours are told apart (dark ink on light shirts, white ink on dark ones)', () => {
+    expect(COLORS.filter(isLightColor)).toEqual(['white', 'grey', 'orange', 'yellow']);
+  });
+
+  test('switching to an item that does not come in the colour picks the nearest of light or dark', () => {
+    expect(fallbackColor('hoodie', 'navy')).toBe('black');
+    expect(fallbackColor('hoodie', 'yellow')).toBe('white');
+    expect(fallbackColor('hoodie', 'black')).toBe('black');
+    expect(fallbackColor('tee', 'maroon')).toBe('maroon');
   });
 
   test('sizes are S,M,L,XL in order', () => {
@@ -32,7 +68,7 @@ describe('catalog', () => {
       expect(back.widthCm).toBeGreaterThan(0);
       expect(back.heightCm).toBeGreaterThan(0);
       expect(printAreaFor(id as keyof typeof catalog, 'front')).toEqual(p.printArea);
-      for (const color of COLORS) {
+      for (const color of p.colors) {
         expect(p.garmentImage(color, 'back')).toContain('back');
         expect(p.garmentImage(color, 'back')).not.toBe(p.garmentImage(color));
         expect(p.garmentImage(color)).toBe(p.garmentImage(color, 'front'));

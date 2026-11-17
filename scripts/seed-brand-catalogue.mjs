@@ -1,7 +1,7 @@
 // Posts and publishes the starter VybeCrew catalogue designs (the logo on T-shirts and hoodies: front, back, chest + back,
 // front + back) by driving the real admin page, so the previews and checks are exactly what an admin would get.
 // Needs the app running, the pictures from `node scripts/make-brand.mjs`, and an admin account:
-//   ADMIN_EMAIL=admin@vybecrew.com ADMIN_PASSWORD=... node scripts/seed-brand-catalogue.mjs
+//   ADMIN_EMAIL=admin@vybecrew.com ADMIN_PASSWORD=... node scripts/seed-brand-catalogue.mjs   (add REPLACE=1 to re-post)
 // Designs whose title already exists are skipped, so it is safe to run twice.
 import { chromium } from '@playwright/test';
 import path from 'node:path';
@@ -35,11 +35,22 @@ await page.getByPlaceholder(/password/i).fill(PASSWORD);
 await page.getByRole('button', { name: 'Sign in' }).click();
 await page.waitForURL('**/admin/**');
 
+// REPLACE=1 deletes a design with the same title first (e.g. after the print area or garment photos change), so it
+// is posted again with fresh artwork placement and previews. Orders already placed keep their own copy.
+const REPLACE = process.env.REPLACE === '1';
+page.on('dialog', (d) => void d.accept()); // the admin page confirms deletes with a browser dialog
+
 for (const item of ITEMS) {
   await page.goto('/admin/catalogue');
-  if ((await page.getByTestId('admin-catalogue-item').filter({ hasText: item.title }).count()) > 0) {
-    console.log('already there:', item.title);
-    continue;
+  const existing = page.getByTestId('admin-catalogue-item').filter({ hasText: item.title });
+  if ((await existing.count()) > 0) {
+    if (!REPLACE) {
+      console.log('already there:', item.title);
+      continue;
+    }
+    await existing.getByRole('button', { name: `Delete ${item.title}` }).click();
+    await existing.waitFor({ state: 'detached' });
+    console.log('deleted:', item.title);
   }
   const form = page.getByRole('form', { name: 'Post a design' });
   await form.getByLabel('Title').fill(item.title);

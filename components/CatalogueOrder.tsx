@@ -2,12 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { SIZES, type Color, type Size } from '@/lib/catalog';
+import { colorHex, colorLabel, SIZES, type Color, type Size } from '@/lib/catalog';
 import { errorText, json, send } from '@/lib/clientFetch';
 import { MAX_QUANTITY } from '@/lib/pricing';
 
-const SWATCH: Record<Color, string> = { white: '#ffffff', black: '#0a0a0a' };
-const LABEL: Record<Color, string> = { white: 'White', black: 'Black' };
 
 /** The picture, colour/size/quantity pickers and the buttons on a catalogue design's page. */
 export function CatalogueOrder({
@@ -70,16 +68,17 @@ export function CatalogueOrder({
 
       <div className="flex flex-col gap-6">
         <section aria-label="Colour" className="flex flex-col gap-2">
-          <p className="eyebrow">Colour: {LABEL[color]}</p>
-          <div className="flex gap-3">
+          <p className="eyebrow">Colour: {colorLabel(color)}</p>
+          <div className="flex flex-wrap gap-3">
             {colors.map((c) => (
               <button
                 key={c}
-                aria-label={LABEL[c]}
+                aria-label={colorLabel(c)}
+                title={colorLabel(c)}
                 aria-pressed={c === color}
                 onClick={() => setColor(c)}
                 className={`h-11 w-11 rounded-full border-2 border-ink ${c === color ? 'ring-2 ring-ink ring-offset-2 ring-offset-paper' : ''}`}
-                style={{ background: SWATCH[c] }}
+                style={{ background: colorHex(c) }}
               />
             ))}
           </div>

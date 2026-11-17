@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { CheckoutForm } from '@/components/CheckoutForm';
 import { SiteHeader } from '@/components/SiteHeader';
 import { requireUser } from '@/lib/auth';
-import { catalog } from '@/lib/catalog';
+import { catalog, colorLabel } from '@/lib/catalog';
 import { loadCart } from '@/lib/cart';
 import { supabasePriceStore } from '@/lib/pricesStore';
 import { supabaseCartStore } from '@/lib/cartStore';
@@ -51,7 +51,7 @@ async function Checkout() {
                 </b>
                 <br />
                 <span className="text-mute">
-                  {l.design.color === 'white' ? 'White' : 'Black'} &middot; Size {l.design.size} &middot;{' '}
+                  {colorLabel(l.design.color)} &middot; Size {l.design.size} &middot;{' '}
                   {l.design.backLayers.length > 0 ? 'front and back' : 'front'}
                 </span>
               </span>

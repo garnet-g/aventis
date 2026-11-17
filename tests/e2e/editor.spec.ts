@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import { expect, test, type Page } from '@playwright/test';
+import { CANVAS_H, CANVAS_W, printAreaRect } from '@/lib/editorGeometry';
 
 type Layer = { kind: string; text?: string; font?: string; fill?: string; fontSize?: number; uploadPath?: string; rotation?: number; flipX?: boolean; flipY?: boolean; direction?: string; rect: { x: number; y: number; width: number; height: number } };
 
@@ -23,7 +24,9 @@ test('dragging an uploaded image beyond the dashed box leaves it inside the box'
   await uploadPng(page);
   const wrap = page.getByTestId('editor-wrap');
   const box = (await wrap.boundingBox())!;
-  const start = { x: box.x + box.width / 2, y: box.y + box.height * 0.38 };
+  // start on the image, which sits in the middle of the print area
+  const area = printAreaRect('tee');
+  const start = { x: box.x + ((area.x + area.width / 2) / CANVAS_W) * box.width, y: box.y + ((area.y + area.height / 2) / CANVAS_H) * box.height };
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(start.x + 300, start.y + 400, { steps: 12 });
@@ -115,7 +118,9 @@ test('print quality is shown for the selected image and gets worse as it is enla
   await expect(page.getByTestId('print-quality')).toContainText('Great');
   await page.getByRole('button', { name: 'Remove selected' }).click();
   await expect(page.getByTestId('print-quality')).toHaveCount(0);
-  await uploadPng(page); // 400 px wide printed about 17 cm wide is far too soft
+  // 250 px printed about 9 cm wide (the most a square fits in the 15 cm tall front) is far too soft
+  const small = await sharp({ create: { width: 250, height: 250, channels: 3, background: '#d33' } }).png().toBuffer();
+  await upload.setInputFiles({ name: 'small.png', mimeType: 'image/png', buffer: small });
   await expect(page.getByTestId('print-quality')).toContainText('Low');
   await expect(page.getByTestId('print-quality')).toContainText(/blurry/i);
 });

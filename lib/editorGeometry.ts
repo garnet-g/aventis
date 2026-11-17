@@ -5,19 +5,29 @@ import type { Rect } from '@/lib/printArea';
 export const CANVAS_W = 400;
 export const CANVAS_H = 500;
 
-// PLACEHOLDER: calibrate against the real garment photos (canvas pixels per real-world cm on the garment).
-const PX_PER_CM = 4.4;
-const COLLAR_Y = 60;
+/**
+ * How each garment picture maps to real life, in canvas pixels: how many pixels make one centimetre of fabric, and
+ * where the collar seam is (print areas are measured down from it).
+ *
+ * T-shirt front: measured on the photos (1122 x 1402). The body is about 620 px across just below the sleeves, which
+ * is a size M's 51 cm chest (12.2 px per cm), and the front collar seam is at y = 142. At canvas scale (x 0.3565) that
+ * is 4.33 px per cm and y = 51. The drawings (T-shirt back, hoodie) keep their placeholder scale until photographed.
+ */
+const GEOMETRY: Record<ProductId, Record<Side, { pxPerCm: number; collarY: number }>> = {
+  tee: { front: { pxPerCm: 4.33, collarY: 51 }, back: { pxPerCm: 4.4, collarY: 60 } },
+  hoodie: { front: { pxPerCm: 4.4, collarY: 60 }, back: { pxPerCm: 4.4, collarY: 60 } },
+};
 
 /** The fixed print area in canvas pixels, centered on the garment. */
 export function printAreaRect(product: ProductId, side: Side = 'front'): Rect {
   const a = printAreaFor(product, side);
-  const width = a.widthCm * PX_PER_CM;
+  const { pxPerCm, collarY } = GEOMETRY[product][side];
+  const width = a.widthCm * pxPerCm;
   return {
     x: (CANVAS_W - width) / 2,
-    y: COLLAR_Y + a.topOffsetCm * PX_PER_CM,
+    y: collarY + a.topOffsetCm * pxPerCm,
     width,
-    height: a.heightCm * PX_PER_CM,
+    height: a.heightCm * pxPerCm,
   };
 }
 

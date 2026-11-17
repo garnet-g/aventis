@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { CatalogueForm, CatalogueRowActions } from '@/components/CatalogueAdmin';
 import { requireAdmin } from '@/lib/auth';
-import { catalog } from '@/lib/catalog';
+import { catalog, colorLabel } from '@/lib/catalog';
 import { previewKey } from '@/lib/catalogueItems';
 import { cataloguePictureUrl, supabaseCatalogueStore } from '@/lib/catalogueStore';
 
@@ -44,7 +44,7 @@ async function AdminCatalogue() {
                     <div>
                       <p className="font-display text-lg font-extrabold leading-tight">{item.title}</p>
                       <p className="text-sm text-mute">
-                        {catalog[item.product].label} &middot; {item.colors.join(' + ')}
+                        {catalog[item.product].label} &middot; {item.colors.map(colorLabel).join(', ')}
                       </p>
                       <span className={`badge mt-2 ${item.published ? 'badge-gold' : 'badge-ink'}`}>{item.published ? 'Published' : 'Hidden'}</span>
                     </div>

@@ -1,12 +1,13 @@
 import sharp from 'sharp';
 import { describe, expect, test } from 'vitest';
 import { FONTS, type FontKey } from '@/lib/fonts';
-import { designPixelSize, generateArtifacts, renderDesignPng, renderMockupPng, renderTextOverlay, type ArtifactStorage } from '@/lib/artifacts';
+import { designPixelSize, generateArtifacts, renderDesignPng, renderMockup, renderTextOverlay, type ArtifactStorage } from '@/lib/artifacts';
 import type { DesignLayer } from '@/lib/designLayers';
+import { printAreaRect } from '@/lib/editorGeometry';
 
 const item = { product: 'tee', color: 'white' } as const;
-const TEE_W = 1654; // 28 cm at 150 DPI
-const TEE_H = 1890; // 32 cm at 150 DPI
+const TEE_W = 1594; // 27 cm at 150 DPI
+const TEE_H = 886; // 15 cm at 150 DPI
 
 async function red(width: number, height: number) {
   return sharp({ create: { width, height, channels: 3, background: '#ff0000' } }).png().toBuffer();
@@ -189,8 +190,8 @@ describe('the back side', () => {
 
   test('the back mockup is drawn on the back garment photo, not the front one', async () => {
     const png = await renderDesignPng(item, [], loader);
-    const front = await renderMockupPng(item, png);
-    const back = await renderMockupPng({ ...item, side: 'back' }, png);
+    const front = await renderMockup(item, png);
+    const back = await renderMockup({ ...item, side: 'back' }, png);
     expect(Buffer.compare(front, back)).not.toBe(0);
     const meta = await sharp(back).metadata();
     expect([meta.width, meta.height]).toEqual([800, 1000]);
@@ -201,28 +202,32 @@ describe('the back side', () => {
     const storage: ArtifactStorage = { upload: async (p, d) => void files.set(p, d) };
     const base = { orderId: 'o9', item, layers: [textLayer('Front')], loadImage: loader, storage };
     const two = await generateArtifacts(base);
-    expect(two).toEqual({ mockupPath: 'o9/mockup.png', designFilePath: 'o9/design.png' });
+    expect(two).toEqual({ mockupPath: 'o9/mockup.jpg', designFilePath: 'o9/design.png' });
     expect(files.size).toBe(2);
     const four = await generateArtifacts({ ...base, backLayers: [textLayer('Back')] });
     expect(four).toEqual({
-      mockupPath: 'o9/mockup.png',
+      mockupPath: 'o9/mockup.jpg',
       designFilePath: 'o9/design.png',
-      backMockupPath: 'o9/back-mockup.png',
+      backMockupPath: 'o9/back-mockup.jpg',
       backDesignFilePath: 'o9/back-design.png',
     });
-    expect([...files.keys()].sort()).toEqual(['o9/back-design.png', 'o9/back-mockup.png', 'o9/design.png', 'o9/mockup.png']);
+    expect([...files.keys()].sort()).toEqual(['o9/back-design.png', 'o9/back-mockup.jpg', 'o9/design.png', 'o9/mockup.jpg']);
   });
 });
 
-describe('renderMockupPng', () => {
-  test("mockup PNG has the garment's dimensions and shows the design on it", async () => {
+describe('renderMockup', () => {
+  test("the mockup is a JPEG the size of the garment photo, with the design on it", async () => {
     const design = await renderDesignPng(item, [imageLayer()], loader);
-    const mock = await renderMockupPng(item, design);
+    const mock = await renderMockup(item, design);
     const meta = await sharp(mock).metadata();
+    expect(meta.format).toBe('jpeg'); // a photo behind it: a tenth of the size of a PNG
     expect([meta.width, meta.height]).toEqual([800, 1000]);
-    // the print area on the 800x1000 photo is centered horizontally; its middle should now be red
-    const p = await pixel(mock, 400, 330);
-    expect(p).toMatchObject({ r: 255, g: 0, b: 0 });
+    // the middle of the print area on the 800x1000 photo (twice the editor canvas) should now be red (JPEG: nearly)
+    const area = printAreaRect('tee');
+    const p = await pixel(mock, Math.round((area.x + area.width / 2) * 2), Math.round((area.y + area.height / 2) * 2));
+    expect(p.r).toBeGreaterThan(230);
+    expect(p.g).toBeLessThan(40);
+    expect(p.b).toBeLessThan(40);
     // the corner of the photo is untouched garment background
     expect((await pixel(mock, 5, 5)).r).toBeGreaterThan(200);
   });
@@ -238,8 +243,8 @@ describe('generateArtifacts', () => {
   test('stores a mockup and a design file under the order id', async () => {
     const { files, storage } = memoryStorage();
     const out = await generateArtifacts({ orderId: 'o1', item, layers: [imageLayer()], loadImage: loader, storage });
-    expect(out).toEqual({ mockupPath: 'o1/mockup.png', designFilePath: 'o1/design.png' });
-    expect([...files.keys()].sort()).toEqual(['o1/design.png', 'o1/mockup.png']);
+    expect(out).toEqual({ mockupPath: 'o1/mockup.jpg', designFilePath: 'o1/design.png' });
+    expect([...files.keys()].sort()).toEqual(['o1/design.png', 'o1/mockup.jpg']);
   });
 
   test('rerunning generation for the same order overwrites rather than duplicates files', async () => {

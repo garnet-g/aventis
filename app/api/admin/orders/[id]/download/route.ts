@@ -22,7 +22,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const url = await signedDownloadUrl(
       {
         createSignedUrl: async (p, seconds) => {
-          const { data, error } = await bucket.createSignedUrl(p, seconds, { download: `${order.id}-${file}.png` });
+          const { data, error } = await bucket.createSignedUrl(p, seconds, { download: `${order.id}-${file}.${p.split('.').pop() ?? 'png'}` });
           if (error || !data) throw new Error('Could not create the download link.');
           return data.signedUrl;
         },

@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { Canvas, FabricImage, Textbox, type FabricObject } from 'fabric';
-import { catalog, printAreaFor, type Color, type ProductId, type Side } from '@/lib/catalog';
+import { catalog, isLightColor, printAreaFor, type Color, type ProductId, type Side } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
 import { CANVAS_H, CANVAS_W, detectDirection, fromFraction, printAreaRect, toFraction } from '@/lib/editorGeometry';
 import { FONTS, normalizeFont, resolveFont, type FontKey } from '@/lib/fonts';
@@ -22,7 +22,8 @@ const HANDLES = {
 } as const;
 
 /** Text starts in the ink that shows up on the chosen garment. */
-export const DEFAULT_TEXT_FILL: Record<Color, string> = { white: '#16120f', black: '#ffffff' };
+/** New text starts in ink on light garments and in white on dark ones, so it is readable straight away. */
+export const defaultTextFill = (c: Color) => (isLightColor(c) ? '#16120f' : '#ffffff');
 export const MIN_TEXT_SIZE = 14;
 export const MAX_TEXT_SIZE = 90;
 const MAX_TEXT_LENGTH = 60;
@@ -365,11 +366,11 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     }
     // Text still in the default ink would vanish on the other garment color, so it follows the garment.
     if (prevColorRef.current !== color) {
-      const from = DEFAULT_TEXT_FILL[prevColorRef.current];
+      const from = defaultTextFill(prevColorRef.current);
       let changed = false;
       for (const obj of canvas.getObjects()) {
         if (metaRef.current.get(obj)?.kind === 'text' && String(obj.fill) === from) {
-          obj.set({ fill: DEFAULT_TEXT_FILL[color] });
+          obj.set({ fill: defaultTextFill(color) });
           changed = true;
         }
       }
@@ -503,7 +504,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         fontSize: BASE_FONT_SIZE,
         fontFamily: FONTS[key].family,
         fontWeight: FONTS[key].weight,
-        fill: DEFAULT_TEXT_FILL[colorRef.current],
+        fill: defaultTextFill(colorRef.current),
         textAlign: 'center',
         direction,
         ...HANDLES,

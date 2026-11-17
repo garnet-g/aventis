@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { filterOrders, ORDER_STATUSES, orderProfit, type OrderListRow } from '@/lib/admin';
 import { requireAdmin } from '@/lib/auth';
+import { catalog, colorLabel, type Color, type ProductId } from '@/lib/catalog';
 import { ORDER_STATUS_LABEL, kes } from '@/lib/labels';
 import { toOrder, type OrderRow } from '@/lib/ordersStore';
 import { getServiceClient } from '@/lib/supabase/server';
@@ -28,7 +29,7 @@ async function Orders({ searchParams }: { searchParams: SearchParams }) {
   const all: (OrderListRow & { label: string })[] = (data ?? []).map((row) => {
     const order = toOrder(row as OrderRow);
     const d = (row as { designs: { product: string; color: string; size: string } | null }).designs;
-    const label = d ? `${d.product} · ${d.color} · ${d.size}${order.quantity > 1 ? ` × ${order.quantity}` : ''}` : '—';
+    const label = d ? `${catalog[d.product as ProductId]?.label ?? d.product} · ${colorLabel(d.color as Color)} · ${d.size}${order.quantity > 1 ? ` × ${order.quantity}` : ''}` : '—';
     return { order, item: label, note: notes.get(order.id) ?? '', label };
   });
   const rows = filterOrders(all, { q, status });

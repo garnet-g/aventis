@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { CartItemControls } from '@/components/CartItemControls';
 import { SiteHeader } from '@/components/SiteHeader';
 import { requireUser } from '@/lib/auth';
-import { catalog } from '@/lib/catalog';
+import { catalog, colorLabel } from '@/lib/catalog';
 import { loadCart } from '@/lib/cart';
 import { supabasePriceStore } from '@/lib/pricesStore';
 import { supabaseCartStore } from '@/lib/cartStore';
@@ -48,7 +48,7 @@ async function Cart() {
                   <div className="min-w-0 flex-1">
                     <p className="font-display text-lg font-extrabold">{catalog[l.design.product].label}</p>
                     <p className="text-sm text-mute">
-                      {l.design.color === 'white' ? 'White' : 'Black'} &middot; Size {l.design.size}
+                      {colorLabel(l.design.color)} &middot; Size {l.design.size}
                       {l.design.backLayers.length > 0 ? ' · front and back' : ''}
                     </p>
                     <p className="text-sm">

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { CartStore } from '@/lib/cart';
 import { parseQuantity } from '@/lib/cart';
-import { COLORS, printAreaFor, SIZES, type Color, type ProductId, type Side, type Size } from '@/lib/catalog';
+import { COLORS, offersColor, printAreaFor, SIZES, type Color, type ProductId, type Side, type Size } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
 import { layersHash, type Design, type DesignStore } from '@/lib/designs';
 import { HttpError } from '@/lib/errors';
@@ -50,9 +50,12 @@ export const catalogueFieldsSchema = z.object({
   description: z.string().trim().max(500, 'Keep the description under 500 characters.').default(''),
   product: z.enum(['tee', 'hoodie'], { message: 'Choose T-shirt or hoodie.' }),
   colors: z
-    .array(z.enum(COLORS))
+    .array(z.enum(COLORS, { message: 'Choose garment colours from the list.' }))
     .min(1, 'Choose at least one garment colour.')
     .transform((c) => [...new Set(c)]),
+}).refine((f) => f.colors.every((c) => offersColor(f.product, c)), {
+  message: 'Hoodies only come in white and black for now. Untick the other colours.',
+  path: ['colors'],
 });
 export type CatalogueFields = z.output<typeof catalogueFieldsSchema>;
 

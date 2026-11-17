@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { ReviewActions } from '@/components/ReviewActions';
 import { requireAdmin } from '@/lib/auth';
+import { catalog, colorLabel, type Color, type ProductId } from '@/lib/catalog';
 import { getServiceClient } from '@/lib/supabase/server';
 
 export default function ReviewQueuePage() {
@@ -33,7 +34,7 @@ async function ReviewQueue() {
               <img src={`/api/admin/designs/${d.id}/preview?side=back`} alt="Design preview, back" className="w-full rounded-lg border-2 border-ink bg-paper-2" />
             )}
             <p className="text-sm">
-              {d.product} · {d.color} · {d.size}{Array.isArray(d.back_layers) && d.back_layers.length > 0 ? ' · front and back' : ''}
+              {catalog[d.product as ProductId]?.label ?? d.product} · {colorLabel(d.color as Color)} · {d.size}{Array.isArray(d.back_layers) && d.back_layers.length > 0 ? ' · front and back' : ''}
             </p>
             <ReviewActions designId={d.id} />
           </li>

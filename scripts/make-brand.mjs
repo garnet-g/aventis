@@ -56,18 +56,20 @@ await square(180, 0.92, 'app/apple-icon.png');
 // ---- art for the catalogue ------------------------------------------------------------------------------------
 // The catalogue centres a picture in the print area, as large as fits. For a smaller print (a chest logo) the logo is
 // placed on a transparent canvas the same shape as the print area, so it lands where we want it.
-const AREAS = { tee: { w: 28, h: 32 }, hoodie: { w: 25, h: 28 } };
+// Front print areas in cm; keep in step with lib/catalog.ts.
+const AREAS = { tee: { w: 27, h: 15 }, hoodie: { w: 25, h: 28 } };
+const CHEST_LOGO_CM = 9; // a left-chest print
 const PX_PER_CM = 60;
 await sharp(trimmed).resize({ width: 1600, kernel: 'lanczos3' }).png().toFile('assets/brand/art-full.png');
 for (const [product, a] of Object.entries(AREAS)) {
   const W = Math.round(a.w * PX_PER_CM);
   const H = Math.round(a.h * PX_PER_CM);
-  const logoW = Math.round(0.36 * W); // about 10 cm wide: a chest print
+  const logoW = Math.round(CHEST_LOGO_CM * PX_PER_CM);
   const logo = await sharp(trimmed).resize({ width: logoW, kernel: 'lanczos3' }).png().toBuffer();
   const lm = await sharp(logo).metadata();
   // top right of the picture is the wearer's left chest when you look at the front of the garment
-  const left = Math.round(0.58 * W);
-  const top = Math.round(0.03 * H);
+  const left = Math.round(W - logoW - 0.04 * W);
+  const top = Math.round(0.04 * H);
   await sharp({ create: { width: W, height: H, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite([{ input: logo, left: Math.min(left, W - lm.width), top }])
     .png()

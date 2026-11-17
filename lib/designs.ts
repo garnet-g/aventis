@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { catalog, COLORS, SIZES } from '@/lib/catalog';
+import { catalog, COLORS, offersColor, SIZES } from '@/lib/catalog';
 import type { DesignLayer } from '@/lib/designLayers';
 import { normalizeFont } from '@/lib/fonts';
 import { moderateDesign } from '@/lib/moderation';
@@ -72,7 +72,7 @@ const inputSchema = z.object({
   size: z.enum(SIZES, { message: 'Choose a size.' }),
   layers: z.array(layerSchema).max(20, 'Use at most 20 items on each side.'),
   backLayers: z.array(layerSchema).max(20, 'Use at most 20 items on each side.').default([]),
-});
+}).refine((v) => offersColor(v.product, v.color), { message: 'That colour is not available for this item.', path: ['color'] });
 
 export type DesignInput = z.input<typeof inputSchema>;
 

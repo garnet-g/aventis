@@ -112,8 +112,11 @@ export async function renderDesignPng(item: ArtifactItem, layers: DesignLayer[],
   return (overlays.length ? base.composite(overlays) : base).png().toBuffer();
 }
 
-/** The garment photo with the design placed in its print area. */
-export async function renderMockupPng(item: ArtifactItem, designPng: Buffer): Promise<Buffer> {
+/**
+ * The garment photo with the design placed in its print area, as a JPEG: it is a picture to look at (the printer
+ * prints the transparent design PNG), and with a photo behind it a JPEG is a tenth of the size of a PNG.
+ */
+export async function renderMockup(item: ArtifactItem, designPng: Buffer): Promise<Buffer> {
   const garment = await readFile(path.join(process.cwd(), 'public', catalog[item.product].garmentImage(item.color, item.side)));
   const area = printAreaRect(item.product, item.side);
   const design = await sharp(designPng)
@@ -122,7 +125,7 @@ export async function renderMockupPng(item: ArtifactItem, designPng: Buffer): Pr
     .toBuffer();
   return sharp(garment)
     .composite([{ input: design, left: Math.round(area.x * PHOTO_SCALE), top: Math.round(area.y * PHOTO_SCALE) }])
-    .png()
+    .jpeg({ quality: 85, mozjpeg: true })
     .toBuffer();
 }
 
@@ -141,19 +144,19 @@ export async function generateArtifacts(args: {
   const { orderId, item, loadImage, storage } = args;
   const front = { ...item, side: 'front' as const };
   const frontDesign = await renderDesignPng(front, args.layers, loadImage);
-  const frontMockup = await renderMockupPng(front, frontDesign);
-  const paths: ArtifactPaths = { mockupPath: `${orderId}/mockup.png`, designFilePath: `${orderId}/design.png` };
+  const frontMockup = await renderMockup(front, frontDesign);
+  const paths: ArtifactPaths = { mockupPath: `${orderId}/mockup.jpg`, designFilePath: `${orderId}/design.png` };
   await storage.upload(paths.designFilePath, frontDesign, 'image/png');
-  await storage.upload(paths.mockupPath, frontMockup, 'image/png');
+  await storage.upload(paths.mockupPath, frontMockup, 'image/jpeg');
 
   if (args.backLayers?.length) {
     const back = { ...item, side: 'back' as const };
     const backDesign = await renderDesignPng(back, args.backLayers, loadImage);
-    const backMockup = await renderMockupPng(back, backDesign);
+    const backMockup = await renderMockup(back, backDesign);
     paths.backDesignFilePath = `${orderId}/back-design.png`;
-    paths.backMockupPath = `${orderId}/back-mockup.png`;
+    paths.backMockupPath = `${orderId}/back-mockup.jpg`;
     await storage.upload(paths.backDesignFilePath, backDesign, 'image/png');
-    await storage.upload(paths.backMockupPath, backMockup, 'image/png');
+    await storage.upload(paths.backMockupPath, backMockup, 'image/jpeg');
   }
   return paths;
 }

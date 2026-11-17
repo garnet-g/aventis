@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { BACK_PRINT_PRICE_KES, catalog, COLORS, SIZES, type Color, type ProductId, type Side, type Size } from '@/lib/catalog';
+import { BACK_PRINT_PRICE_KES, catalog, colorHex, colorLabel, COLORS, fallbackColor, SIZES, type Color, type ProductId, type Side, type Size } from '@/lib/catalog';
 import { kes } from '@/lib/labels';
 import type { DesignLayer } from '@/lib/designLayers';
 import { Editor, MAX_TEXT_SIZE, MIN_TEXT_SIZE, type EditorHandle, type HistoryState, type Selection } from '@/components/Editor';
@@ -34,7 +34,6 @@ type Props = {
 /** For useSyncExternalStore: "is this running in the browser" never changes, so there is nothing to subscribe to. */
 const noSubscribe = () => () => {};
 
-const COLOR_SWATCH: Record<Color, string> = { white: '#ffffff', black: '#16120f' };
 const QUALITY_BADGE = { great: 'badge-forest', ok: 'badge-gold', low: 'badge-red' } as const;
 const QUALITY_LABEL = { great: 'Great', ok: 'OK', low: 'Low' } as const;
 // Names avoid the words White and Black, which are the garment colors.
@@ -310,31 +309,39 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
       )}
 
       <section className="flex flex-col gap-3" aria-label="Item, color and size">
-        <div className="flex items-center gap-3">
-          <div className="flex flex-1 overflow-hidden rounded-[10px] border-2 border-ink" role="group" aria-label="Item">
-            {(Object.keys(catalog) as ProductId[]).map((p) => (
-              <button
-                key={p}
-                aria-pressed={p === state.product}
-                className={`flex-1 py-2.5 text-sm font-bold ${p === state.product ? 'bg-ink text-paper' : ''}`}
-                onClick={() => update({ product: p })}
-              >
-                {catalog[p].label}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-3" role="group" aria-label="Color">
-            {COLORS.map((c) => (
+        <div className="flex overflow-hidden rounded-[10px] border-2 border-ink" role="group" aria-label="Item">
+          {(Object.keys(catalog) as ProductId[]).map((p) => (
+            <button
+              key={p}
+              aria-pressed={p === state.product}
+              className={`flex-1 py-2.5 text-sm font-bold ${p === state.product ? 'bg-ink text-paper' : ''}`}
+              // An item that doesn't come in the current colour switches to the nearest one it does come in.
+              onClick={() => update({ product: p, color: fallbackColor(p, stateRef.current.color) })}
+            >
+              {catalog[p].label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-bold" data-testid="color-name">
+            Colour: {colorLabel(state.color)}
+          </p>
+          <div className="flex flex-wrap gap-2.5" role="group" aria-label="Color">
+            {catalog[state.product].colors.map((c) => (
               <button
                 key={c}
-                aria-label={c === 'white' ? 'White' : 'Black'}
+                aria-label={colorLabel(c)}
+                title={colorLabel(c)}
                 aria-pressed={c === state.color}
                 onClick={() => update({ color: c })}
                 className={`h-9 w-9 rounded-full border-2 border-ink ${c === state.color ? 'ring-2 ring-ink ring-offset-2 ring-offset-paper' : ''}`}
-                style={{ background: COLOR_SWATCH[c] }}
+                style={{ background: colorHex(c) }}
               />
             ))}
           </div>
+          {catalog[state.product].colors.length < COLORS.length && (
+            <p className="text-xs text-mute">{catalog[state.product].label}s come in {catalog[state.product].colors.map(colorLabel).join(' and ').toLowerCase()} for now.</p>
+          )}
         </div>
 
         <div className="flex justify-between" role="group" aria-label="Size">

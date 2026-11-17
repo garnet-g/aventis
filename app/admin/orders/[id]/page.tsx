@@ -4,7 +4,7 @@ import { OrderActions } from '@/components/OrderActions';
 import { OrderNote } from '@/components/OrderNote';
 import { nextStatus, orderProfit } from '@/lib/admin';
 import { requireAdmin } from '@/lib/auth';
-import { catalog } from '@/lib/catalog';
+import { catalog, colorLabel } from '@/lib/catalog';
 import { supabaseDesignStore } from '@/lib/designsStore';
 import { ORDER_STATUS_LABEL, kes } from '@/lib/labels';
 import { supabaseOrderNoteStore } from '@/lib/orderNotesStore';
@@ -37,7 +37,7 @@ async function OrderDetail({ params }: { params: Promise<{ id: string }> }) {
 
       <section className="ticket text-sm">
         <h2 className="mb-1 font-semibold">Item</h2>
-        <p>{design ? `${catalog[design.product].label} · ${design.color === 'white' ? 'White' : 'Black'} · size ${design.size}` : '—'}</p>
+        <p>{design ? `${catalog[design.product].label} · ${colorLabel(design.color)} · size ${design.size}` : '—'}</p>
         <p className="font-semibold">Quantity: {order.quantity}</p>
         <p className="text-mute">{hasBack ? 'Printed on the front and the back' : 'Printed on the front only'}</p>
       </section>

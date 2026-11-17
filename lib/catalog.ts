@@ -1,5 +1,8 @@
+import garmentColors from '@/lib/garmentColors.json';
+
 export type ProductId = 'tee' | 'hoodie';
-export type Color = 'white' | 'black';
+/** Garment colours. The names, labels and swatches live in lib/garmentColors.json (also read by the picture script). */
+export type Color = 'black' | 'white' | 'grey' | 'navy' | 'blue' | 'green' | 'maroon' | 'red' | 'orange' | 'yellow';
 export type Size = 'S' | 'M' | 'L' | 'XL';
 
 export type Side = 'front' | 'back';
@@ -10,14 +13,32 @@ export type Product = {
   label: string;
   costKes: number;
   priceKes: number;
+  /** The colours this item is sold in, in the order they are offered. */
+  colors: Color[];
   /** Front print area. The back has its own: see `backPrintArea` and `printAreaFor`. */
   printArea: PrintArea;
   backPrintArea: PrintArea;
   garmentImage: (c: Color, side?: Side) => string;
 };
 
-export const COLORS: Color[] = ['white', 'black'];
+type ColorInfo = { id: Color; label: string; hex: string };
+const COLOR_INFO = garmentColors as ColorInfo[];
+
+/** Every garment colour, in the order they are offered. */
+export const COLORS: Color[] = COLOR_INFO.map((c) => c.id);
 export const SIZES: Size[] = ['S', 'M', 'L', 'XL'];
+
+const info = (c: Color) => COLOR_INFO.find((x) => x.id === c) ?? COLOR_INFO[0];
+/** "Navy blue": the name customers see. */
+export const colorLabel = (c: Color) => info(c).label;
+/** The swatch colour, sampled from the garment photo. */
+export const colorHex = (c: Color) => info(c).hex;
+/** True for colours where dark ink reads better than white (white, grey, yellow, orange). */
+export const isLightColor = (c: Color) => {
+  const n = parseInt(colorHex(c).slice(1), 16);
+  const lum = (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
+  return lum > 0.4;
+};
 
 // PLACEHOLDER: confirm with owner/printer
 export const DELIVERY_FEE_KES = 250;
@@ -32,19 +53,33 @@ export const catalog: Record<ProductId, Product> = {
     label: 'T-shirt',
     costKes: 800,
     priceKes: 1500, // PLACEHOLDER: confirm with owner/printer
-    printArea: { widthCm: 28, heightCm: 32, topOffsetCm: 8 }, // PLACEHOLDER: confirm with owner/printer
+    colors: COLORS,
+    // Front: 27 cm wide x 15 cm tall, as set by the owner. Its top sits 8 cm below the collar seam (placement placeholder).
+    printArea: { widthCm: 27, heightCm: 15, topOffsetCm: 8 },
     backPrintArea: { widthCm: 28, heightCm: 32, topOffsetCm: 6 }, // PLACEHOLDER: confirm with owner/printer
-    garmentImage: (c, side = 'front') => (side === 'back' ? `/garments/tee-back-${c}.png` : `/garments/tee-${c}.png`),
+    // The front is a real photo; the back is a flat drawing in the same colour until back photos exist.
+    garmentImage: (c, side = 'front') => (side === 'back' ? `/garments/tee-back-${c}.png` : `/garments/tee-${c}.jpg`),
   },
   hoodie: {
     label: 'Hoodie',
     costKes: 1300,
     priceKes: 2200, // PLACEHOLDER: confirm with owner/printer
+    // Only these two until there are hoodie photos in more colours.
+    colors: ['white', 'black'],
     printArea: { widthCm: 25, heightCm: 28, topOffsetCm: 10 }, // PLACEHOLDER: confirm with owner/printer
     backPrintArea: { widthCm: 25, heightCm: 28, topOffsetCm: 8 }, // PLACEHOLDER: confirm with owner/printer
     garmentImage: (c, side = 'front') => (side === 'back' ? `/garments/hoodie-back-${c}.png` : `/garments/hoodie-${c}.png`),
   },
 };
+
+export const offersColor = (product: ProductId, c: Color) => catalog[product].colors.includes(c);
+
+/** The colour to switch to when the item changes and doesn't come in the current one: the closest of light or dark. */
+export function fallbackColor(product: ProductId, c: Color): Color {
+  if (offersColor(product, c)) return c;
+  const options = catalog[product].colors;
+  return options.find((o) => isLightColor(o) === isLightColor(c)) ?? options[0];
+}
 
 export function printAreaFor(product: ProductId, side: Side = 'front'): PrintArea {
   return side === 'back' ? catalog[product].backPrintArea : catalog[product].printArea;

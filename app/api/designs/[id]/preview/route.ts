@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { renderDesignPng, renderMockupPng } from '@/lib/artifacts';
+import { renderDesignPng, renderMockup } from '@/lib/artifacts';
 import { supabaseImageLoader } from '@/lib/artifactsService';
 import { apiUser } from '@/lib/auth';
 import { supabaseDesignStore } from '@/lib/designsStore';
@@ -17,9 +17,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const item = { product: design.product, color: design.color, side } as const;
     const layers = side === 'back' ? design.backLayers : design.layers;
     const designPng = await renderDesignPng(item, layers, supabaseImageLoader(design.userId, design.id));
-    const mockup = await renderMockupPng(item, designPng);
+    const mockup = await renderMockup(item, designPng);
     return new NextResponse(new Uint8Array(mockup), {
-      headers: { 'content-type': 'image/png', 'cache-control': 'private, max-age=300' },
+      headers: { 'content-type': 'image/jpeg', 'cache-control': 'private, max-age=300' },
     });
   } catch (e) {
     return errorResponse(e);

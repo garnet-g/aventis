@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { AddToCartButton } from '@/components/AddToCartButton';
 import { SiteHeader } from '@/components/SiteHeader';
 import { requireUser } from '@/lib/auth';
-import { catalog } from '@/lib/catalog';
+import { catalog, colorLabel } from '@/lib/catalog';
 import { buildCustomerView, type Tone } from '@/lib/customerItems';
 import { toDesign, type DesignRow } from '@/lib/designsStore';
 import type { OrderStatus } from '@/lib/orders';
@@ -85,7 +85,7 @@ async function MyOrders() {
               {state.text}
             </span>
             <p className="mt-2 font-display text-lg font-extrabold">
-              {catalog[design.product].label} &middot; {design.color === 'white' ? 'White' : 'Black'} &middot; {design.size}
+              {catalog[design.product].label} &middot; {colorLabel(design.color)} &middot; {design.size}
               {quantity && quantity > 1 ? ` × ${quantity}` : ''}
             </p>
             {orderStatus && <Track status={orderStatus} />}

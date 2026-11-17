@@ -2,6 +2,7 @@ import { writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import sharp from 'sharp';
 import { addName, addUpload, adminPage, designIdFor, fillDeliveryAndPay, goToCheckout, service, signUp, uniqueEmail, userId } from './helpers';
+import { printAreaRect } from '@/lib/editorGeometry';
 
 async function expectNoHorizontalScroll(page: Page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -50,12 +51,15 @@ test('customer designs, passes the check, pays in test mode; admin sees the paid
     const res = await admin.context.request.get(`/api/admin/orders/${order!.id}/download?file=${file}`);
     expect(res.status()).toBe(200);
     const body = await res.body();
-    expect([...body.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]); // PNG signature
-    writeFileSync(`test-results/order-${file}.png`, body); // kept for a visual check
+    // the printer's design file is a transparent PNG; the mockup is a JPEG (a photo behind it)
+    if (file === 'design') expect([...body.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]); // PNG signature
+    else expect([...body.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]); // JPEG signature
+    writeFileSync(`test-results/order-${file}.${file === 'design' ? 'png' : 'jpg'}`, body); // kept for a visual check
     if (file === 'mockup') {
       // the red upload sits in the middle of the print area on the garment photo
       const { data, info } = await sharp(body).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-      const i = (290 * info.width + 360) * info.channels;
+      const area = printAreaRect('tee'); // canvas pixels; the photo is twice the size
+      const i = (Math.round((area.y + area.height / 2) * 2) * info.width + Math.round((area.x + area.width / 2) * 2)) * info.channels;
       expect(data[i]).toBeGreaterThan(180); // red
       expect(data[i + 1]).toBeLessThan(90);
       expect(data[i + 2]).toBeLessThan(90);
@@ -203,7 +207,9 @@ test('a front-and-back design costs more, and the admin gets four files', async 
   for (const file of ['back-mockup', 'back-design']) {
     const res = await admin.context.request.get(`/api/admin/orders/${order!.id}/download?file=${file}`);
     expect(res.status(), file).toBe(200);
-    expect([...(await res.body()).subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    const head = [...(await res.body()).subarray(0, 4)];
+    if (file === 'back-design') expect(head).toEqual([0x89, 0x50, 0x4e, 0x47]); // PNG
+    else expect(head.slice(0, 3)).toEqual([0xff, 0xd8, 0xff]); // JPEG
   }
   await admin.context.close();
 });
@@ -214,6 +220,13 @@ test('a design is saved as you go, and can be resumed later with its image and t
   await addUpload(page);
   await addName(page, 'Resume me');
   await expect(page.getByTestId('save-status')).toContainText('Saved');
+  // "Saved" can come from an earlier save; wait until the server really has both the picture and the text
+  await expect
+    .poll(async () => {
+      const { data } = await service().from('designs').select('layers').eq('id', await designIdFor(email)).single();
+      return (data?.layers as unknown[] | undefined)?.length ?? 0;
+    })
+    .toBe(2);
 
   await page.goto('/orders');
   const resume = page.getByRole('link', { name: 'Continue designing' });
@@ -224,14 +237,17 @@ test('a design is saved as you go, and can be resumed later with its image and t
   // what was saved comes back: two things on the front...
   await expect(page.getByRole('tab', { name: /Front/ })).toContainText('(2)');
   // ...and the picture is really drawn again (a red square from the signed link), not just counted
+  const area = printAreaRect('tee');
   await expect
     .poll(async () =>
-      page.evaluate(() => {
+      page.evaluate((r) => {
         const c = document.querySelector('canvas.lower-canvas') as HTMLCanvasElement;
         const s = c.width / 400;
-        const d = c.getContext('2d')!.getImageData(Math.round(175 * s), Math.round(135 * s), 1, 1).data;
-        return d[0] > 180 && d[1] < 90 && d[2] < 90;
-      }),
+        const px = c.getContext('2d')!.getImageData(Math.round(r.x * s), Math.round(r.y * s), Math.round(r.width * s), Math.round(r.height * s)).data;
+        let red = 0;
+        for (let i = 0; i < px.length; i += 4) if (px[i] > 180 && px[i + 1] < 90 && px[i + 2] < 90) red++;
+        return red > 500;
+      }, area),
     )
     .toBe(true);
 });

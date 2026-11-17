@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { connection } from 'next/server';
-import { renderDesignPng, renderMockupPng, type ImageLoader } from '@/lib/artifacts';
+import { renderDesignPng, renderMockup, type ImageLoader } from '@/lib/artifacts';
 import type { Color } from '@/lib/catalog';
 import type { ArtFile, CatalogueItem, CatalogueStore } from '@/lib/catalogueItems';
 import type { DesignLayer } from '@/lib/designLayers';
@@ -110,9 +110,9 @@ const loadCatalogueArt: ImageLoader = async (path) => {
 export async function renderCataloguePreview(args: { product: CatalogueItem['product']; color: Color; side: 'front' | 'back'; layers: DesignLayer[] }) {
   try {
     const item = { product: args.product, color: args.color, side: args.side };
-    const png = await renderMockupPng(item, await renderDesignPng(item, args.layers, loadCatalogueArt));
-    const path = `previews/${randomUUID()}-${args.color}-${args.side}.png`;
-    const { error } = await getServiceClient().storage.from(BUCKET).upload(path, png, { contentType: 'image/png' });
+    const jpeg = await renderMockup(item, await renderDesignPng(item, args.layers, loadCatalogueArt));
+    const path = `previews/${randomUUID()}-${args.color}-${args.side}.jpg`;
+    const { error } = await getServiceClient().storage.from(BUCKET).upload(path, jpeg, { contentType: 'image/jpeg' });
     if (error) throw new Error(error.message);
     return { path };
   } catch (e) {

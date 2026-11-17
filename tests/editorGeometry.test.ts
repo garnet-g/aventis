@@ -20,9 +20,9 @@ describe('printAreaRect', () => {
     }
   });
 
-  test('tee area has the aspect ratio of its print area in cm (28 x 32)', () => {
+  test('tee front area has the aspect ratio of its print area in cm (27 x 15)', () => {
     const r = printAreaRect('tee');
-    expect(r.width / r.height).toBeCloseTo(28 / 32);
+    expect(r.width / r.height).toBeCloseTo(27 / 15);
   });
 });
 
