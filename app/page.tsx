@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { unstable_rethrow } from 'next/navigation';
 import { Suspense } from 'react';
 import { SiteHeader } from '@/components/SiteHeader';
 import { catalog } from '@/lib/catalog';
@@ -147,6 +148,7 @@ async function FeaturedCatalogue() {
   try {
     items = (await supabaseCatalogueStore().list({ publishedOnly: true })).slice(0, 4);
   } catch (e) {
+    unstable_rethrow(e); // signals Next.js uses for itself are not failures
     // the rest of the home page still works without this section (e.g. while the database is starting)
     console.error(`could not load the featured catalogue designs: ${e instanceof Error ? e.message : String(e)}`);
     return null;

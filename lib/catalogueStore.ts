@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { connection } from 'next/server';
 import { renderDesignPng, renderMockupPng, type ImageLoader } from '@/lib/artifacts';
 import type { Color } from '@/lib/catalog';
 import type { ArtFile, CatalogueItem, CatalogueStore } from '@/lib/catalogueItems';
@@ -40,6 +41,7 @@ export function supabaseCatalogueStore(): CatalogueStore {
   const db = () => getServiceClient();
   return {
     async list(opts) {
+      await connection(); // what is published changes at any time: read it per request, never while pre-building a page
       let q = db().from('catalogue_items').select('*').order('created_at', { ascending: false });
       if (opts?.publishedOnly) q = q.eq('published', true);
       const { data, error } = await q;
@@ -47,6 +49,7 @@ export function supabaseCatalogueStore(): CatalogueStore {
       return (data as Row[]).map(toItem);
     },
     async get(id) {
+      await connection();
       const { data } = await db().from('catalogue_items').select('*').eq('id', id).maybeSingle();
       return data ? toItem(data as Row) : null;
     },

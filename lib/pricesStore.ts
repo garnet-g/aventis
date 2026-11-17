@@ -1,3 +1,4 @@
+import { connection } from 'next/server';
 import { DEFAULT_PRICES, pricesFromStored, type PriceStore } from '@/lib/prices';
 import { getServiceClient } from '@/lib/supabase/server';
 
@@ -6,6 +7,9 @@ export function supabasePriceStore(): PriceStore {
   const db = () => getServiceClient();
   return {
     async get() {
+      // Prices change whenever the owner saves them, so they are read for each request. Without this, Next.js reads
+      // them while pre-building the page and cuts the request off when it finishes, which logged false errors.
+      await connection();
       const { data, error } = await db().from('settings').select('value').eq('key', 'prices').maybeSingle();
       if (error) {
         // a Supabase error prints as {} in the browser overlay, so log its message (e.g. the database is still starting)
