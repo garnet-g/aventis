@@ -6,61 +6,13 @@ import { HttpError } from '@/lib/errors';
 import type { PaymentProvider } from '@/lib/payments';
 import { DEFAULT_PRICES, type PriceStore } from '@/lib/prices';
 import { checkoutTotals, lineTotals } from '@/lib/pricing';
+import { COUNTIES } from '@/lib/counties';
 
 export { HttpError } from '@/lib/errors';
+export { COUNTIES } from '@/lib/counties';
 
 export type OrderStatus = 'paid' | 'at_printer' | 'shipped' | 'delivered';
 
-/** Kenya's 47 counties, for the delivery address. */
-export const COUNTIES = [
-  "Baringo",
-  "Bomet",
-  "Bungoma",
-  "Busia",
-  "Elgeyo-Marakwet",
-  "Embu",
-  "Garissa",
-  "Homa Bay",
-  "Isiolo",
-  "Kajiado",
-  "Kakamega",
-  "Kericho",
-  "Kiambu",
-  "Kilifi",
-  "Kirinyaga",
-  "Kisii",
-  "Kisumu",
-  "Kitui",
-  "Kwale",
-  "Laikipia",
-  "Lamu",
-  "Machakos",
-  "Makueni",
-  "Mandera",
-  "Marsabit",
-  "Meru",
-  "Migori",
-  "Mombasa",
-  "Murang'a",
-  "Nairobi",
-  "Nakuru",
-  "Nandi",
-  "Narok",
-  "Nyamira",
-  "Nyandarua",
-  "Nyeri",
-  "Samburu",
-  "Siaya",
-  "Taita-Taveta",
-  "Tana River",
-  "Tharaka-Nithi",
-  "Trans Nzoia",
-  "Turkana",
-  "Uasin Gishu",
-  "Vihiga",
-  "Wajir",
-  "West Pokot",
-] as const;
 
 export const deliverySchema = z.object({
   name: z.string().trim().min(2, 'Enter your full name.').max(80),

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { kes } from '@/lib/labels';
-import { COUNTIES } from '@/lib/orders';
+import { COUNTIES } from '@/lib/counties';
 
 export function CheckoutForm({ totalKes, testMode }: { totalKes: number; testMode: boolean }) {
   const router = useRouter();
