@@ -310,7 +310,7 @@ test('a cart holds several designs with quantities; one payment makes one order 
   await first.getByRole('button', { name: 'Increase quantity' }).click();
   await expect(first.getByTestId('quantity')).toHaveText('3');
   // 3 x 1,500 + 1 x 1,500 + 250 delivery, charged once
-  await expect(page.getByTestId('cart-total')).toHaveText('KES 6,250');
+  await expect(page.getByTestId('cart-total')).toHaveText('KES 6,250', { timeout: 15_000 }); // after the page refreshes from the server
 
   await page.getByRole('link', { name: /^Checkout/ }).click();
   await page.waitForURL('**/checkout');

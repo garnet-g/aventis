@@ -16,6 +16,9 @@ export default function ReviewQueuePage() {
   );
 }
 
+/** The embedded one-to-one row comes back as an object (or, from older clients, a one-item list). */
+const reasonOf = (r: unknown) => ((Array.isArray(r) ? r[0] : r) as { reason?: string } | null)?.reason ?? '';
+
 function waiting(since: string, now: number) {
   const minutes = Math.max(0, Math.round((now - new Date(since).getTime()) / 60_000));
   if (minutes < 60) return `${minutes} min`;
@@ -28,7 +31,7 @@ async function loadQueue() {
   await connection();
   const { data } = await getServiceClient()
     .from('designs')
-    .select('id, user_id, product, color, size, back_layers, updated_at, review_reason')
+    .select('id, user_id, product, color, size, back_layers, updated_at, design_review_reasons(reason)')
     .eq('status', 'pending_review')
     .order('updated_at', { ascending: true })
     .limit(100);
@@ -65,7 +68,7 @@ async function ReviewQueue() {
                 {hasBack ? ' · front and back' : ''}
               </p>
               <p className="text-sm">
-                <b>Why it is here:</b> {(d.review_reason as string | null) || 'The automatic check was not sure.'}
+                <b>Why it is here:</b> {reasonOf(d.design_review_reasons) || 'The automatic check was not sure.'}
               </p>
               <p className="text-xs text-mute">
                 {emails.get(d.user_id as string) ?? 'Unknown customer'} · waiting {d.waitingFor}

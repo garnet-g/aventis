@@ -46,6 +46,12 @@ describe('row-level security', () => {
     expect(r.rows[0].status).toBe('draft');
   });
 
+  test('a customer cannot read why their own design went to review', async () => {
+    await db.query(`insert into design_review_reasons (design_id, reason) values ($1, 'The text contains "sexy"')`, [aliceDesign]);
+    const seen = await asUser(db, alice, async () => (await db.query('select reason from design_review_reasons')).rows).catch(() => []);
+    expect(seen).toEqual([]);
+  });
+
   test('customer cannot insert an order', async () => {
     await expect(asUser(db, alice, () => insertOrder(aliceDesign, alice))).rejects.toThrow();
   });

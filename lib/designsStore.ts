@@ -11,7 +11,6 @@ export type DesignRow = {
   back_layers: Design['backLayers'];
   status: Design['status'];
   reject_reason: string | null;
-  review_reason?: string | null;
   moderated_hash: string | null;
   updated_at: string;
 };
@@ -26,7 +25,6 @@ export const toDesign = (r: DesignRow): Design => ({
   backLayers: r.back_layers ?? [],
   status: r.status,
   rejectReason: r.reject_reason,
-  reviewReason: r.review_reason ?? null,
   moderatedHash: r.moderated_hash,
   version: r.updated_at,
 });
@@ -39,13 +37,19 @@ const toRow = (p: Partial<Omit<Design, 'id' | 'userId' | 'version'>>) => ({
   ...(p.backLayers && { back_layers: p.backLayers }),
   ...(p.status && { status: p.status }),
   ...(p.rejectReason !== undefined && { reject_reason: p.rejectReason }),
-  ...(p.reviewReason !== undefined && { review_reason: p.reviewReason }),
   ...(p.moderatedHash !== undefined && { moderated_hash: p.moderatedHash }),
 });
 
 /** Uses the service role: callers (lib/designs.ts) check ownership before every read or write. */
 export function supabaseDesignStore(): DesignStore {
   const db = () => getServiceClient();
+  // the review reason lives in a table only the server can read (customers can read their own designs rows)
+  const saveReviewReason = async (id: string, reason: string | null | undefined) => {
+    if (reason === undefined) return;
+    const t = db().from('design_review_reasons');
+    const { error } = reason ? await t.upsert({ design_id: id, reason }) : await t.delete().eq('design_id', id);
+    if (error) console.error('could not save the review reason for design', id, error.message);
+  };
   return {
     async get(id) {
       const { data } = await db().from('designs').select('*').eq('id', id).maybeSingle();
@@ -59,13 +63,16 @@ export function supabaseDesignStore(): DesignStore {
     async update(id, patch) {
       const { data, error } = await db().from('designs').update(toRow(patch)).eq('id', id).select('*').single();
       if (error) throw new Error(error.message);
+      await saveReviewReason(id, patch.reviewReason);
       return toDesign(data as DesignRow);
     },
     async updateIfVersion(id, version, patch) {
       // updated_at is bumped by a trigger on every write, so it doubles as the version.
       const { data, error } = await db().from('designs').update(toRow(patch)).eq('id', id).eq('updated_at', version).select('*');
       if (error) throw new Error(error.message);
-      return data && data.length > 0 ? toDesign(data[0] as DesignRow) : null;
+      if (!data?.length) return null;
+      await saveReviewReason(id, patch.reviewReason);
+      return toDesign(data[0] as DesignRow);
     },
     async hasOrder(id) {
       const { count } = await db().from('orders').select('id', { count: 'exact', head: true }).eq('design_id', id);

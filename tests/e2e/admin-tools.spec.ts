@@ -106,3 +106,31 @@ test('prices changed on screen reach the customer; paid orders keep their price;
     await admin.context.close();
   }
 });
+
+test('an admin can give another account admin rights and take them away, but not their own', async ({ page, browser }) => {
+  const email = uniqueEmail('newadmin');
+  await signUp(page, email);
+  const admin = await adminPage(browser);
+  await admin.page.goto('/admin/admins');
+  await expect(admin.page.getByTestId('admin-row').filter({ hasText: '(you)' })).toBeVisible();
+  await expect(admin.page.getByTestId('admin-row').filter({ hasText: '(you)' }).getByRole('button', { name: 'Remove' })).toHaveCount(0);
+
+  await admin.page.getByLabel('Add an admin by email').fill('nobody-here@example.com');
+  await admin.page.getByRole('button', { name: 'Add admin' }).click();
+  await expect(admin.page.getByText(/sign up first/)).toBeVisible();
+
+  await admin.page.getByLabel('Add an admin by email').fill(email.toUpperCase());
+  await admin.page.getByRole('button', { name: 'Add admin' }).click();
+  const row = admin.page.getByTestId('admin-row').filter({ hasText: email });
+  await expect(row).toBeVisible();
+  await page.goto('/admin/orders');
+  await expect(page.getByRole('heading', { name: 'Orders' })).toBeVisible();
+
+  admin.page.once('dialog', (d) => void d.accept());
+  await row.getByRole('button', { name: 'Remove' }).click();
+  await expect(row).toHaveCount(0);
+  await page.goto('/admin/orders');
+  await expect(page.getByText(/could not be found/i).first()).toBeVisible();
+  // and the API agrees
+  expect((await page.request.post('/api/admin/admins', { data: { email } })).status()).toBe(404);
+});

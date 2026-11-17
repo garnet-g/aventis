@@ -63,6 +63,7 @@ function NavLinks({ reviews = 0, newOrders = 0 }: { reviews?: number; newOrders?
       <Link href="/admin/payments">Payments</Link>
       <Link href="/admin/catalogue">Catalogue</Link>
       <Link href="/admin/settings">Prices</Link>
+      <Link href="/admin/admins">Admins</Link>
     </>
   );
 }
