@@ -6,7 +6,7 @@ import { COUNTIES } from '@/lib/counties';
 export { HttpError } from '@/lib/errors';
 export { COUNTIES } from '@/lib/counties';
 
-export type OrderStatus = 'paid' | 'at_printer' | 'shipped' | 'delivered';
+export type OrderStatus = 'paid' | 'at_printer' | 'shipped' | 'delivered' | 'cancelled';
 
 
 export const deliverySchema = z.object({
@@ -44,7 +44,19 @@ export type Order = {
   backMockupPath: string | null;
   backDesignFilePath: string | null;
   artifactsFailed: boolean;
+  /** When the customer paid. */
+  createdAt?: string;
+  /** Set when the order ships. */
+  courier?: string | null;
+  tracking?: string | null;
+  cancelReason?: string | null;
+  /** Money given back to the customer, with the M-Pesa reference of the refund. */
+  refundedKes?: number | null;
+  refundRef?: string | null;
+  refundedAt?: string | null;
 };
+
+export type StatusFields = { courier?: string | null; tracking?: string | null; cancelReason?: string | null };
 
 /** The files made for an order. The back pair exists only when the back is printed. */
 export type ArtifactPaths = { mockupPath: string; designFilePath: string; backMockupPath?: string; backDesignFilePath?: string };
@@ -67,7 +79,9 @@ export interface OrderStore {
   /** The orders made by the checkout with this reference, in cart order, or null when there is none. */
   findCheckoutOrders(reference: string): Promise<Order[] | null>;
   /** Compare-and-set: changes the status only if it is still `from`; returns null when someone else moved it first. */
-  setStatus(id: string, from: OrderStatus, to: OrderStatus): Promise<Order | null>;
+  setStatus(id: string, from: OrderStatus, to: OrderStatus, fields?: StatusFields): Promise<Order | null>;
+  /** Records a refund (amount and M-Pesa reference). */
+  markRefunded(id: string, refund: { kes: number; ref: string }): Promise<Order | null>;
   /** Creates the checkout and all its orders together or not at all. Throws DuplicateCheckoutError on a repeat. */
   createCheckout(checkout: NewCheckout): Promise<Order[]>;
   setArtifacts(orderId: string, paths: ArtifactPaths): Promise<void>;

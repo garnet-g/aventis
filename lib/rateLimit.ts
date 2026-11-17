@@ -6,10 +6,12 @@ import { getServiceClient } from '@/lib/supabase/server';
  * Keys are per user (e.g. "upload:<user id>"). If the counter can't be reached the request is allowed (and logged):
  * a database hiccup should not lock customers out.
  */
-export async function rateLimit(key: string, max: number, windowSeconds: number): Promise<void> {
+export async function rateLimit(key: string, max: number, windowSeconds: number, opts: { failClosed?: boolean } = {}): Promise<void> {
   if (process.env.RATE_LIMITS === 'off') return;
   const { data, error } = await getServiceClient().rpc('hit_rate_limit', { p_key: key, p_max: max, p_window_seconds: windowSeconds });
   if (error) {
+    // Limits that protect other people (M-Pesa prompts to a phone) block when they can't be checked.
+    if (opts.failClosed) throw new HttpError(503, 'Payments are busy right now. Please try again in a minute.');
     console.error('rate limit check failed; allowing the request', error.message);
     return;
   }

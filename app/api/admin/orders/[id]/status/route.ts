@@ -4,20 +4,19 @@ import { requireAdmin } from '@/lib/auth';
 import { errorResponse } from '@/lib/http';
 import { getEmailSender, getSiteUrl } from '@/lib/notify';
 import { supabaseOrderStore } from '@/lib/ordersStore';
-import { getServiceClient } from '@/lib/supabase/server';
+import { emailForUser } from '@/lib/paymentService';
+import { getSmsSender } from '@/lib/sms';
 
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+/** Moves an order one step forward. When it ships, the body may carry { courier, tracking } for the customer's SMS. */
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   try {
     const { id } = await params;
+    const body = (await req.json().catch(() => ({}))) as { courier?: unknown; tracking?: unknown };
     const order = await advanceAndNotify(
-      {
-        orders: supabaseOrderStore(),
-        email: getEmailSender(),
-        emailFor: async (userId) => (await getServiceClient().auth.admin.getUserById(userId)).data.user?.email ?? null,
-        siteUrl: getSiteUrl(),
-      },
+      { orders: supabaseOrderStore(), email: getEmailSender(), emailFor: emailForUser, siteUrl: getSiteUrl(), sms: getSmsSender() },
       id,
+      { courier: typeof body.courier === 'string' ? body.courier : undefined, tracking: typeof body.tracking === 'string' ? body.tracking : undefined },
     );
     return NextResponse.json({ status: order.status });
   } catch (e) {

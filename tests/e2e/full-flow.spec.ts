@@ -71,7 +71,32 @@ test('customer designs, passes the check, pays in test mode; admin sees the paid
   }
 
   await admin.page.getByRole('button', { name: /Mark as: At printer/ }).click();
+  await admin.page.getByRole('button', { name: 'Confirm: At printer' }).click();
   await expect(admin.page.getByText('Status: At printer')).toBeVisible();
+
+  // shipping asks for the courier and tracking number, which then show on the order
+  await admin.page.getByRole('button', { name: /Mark as: Shipped/ }).click();
+  await admin.page.getByLabel('Courier (optional)').fill('G4S');
+  await admin.page.getByLabel('Tracking number (optional)').fill('G4S-123456');
+  await admin.page.getByRole('button', { name: 'Confirm: Shipped' }).click();
+  await expect(admin.page.getByText('Status: Shipped')).toBeVisible();
+  await expect(admin.page.getByText('G4S-123456')).toBeVisible();
+
+  // a mis-click can be undone, and an order that hasn't shipped can be cancelled and refunded
+  await admin.page.getByRole('button', { name: 'Back to: At printer' }).click();
+  await expect(admin.page.getByText('Status: At printer')).toBeVisible();
+  await admin.page.getByRole('button', { name: 'Cancel order' }).click();
+  await admin.page.getByLabel('Why (the customer sees this)').fill('Out of stock in this size');
+  await admin.page.getByRole('button', { name: 'Cancel this order' }).click();
+  await expect(admin.page.getByText('Status: Cancelled')).toBeVisible();
+  await admin.page.getByRole('button', { name: 'Record a refund' }).click();
+  await admin.page.getByLabel('M-Pesa reference of the refund').fill('TKR1234567');
+  await admin.page.getByRole('button', { name: 'Save refund' }).click();
+  await expect(admin.page.getByText(/Refunded KES [0-9,]+ \(ref TKR1234567\)/)).toBeVisible();
+
+  // the customer sees the cancellation
+  await page.goto('/orders');
+  await expect(page.getByTestId('design-state').first()).toHaveText('Cancelled');
   await admin.context.close();
 });
 

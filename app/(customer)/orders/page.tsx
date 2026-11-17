@@ -88,7 +88,7 @@ async function MyOrders() {
               {catalog[design.product].label} &middot; {colorLabel(design.color)} &middot; {design.size}
               {quantity && quantity > 1 ? ` × ${quantity}` : ''}
             </p>
-            {orderStatus && <Track status={orderStatus} />}
+            {orderStatus && orderStatus !== 'cancelled' && <Track status={orderStatus} />}
             {state.action &&
               (state.action.addToCart ? (
                 <AddToCartButton designId={state.action.addToCart} href={state.action.href} label={state.action.label} />

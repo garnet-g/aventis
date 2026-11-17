@@ -73,10 +73,14 @@ export function supabasePaymentStore(): PaymentStore {
       const { error } = await db().from('payments').update({ request_id: requestId }).eq('id', id);
       if (error) throw new Error(error.message);
     },
+    async hasPaidFrom(userId, phone) {
+      const { count } = await db().from('payments').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('phone', phone).in('status', ['paid', 'needs_refund', 'refunded']);
+      return (count ?? 0) > 0;
+    },
     async transition(id, from, to, fields = {}) {
       const { data, error } = await db()
         .from('payments')
-        .update({ status: to, ...(fields.providerRef && { provider_ref: fields.providerRef }), ...(fields.failureReason && { failure_reason: fields.failureReason }) })
+        .update({ status: to, ...(fields.providerRef && { provider_ref: fields.providerRef }), ...(fields.failureReason && { failure_reason: fields.failureReason }), ...(fields.refundRef && { refund_ref: fields.refundRef }) })
         .eq('id', id)
         .in('status', from)
         .select('*');

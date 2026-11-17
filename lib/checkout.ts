@@ -18,7 +18,7 @@ import { checkoutTotals, lineTotals } from '@/lib/pricing';
 
 export type CheckoutItem = { designId: string; quantity: number; priceKes: number; costKes: number };
 
-export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'expired' | 'needs_refund';
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'expired' | 'needs_refund' | 'refunded';
 
 export type PaymentRecord = {
   id: string;
@@ -49,7 +49,9 @@ export interface PaymentStore {
   latestPending(userId: string): Promise<PaymentRecord | null>;
   setRequestId(id: string, requestId: string): Promise<void>;
   /** Moves a payment from one of `from` to `to`; null when it was not in one of `from` (someone else settled it). */
-  transition(id: string, from: PaymentStatus[], to: PaymentStatus, fields?: { providerRef?: string; failureReason?: string }): Promise<PaymentRecord | null>;
+  transition(id: string, from: PaymentStatus[], to: PaymentStatus, fields?: { providerRef?: string; failureReason?: string; refundRef?: string }): Promise<PaymentRecord | null>;
+  /** True when this customer has completed an M-Pesa payment from this number before (so it is theirs to use). */
+  hasPaidFrom(userId: string, phone: string): Promise<boolean>;
 }
 
 /** How long a phone prompt is worth waiting for before a new one may be sent (M-Pesa prompts time out after ~1 minute). */
@@ -156,7 +158,7 @@ export async function startCheckout(deps: Deps, args: { userId: string; delivery
 
 export type FinalizeResult =
   | { status: 'paid'; payment: PaymentRecord; orders: Order[]; created: boolean }
-  | { status: 'failed' | 'needs_refund' | 'pending' | 'expired'; payment: PaymentRecord | null; reason?: string; /** True only for the call that moved it to needs_refund (so admins are alerted once). */ flagged?: boolean };
+  | { status: 'failed' | 'needs_refund' | 'pending' | 'expired' | 'refunded'; payment: PaymentRecord | null; reason?: string; /** True only for the call that moved it to needs_refund (so admins are alerted once). */ flagged?: boolean };
 
 /**
  * Step 3: the money arrived. Records the orders from the payment's own copy of the cart. Safe to call twice (the
@@ -296,7 +298,10 @@ export class MemoryPaymentStore implements PaymentStore {
     const r = this.rows.get(id);
     if (r) r.requestId = requestId;
   }
-  async transition(id: string, from: PaymentStatus[], to: PaymentStatus, fields: { providerRef?: string; failureReason?: string } = {}) {
+  async hasPaidFrom(userId: string, phone: string) {
+    return [...this.rows.values()].some((r) => r.userId === userId && r.phone === phone && ['paid', 'needs_refund', 'refunded'].includes(r.status));
+  }
+  async transition(id: string, from: PaymentStatus[], to: PaymentStatus, fields: { providerRef?: string; failureReason?: string; refundRef?: string } = {}) {
     const r = this.rows.get(id);
     if (!r || !from.includes(r.status)) return null;
     Object.assign(r, { status: to, ...(fields.providerRef && { providerRef: fields.providerRef }), ...(fields.failureReason && { failureReason: fields.failureReason }) });

@@ -7,7 +7,7 @@ export type Tone = 'gold' | 'forest' | 'ink' | 'red';
 export type DesignAction = { href: string; label: string; addToCart?: string };
 export type DesignState = { text: string; tone: Tone; action?: DesignAction };
 
-const ORDER_TONE: Record<OrderStatus, Tone> = { paid: 'forest', at_printer: 'gold', shipped: 'ink', delivered: 'forest' };
+const ORDER_TONE: Record<OrderStatus, Tone> = { paid: 'forest', at_printer: 'gold', shipped: 'ink', delivered: 'forest', cancelled: 'red' };
 
 /** What a customer sees for one of their designs, in plain words. */
 export function describeDesign(design: Design, orderStatus: OrderStatus | null): DesignState {

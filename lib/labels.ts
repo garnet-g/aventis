@@ -5,6 +5,7 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   at_printer: 'At printer',
   shipped: 'Shipped',
   delivered: 'Delivered',
+  cancelled: 'Cancelled',
 };
 
 export const kes = (n: number) => `KES ${n.toLocaleString('en-KE')}`;

@@ -20,13 +20,16 @@ export async function POST(req: Request) {
     const { delivery, mpesaPhone, acceptTerms } = await readJsonObject(req);
     if (acceptTerms !== true) throw new HttpError(400, 'Please accept the terms and confirm you own the rights to your designs.');
     // Prompts go to a phone that must approve them with its PIN, but nobody should be able to pester a number with
-    // M-Pesa requests. Only prompts actually sent count: per account and number, and (more loosely) per number across
-    // all accounts, so other people can't easily use up the owner's own allowance.
+    // M-Pesa requests. Only prompts actually sent count. Every number: 5 per account per 10 minutes. A number this
+    // account hasn't paid from before (not proven to be theirs): also 5 per 10 minutes across all accounts. A number
+    // the customer has paid from is exempt from the shared cap, so strangers can't lock its owner out.
+    const deps = checkoutDeps();
     const beforePrompt = async (phone: string) => {
-      await rateLimit(`prompt:${user.id}:${phone}`, 5, 10 * 60);
-      await rateLimit(`prompt:${phone}`, 20, 10 * 60);
+      await rateLimit(`prompt:${user.id}:${phone}`, 5, 10 * 60, { failClosed: true });
+      // in test mode nothing reaches a real phone, so only the per-account limit applies
+      if (!deps.provider.isTestMode && !(await deps.payments.hasPaidFrom(user.id, phone))) await rateLimit(`prompt:${phone}`, 5, 10 * 60, { failClosed: true });
     };
-    const result = await startCheckout({ ...checkoutDeps(), beforePrompt }, { userId: user.id, delivery, mpesaPhone: typeof mpesaPhone === 'string' ? mpesaPhone : undefined });
+    const result = await startCheckout({ ...deps, beforePrompt }, { userId: user.id, delivery, mpesaPhone: typeof mpesaPhone === 'string' ? mpesaPhone : undefined });
     if (result.status === 'pending') {
       return NextResponse.json({ status: 'pending', paymentId: result.payment.id, message: result.message });
     }

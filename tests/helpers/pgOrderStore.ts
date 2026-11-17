@@ -28,6 +28,13 @@ const toOrder = (r: Row): Order => ({
   backMockupPath: (r.back_mockup_path as string) ?? null,
   backDesignFilePath: (r.back_design_file_path as string) ?? null,
   artifactsFailed: r.artifacts_failed as boolean,
+  createdAt: String(r.created_at),
+  courier: (r.courier as string) ?? null,
+  tracking: (r.tracking as string) ?? null,
+  cancelReason: (r.cancel_reason as string) ?? null,
+  refundedKes: (r.refunded_kes as number) ?? null,
+  refundRef: (r.refund_ref as string) ?? null,
+  refundedAt: r.refunded_at ? String(r.refunded_at) : null,
 });
 
 /** Order store over the real schema (via PGlite) so constraints, triggers and the checkout function behave as in production. */
@@ -48,8 +55,19 @@ export function pgOrderStore(db: PGlite): OrderStore {
       );
       return r.rows.length ? r.rows.map(toOrder) : null;
     },
-    async setStatus(id, from, to) {
-      const r = await db.query<Row>('update orders set status = $3 where id = $1 and status = $2 returning *', [id, from, to]);
+    async setStatus(id, from, to, fields = {}) {
+      const r = await db.query<Row>(
+        `update orders set status = $3, status_changed_at = now(),
+           courier = case when $4::boolean then $5 else courier end,
+           tracking = case when $6::boolean then $7 else tracking end,
+           cancel_reason = case when $8::boolean then $9 else cancel_reason end
+         where id = $1 and status = $2 returning *`,
+        [id, from, to, fields.courier !== undefined, fields.courier ?? null, fields.tracking !== undefined, fields.tracking ?? null, fields.cancelReason !== undefined, fields.cancelReason ?? null],
+      );
+      return r.rows[0] ? toOrder(r.rows[0]) : null;
+    },
+    async markRefunded(id, refund) {
+      const r = await db.query<Row>('update orders set refunded_kes = $2, refund_ref = $3, refunded_at = now() where id = $1 returning *', [id, refund.kes, refund.ref]);
       return r.rows[0] ? toOrder(r.rows[0]) : null;
     },
     async createCheckout(c: NewCheckout) {

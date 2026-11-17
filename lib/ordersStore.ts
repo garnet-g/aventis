@@ -23,6 +23,13 @@ export type OrderRow = {
   back_mockup_path: string | null;
   back_design_file_path: string | null;
   artifacts_failed: boolean;
+  created_at?: string;
+  courier?: string | null;
+  tracking?: string | null;
+  cancel_reason?: string | null;
+  refunded_kes?: number | null;
+  refund_ref?: string | null;
+  refunded_at?: string | null;
 };
 
 export const toOrder = (r: OrderRow): Order => ({
@@ -43,6 +50,13 @@ export const toOrder = (r: OrderRow): Order => ({
   backMockupPath: r.back_mockup_path ?? null,
   backDesignFilePath: r.back_design_file_path ?? null,
   artifactsFailed: r.artifacts_failed,
+  createdAt: r.created_at,
+  courier: r.courier ?? null,
+  tracking: r.tracking ?? null,
+  cancelReason: r.cancel_reason ?? null,
+  refundedKes: r.refunded_kes ?? null,
+  refundRef: r.refund_ref ?? null,
+  refundedAt: r.refunded_at ?? null,
 });
 
 /** Service-role order store; a unique cart reference and unique design_id make a repeat checkout fail. */
@@ -57,8 +71,18 @@ export function supabaseOrderStore(): OrderStore {
       const { data } = await db().from('orders').select('*').eq('id', id).maybeSingle();
       return data ? toOrder(data as OrderRow) : null;
     },
-    async setStatus(id, from, to) {
-      const { data, error } = await db().from('orders').update({ status: to }).eq('id', id).eq('status', from).select('*');
+    async setStatus(id, from, to, fields = {}) {
+      const extra = {
+        ...(fields.courier !== undefined && { courier: fields.courier }),
+        ...(fields.tracking !== undefined && { tracking: fields.tracking }),
+        ...(fields.cancelReason !== undefined && { cancel_reason: fields.cancelReason }),
+      };
+      const { data, error } = await db().from('orders').update({ status: to, status_changed_at: new Date().toISOString(), ...extra }).eq('id', id).eq('status', from).select('*');
+      if (error) throw new Error(error.message);
+      return data && data.length > 0 ? toOrder(data[0] as OrderRow) : null;
+    },
+    async markRefunded(id, refund) {
+      const { data, error } = await db().from('orders').update({ refunded_kes: refund.kes, refund_ref: refund.ref, refunded_at: new Date().toISOString() }).eq('id', id).select('*');
       if (error) throw new Error(error.message);
       return data && data.length > 0 ? toOrder(data[0] as OrderRow) : null;
     },
