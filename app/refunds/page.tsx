@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { LegalPage } from '@/components/LegalPage';
 import { business, whatsappLink } from '@/lib/business';
 
-export const metadata = { title: 'Refunds and returns', description: 'What happens if your VybeCrew order is wrong, damaged or late.' };
+export const metadata = { title: 'Refunds and returns', description: 'What happens if your VibeCrew order is wrong, damaged or late.' };
 
 export default function RefundsPage() {
   return (
@@ -21,7 +21,7 @@ export default function RefundsPage() {
       <p>If M-Pesa took your money but no order appears under <Link href="/orders">My orders</Link>, contact us with the M-Pesa message. We refund it in full, usually within 2 working days.</p>
       <h2>Contact</h2>
       <p>
-        <a href={whatsappLink('Hello VybeCrew, I need help with my order.')}>WhatsApp {business.phone}</a> or email <a href={`mailto:${business.email}`}>{business.email}</a>.
+        <a href={whatsappLink('Hello VibeCrew, I need help with my order.')}>WhatsApp {business.phone}</a> or email <a href={`mailto:${business.email}`}>{business.email}</a>.
       </p>
     </LegalPage>
   );

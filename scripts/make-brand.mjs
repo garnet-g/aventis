@@ -1,5 +1,5 @@
-// Builds every picture of the VybeCrew logo from the one original (assets/brand/vybecrew-logo-source.jpg):
-//   public/brand/vybecrew-logo.png        transparent logo for the site (header, footer, home page)
+// Builds every picture of the VibeCrew logo from the one original (assets/brand/vibecrew-logo-source.jpg):
+//   public/brand/vibecrew-logo.png        transparent logo for the site (header, footer, home page)
 //   app/icon.png, app/apple-icon.png      browser tab / home screen icon (logo on black)
 //   app/opengraph-image.png               the picture shown when a link to the site is shared
 //   assets/brand/art-*.png                transparent art for the starter catalogue designs (see seed-brand-catalogue.mjs)
@@ -8,7 +8,7 @@
 import sharp from 'sharp';
 import { mkdir } from 'node:fs/promises';
 
-const SOURCE = 'assets/brand/vybecrew-logo-source.jpg';
+const SOURCE = 'assets/brand/vibecrew-logo-source.jpg';
 const INSET = 10; // the original has a thin light edge from the screenshot; cut it off
 const FLOOR = 14; // anything this dark (or darker) is background, and the JPEG's noise with it
 
@@ -39,7 +39,7 @@ const tm = await sharp(trimmed).metadata();
 console.log('logo', tm.width, 'x', tm.height);
 
 await mkdir('public/brand', { recursive: true });
-await sharp(trimmed).resize({ width: 640, kernel: 'lanczos3' }).png({ compressionLevel: 9 }).toFile('public/brand/vybecrew-logo.png');
+await sharp(trimmed).resize({ width: 640, kernel: 'lanczos3' }).png({ compressionLevel: 9 }).toFile('public/brand/vibecrew-logo.png');
 
 // logo on a black square, for icons and the share picture
 async function square(size, fraction, file) {

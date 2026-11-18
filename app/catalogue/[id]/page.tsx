@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const item = /^[0-9a-f-]{36}$/i.test(id) ? await supabaseCatalogueStore().get(id).catch(() => null) : null;
   if (!item || !item.published) return { title: 'Design not found' };
   const key = previewKey(item, item.colors[0]);
-  const description = item.description || `${catalog[item.product].label} by VybeCrew, printed in Nairobi and delivered across Kenya.`;
+  const description = item.description || `${catalog[item.product].label} by VibeCrew, printed in Nairobi and delivered across Kenya.`;
   return {
     title: item.title,
     description,

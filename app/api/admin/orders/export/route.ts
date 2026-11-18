@@ -47,7 +47,7 @@ export async function GET(req: Request) {
     );
     const csv = `\uFEFF${[header.map(csvCell).join(','), ...lines].join('\r\n')}\r\n`;
     const day = new Date().toISOString().slice(0, 10);
-    return new NextResponse(csv, { headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="vybecrew-orders-${day}.csv"`, 'cache-control': 'no-store' } });
+    return new NextResponse(csv, { headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="vibecrew-orders-${day}.csv"`, 'cache-control': 'no-store' } });
   } catch (e) {
     return errorResponse(e);
   }

@@ -1,7 +1,7 @@
-// Posts and publishes the starter VybeCrew catalogue designs (the logo on T-shirts and hoodies: front, back, chest + back,
+// Posts and publishes the starter VibeCrew catalogue designs (the logo on T-shirts and hoodies: front, back, chest + back,
 // front + back) by driving the real admin page, so the previews and checks are exactly what an admin would get.
 // Needs the app running, the pictures from `node scripts/make-brand.mjs`, and an admin account:
-//   ADMIN_EMAIL=admin@vybecrew.com ADMIN_PASSWORD=... node scripts/seed-brand-catalogue.mjs   (add REPLACE=1 to re-post)
+//   ADMIN_EMAIL=admin@vibecrew.com ADMIN_PASSWORD=... node scripts/seed-brand-catalogue.mjs   (add REPLACE=1 to re-post)
 // Designs whose title already exists are skipped, so it is safe to run twice.
 import { chromium } from '@playwright/test';
 import path from 'node:path';
@@ -15,14 +15,14 @@ const art = (name) => path.resolve('assets/brand', name);
 
 // The logo is light art made for a black garment, so these are black only.
 const ITEMS = [
-  { product: 'tee', title: 'VybeCrew Mascot Tee: Front Print', description: 'The VybeCrew mascot, big across the front of a black T-shirt.', front: 'art-full.png' },
-  { product: 'tee', title: 'VybeCrew Mascot Tee: Back Print', description: 'A clean front and the VybeCrew mascot across the back.', back: 'art-full.png' },
-  { product: 'tee', title: 'VybeCrew Mascot Tee: Chest and Back', description: 'A small mascot on the chest and the full print across the back.', front: 'art-chest-tee.png', back: 'art-full.png' },
-  { product: 'tee', title: 'VybeCrew Mascot Tee: Front and Back', description: 'The full VybeCrew mascot on both the front and the back.', front: 'art-full.png', back: 'art-full.png' },
-  { product: 'hoodie', title: 'VybeCrew Mascot Hoodie: Front Print', description: 'The VybeCrew mascot, big across the front of a black hoodie.', front: 'art-full.png' },
-  { product: 'hoodie', title: 'VybeCrew Mascot Hoodie: Back Print', description: 'A clean front and the VybeCrew mascot across the back.', back: 'art-full.png' },
-  { product: 'hoodie', title: 'VybeCrew Mascot Hoodie: Chest and Back', description: 'A small mascot on the chest and the full print across the back.', front: 'art-chest-hoodie.png', back: 'art-full.png' },
-  { product: 'hoodie', title: 'VybeCrew Mascot Hoodie: Front and Back', description: 'The full VybeCrew mascot on both the front and the back.', front: 'art-full.png', back: 'art-full.png' },
+  { product: 'tee', title: 'VibeCrew Mascot Tee: Front Print', description: 'The VibeCrew mascot, big across the front of a black T-shirt.', front: 'art-full.png' },
+  { product: 'tee', title: 'VibeCrew Mascot Tee: Back Print', description: 'A clean front and the VibeCrew mascot across the back.', back: 'art-full.png' },
+  { product: 'tee', title: 'VibeCrew Mascot Tee: Chest and Back', description: 'A small mascot on the chest and the full print across the back.', front: 'art-chest-tee.png', back: 'art-full.png' },
+  { product: 'tee', title: 'VibeCrew Mascot Tee: Front and Back', description: 'The full VibeCrew mascot on both the front and the back.', front: 'art-full.png', back: 'art-full.png' },
+  { product: 'hoodie', title: 'VibeCrew Mascot Hoodie: Front Print', description: 'The VibeCrew mascot, big across the front of a black hoodie.', front: 'art-full.png' },
+  { product: 'hoodie', title: 'VibeCrew Mascot Hoodie: Back Print', description: 'A clean front and the VibeCrew mascot across the back.', back: 'art-full.png' },
+  { product: 'hoodie', title: 'VibeCrew Mascot Hoodie: Chest and Back', description: 'A small mascot on the chest and the full print across the back.', front: 'art-chest-hoodie.png', back: 'art-full.png' },
+  { product: 'hoodie', title: 'VibeCrew Mascot Hoodie: Front and Back', description: 'The full VibeCrew mascot on both the front and the back.', front: 'art-full.png', back: 'art-full.png' },
 ];
 
 const browser = await chromium.launch();

@@ -92,7 +92,7 @@ test('a used or broken reset link is explained instead of failing silently', asy
   expect(new URL(page.url()).host).not.toContain('evil.example');
 });
 
-test('wrong links get the VybeCrew 404 page; non-admins never see the admin menu', async ({ page, browser }) => {
+test('wrong links get the VibeCrew 404 page; non-admins never see the admin menu', async ({ page, browser }) => {
   const res = await page.goto('/no-such-page');
   expect(res?.status()).toBe(404);
   await expect(page.getByRole('heading', { name: 'This page could not be found.' })).toBeVisible();

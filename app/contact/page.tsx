@@ -1,7 +1,7 @@
 import { LegalPage } from '@/components/LegalPage';
 import { business, whatsappLink } from '@/lib/business';
 
-export const metadata = { title: 'Contact us', description: 'Reach VybeCrew on WhatsApp, phone or email.' };
+export const metadata = { title: 'Contact us', description: 'Reach VibeCrew on WhatsApp, phone or email.' };
 
 export default function ContactPage() {
   return (
@@ -9,7 +9,7 @@ export default function ContactPage() {
       <p>Questions about an order, a design, bulk orders for a team or an event? We are happy to help.</p>
       <ul>
         <li>
-          <b>WhatsApp:</b> <a href={whatsappLink('Hello VybeCrew!')}>{business.phone}</a>
+          <b>WhatsApp:</b> <a href={whatsappLink('Hello VibeCrew!')}>{business.phone}</a>
         </li>
         <li>
           <b>Phone:</b> <span className="select-all">{business.phone}</span>

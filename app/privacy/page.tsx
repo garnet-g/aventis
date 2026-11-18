@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { LegalPage } from '@/components/LegalPage';
 import { business } from '@/lib/business';
 
-export const metadata = { title: 'Privacy policy', description: 'How VybeCrew collects, uses and protects your personal data under Kenya’s Data Protection Act, 2019.' };
+export const metadata = { title: 'Privacy policy', description: 'How VibeCrew collects, uses and protects your personal data under Kenya’s Data Protection Act, 2019.' };
 
 export default function PrivacyPage() {
   return (

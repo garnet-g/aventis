@@ -57,10 +57,10 @@ const short = (id: string) => id.slice(0, 8).toUpperCase();
 /** SMS texts are kept under 160 characters (one message) where possible. */
 export const smsText = {
   paid: (args: { totalKes: number; receipt: string; orderIds: string[]; siteUrl: string }) =>
-    `VybeCrew: we received ${kes(args.totalKes)} (ref ${args.receipt}). Order ${args.orderIds.map(short).join(', ')} is going to print. Track it: ${args.siteUrl}/orders`,
+    `VibeCrew: we received ${kes(args.totalKes)} (ref ${args.receipt}). Order ${args.orderIds.map(short).join(', ')} is going to print. Track it: ${args.siteUrl}/orders`,
   status: (args: { status: OrderStatus; orderId: string; tracking?: string | null; siteUrl: string }) => {
-    if (args.status === 'shipped') return `VybeCrew: order ${short(args.orderId)} is on its way.${args.tracking ? ` Tracking: ${args.tracking}.` : ''} ${args.siteUrl}/orders`;
-    if (args.status === 'delivered') return `VybeCrew: order ${short(args.orderId)} was delivered. Asante! We hope you love it.`;
+    if (args.status === 'shipped') return `VibeCrew: order ${short(args.orderId)} is on its way.${args.tracking ? ` Tracking: ${args.tracking}.` : ''} ${args.siteUrl}/orders`;
+    if (args.status === 'delivered') return `VibeCrew: order ${short(args.orderId)} was delivered. Asante! We hope you love it.`;
     return null;
   },
 };

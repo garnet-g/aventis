@@ -7,7 +7,7 @@ import { cataloguePictureUrl, supabaseCatalogueStore } from '@/lib/catalogueStor
 import { kes } from '@/lib/labels';
 import { supabasePriceStore } from '@/lib/pricesStore';
 
-export const metadata = { title: 'Catalogue', description: 'Ready-made VybeCrew T-shirt and hoodie designs. Pick one, choose your size and order.' };
+export const metadata = { title: 'Catalogue', description: 'Ready-made VibeCrew T-shirt and hoodie designs. Pick one, choose your size and order.' };
 
 const FILTERS: { id: 'all' | ProductId; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -22,7 +22,7 @@ export default function CataloguePage({ searchParams }: { searchParams: Promise<
       <main className="shell py-10">
         <p className="eyebrow">Ready to wear</p>
         <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">The catalogue</h1>
-        <p className="mt-2 max-w-2xl text-mute">Pick a VybeCrew design, choose your colour and size, and we print and deliver it. Want to change something? Open it in the editor.</p>
+        <p className="mt-2 max-w-2xl text-mute">Pick a VibeCrew design, choose your colour and size, and we print and deliver it. Want to change something? Open it in the editor.</p>
         <Suspense fallback={<p className="mt-8 text-sm text-mute">Loading…</p>}>
           <Grid searchParams={searchParams} />
         </Suspense>

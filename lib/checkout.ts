@@ -142,7 +142,7 @@ export async function startCheckout(deps: Deps, args: { userId: string; delivery
     phone,
     provider: deps.provider.name,
   });
-  const started = await deps.provider.start({ amountKes: prep.totalKes, reference: prep.reference, phone, description: 'VybeCrew order' });
+  const started = await deps.provider.start({ amountKes: prep.totalKes, reference: prep.reference, phone, description: 'VibeCrew order' });
   if (started.status === 'failed') {
     await deps.payments.transition(payment.id, ['pending'], 'failed', { failureReason: started.reason });
     throw new HttpError(402, `Payment failed: ${started.reason}`);

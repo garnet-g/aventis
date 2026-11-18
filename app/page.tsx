@@ -27,10 +27,10 @@ export default function HomePage() {
             <h1 className="font-display text-5xl font-extrabold leading-[0.95] tracking-tighter sm:text-6xl lg:text-7xl">
               Wear your
               <br />
-              own <span className="text-marigold">vybe.</span>
+              own <span className="text-marigold">vibe.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-white/80">
-              Shop ready-made VybeCrew drops, or design your own T-shirt or hoodie with your pictures, text and ideas. We print it and deliver it.
+              Shop ready-made VibeCrew drops, or design your own T-shirt or hoodie with your pictures, text and ideas. We print it and deliver it.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <Link href="/catalogue" className="btn sm:min-w-56">

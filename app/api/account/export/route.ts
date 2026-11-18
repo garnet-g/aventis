@@ -29,7 +29,7 @@ export async function GET() {
     return new NextResponse(JSON.stringify(body, null, 2), {
       headers: {
         'content-type': 'application/json; charset=utf-8',
-        'content-disposition': `attachment; filename="vybecrew-my-data-${new Date().toISOString().slice(0, 10)}.json"`,
+        'content-disposition': `attachment; filename="vibecrew-my-data-${new Date().toISOString().slice(0, 10)}.json"`,
         'cache-control': 'private, no-store',
       },
     });

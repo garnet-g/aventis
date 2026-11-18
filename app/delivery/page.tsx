@@ -6,7 +6,7 @@ import { kes } from '@/lib/labels';
 import { DEFAULT_PRICES } from '@/lib/prices';
 import { supabasePriceStore } from '@/lib/pricesStore';
 
-export const metadata = { title: 'Delivery', description: 'How long VybeCrew orders take and what delivery costs across Kenya.' };
+export const metadata = { title: 'Delivery', description: 'How long VibeCrew orders take and what delivery costs across Kenya.' };
 
 export default function DeliveryPage() {
   return (

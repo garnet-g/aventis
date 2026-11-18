@@ -43,7 +43,7 @@ export function mpesaConfigFromEnv(env: NodeJS.ProcessEnv = process.env): MpesaC
     type,
     tillNumber: type === 'till' ? need('MPESA_TILL_NUMBER') : undefined,
     callbackUrl: `${site}/api/payments/mpesa/${need('MPESA_CALLBACK_SECRET')}`,
-    accountReference: (env.MPESA_ACCOUNT_REFERENCE ?? 'VybeCrew').slice(0, 12),
+    accountReference: (env.MPESA_ACCOUNT_REFERENCE ?? 'VibeCrew').slice(0, 12),
   };
 }
 

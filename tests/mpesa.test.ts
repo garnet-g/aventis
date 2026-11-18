@@ -9,7 +9,7 @@ const cfg: MpesaConfig = {
   passkey: 'passkey',
   type: 'paybill',
   callbackUrl: 'https://shop.example/api/payments/mpesa/s3cret',
-  accountReference: 'VybeCrew',
+  accountReference: 'VibeCrew',
 };
 
 /** A fake Daraja that records requests and answers from a script. */
@@ -48,7 +48,7 @@ describe('STK push', () => {
     });
     const now = new Date('2026-11-17T09:00:00Z');
     const p = new MpesaProvider(cfg, fetchImpl, () => now);
-    const r = await p.start({ amountKes: 2650, reference: 'ref', phone: '254712345678', description: 'VybeCrew order' });
+    const r = await p.start({ amountKes: 2650, reference: 'ref', phone: '254712345678', description: 'VibeCrew order' });
     expect(r).toEqual({ status: 'pending', requestId: 'ws_CO_1', message: 'Success. Request accepted for processing' });
     const push = calls.find((c) => c.url.endsWith('/processrequest'))!;
     expect(push.auth).toBe('Bearer tok');
@@ -61,7 +61,7 @@ describe('STK push', () => {
       PartyB: '174379',
       PhoneNumber: '254712345678',
       CallBackURL: 'https://shop.example/api/payments/mpesa/s3cret',
-      AccountReference: 'VybeCrew',
+      AccountReference: 'VibeCrew',
     });
     expect(Buffer.from(String(push.body!.Password), 'base64').toString()).toBe('174379passkey20261117120000');
     expect(calls[0].auth).toBe(`Basic ${Buffer.from('key:secret').toString('base64')}`);

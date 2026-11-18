@@ -1,6 +1,6 @@
 # To be done
 
-Ideas and planned work for VybeCrew, not built yet. Items 1 and 2 are the ones you asked for; the rest are suggestions. Within each group the most useful come first.
+Ideas and planned work for VibeCrew, not built yet. Items 1 and 2 are the ones you asked for; the rest are suggestions. Within each group the most useful come first.
 
 ## Planned
 

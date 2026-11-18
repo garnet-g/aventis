@@ -1,7 +1,7 @@
-# VybeCrew web app: a small production image for any host (a Kenyan VPS or data centre, or any cloud).
-# Build:  docker build -t vybecrew --build-arg NEXT_PUBLIC_SUPABASE_URL=... --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=... \
+# VibeCrew web app: a small production image for any host (a Kenyan VPS or data centre, or any cloud).
+# Build:  docker build -t vibecrew --build-arg NEXT_PUBLIC_SUPABASE_URL=... --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=... \
 #           --build-arg NEXT_PUBLIC_SITE_URL=https://your-domain .
-# Run:    docker run -p 3000:3000 --env-file .env.production vybecrew
+# Run:    docker run -p 3000:3000 --env-file .env.production vibecrew
 # NEXT_PUBLIC_* values are baked into the browser code at build time; every other setting is read when it runs.
 
 FROM node:22-slim AS deps

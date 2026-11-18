@@ -113,7 +113,7 @@ export async function cancelAndNotify(
     console.error('could not email the customer about the cancellation', updated.id, e);
   }
   if (deps.sms) {
-    await sendSmsSafely(deps.sms, updated.delivery.phone, `VybeCrew: order ${updated.id.slice(0, 8).toUpperCase()} was cancelled (${why.slice(0, 60)}). We will refund KES ${paid.toLocaleString('en-KE')} to your M-Pesa.`);
+    await sendSmsSafely(deps.sms, updated.delivery.phone, `VibeCrew: order ${updated.id.slice(0, 8).toUpperCase()} was cancelled (${why.slice(0, 60)}). We will refund KES ${paid.toLocaleString('en-KE')} to your M-Pesa.`);
   }
   return updated;
 }

@@ -10,7 +10,7 @@ import { clampToPrintArea } from '@/lib/printArea';
 import type { Rect } from '@/lib/printArea';
 import { printQuality, type PrintQuality } from '@/lib/quality';
 
-/** Selection handles in the VybeCrew palette, large enough for a finger. */
+/** Selection handles in the VibeCrew palette, large enough for a finger. */
 const HANDLES = {
   borderColor: '#0a0a0a',
   cornerColor: '#ffd60a',

@@ -1,4 +1,4 @@
-# VybeCrew
+# VibeCrew
 
 A phone-first print-on-demand shop for Kenya. Customers design their own T-shirt or hoodie (pictures and text inside a fixed print area, front and back) or order a ready-made design from the catalogue, pass a safety check, and pay with M-Pesa. The owners get a paid order with the files for their printer:
 
@@ -58,8 +58,8 @@ Set `CELCOM_API_KEY`, `CELCOM_PARTNER_ID` and `CELCOM_SHORTCODE` (your approved 
 The app runs anywhere Docker runs, so it can be hosted on a Kenyan cloud or VPS (for example Safaricom Cloud, Truehost or Sasahost) or a nearby region.
 
 ```bash
-docker build -t vybecrew .
-docker run -d --restart unless-stopped -p 3000:3000 --env-file /etc/vybecrew.env vybecrew
+docker build -t vibecrew .
+docker run -d --restart unless-stopped -p 3000:3000 --env-file /etc/vibecrew.env vibecrew
 ```
 
 - The image runs the standalone Next.js server on port 3000 in Nairobi time, with a health check at `/api/health`. Put a reverse proxy with HTTPS (Caddy or Nginx with Let's Encrypt) in front of it.
@@ -110,7 +110,7 @@ The database rules (row-level security, the freeze-after-order trigger, the orde
 |---|---|
 | Selling prices, print costs, delivery fees, bulk discounts | the admin Prices page |
 | Print areas (confirmed: tee front 27 x 32 cm, hoodie front and back 25 x 28 cm; tee back 28 x 32 cm) and the minimum print resolution (150 dpi) | `lib/catalog.ts`. Confirm file format and white underlayer for dark garments with your printer |
-| M-Pesa Go Live, Celcom sender name, Resend domain (`vybecrew.co.ke`), OpenAI key | environment settings, see above |
+| M-Pesa Go Live, Celcom sender name, Resend domain (`vibecrew.co.ke`), OpenAI key | environment settings, see above |
 | Business name, registration name, contact phone, WhatsApp and email | `NEXT_PUBLIC_BUSINESS_*` and `NEXT_PUBLIC_CONTACT_*` |
 | The banned-word list (English, Swahili and Sheng) | `lib/moderation/banned-words.json` |
 | Have a lawyer read the terms, privacy and refunds pages | `app/terms`, `app/privacy`, `app/refunds` |
@@ -183,9 +183,9 @@ tests/              vitest unit/database tests; tests/e2e for Playwright
 - **Know the limit:** MODNet is trained on **people**. It cuts out portraits well and logos or objects poorly. If customers mostly upload artwork, swap in a general model (`onnx-community/BiRefNet_lite-ONNX` is MIT but about 115 MB; RMBG models need a commercial licence from Bria) or an outside service.
 - Edited pictures are new uploads, so the safety check runs on them like any other picture.
 
-## VybeCrew brand, layout and catalogue
+## VibeCrew brand, layout and catalogue
 
-- **Brand:** the shop is called VybeCrew. Colours are black, yellow (`#ffd60a`) and white; they are defined once in `app/globals.css`. Errors keep a red so they stand out. The logo is in `public/brand/` (`vybecrew-mark.svg` tile, `vybecrew-logo.svg` tile and name, with PNG copies) and the browser icon is `app/icon.svg`. The in-page logo is the `Logo` component in `components/SiteHeader.tsx`.
+- **Brand:** the shop is called VibeCrew. Colours are black, yellow (`#ffd60a`) and white; they are defined once in `app/globals.css`. Errors keep a red so they stand out. The site logo is `public/brand/vibecrew-logo.png` (made from `assets/brand/vibecrew-logo-source.jpg` by `scripts/make-brand.mjs`), along with the page icons and share picture. The in-page logo is the `Logo` component in `components/SiteHeader.tsx`.
 - **Layout:** every page uses the `.shell` width (full width on phones, wide with generous margins on computers). The design page puts the editor beside its controls on large screens; the cart and checkout use two columns.
 - **Catalogue** (`/catalogue`): ready-made designs. Admins post them at `/admin/catalogue` (title, T-shirt or hoodie, colours, a front and/or back picture; the picture is centred in the print area as large as it fits and a preview is rendered for each colour). New designs start hidden until published; hiding or deleting removes them from the shop but never affects orders already placed.
 - **Ordering from the catalogue:** a customer picks colour, size and quantity and adds it to the cart, or opens it in the editor with "Customise this design". Each order copies the pictures into the customer's own folder, so the printer files are produced the same way as for any design. Catalogue art is treated as trusted (an admin posted it), so it skips the customer safety check; look at what you post.
@@ -203,7 +203,7 @@ The header shows an Admin link to signed-in admins.
 
 ## Logo and starter catalogue
 
-The logo's original is `assets/brand/vybecrew-logo-source.jpg` (light art on black). `node scripts/make-brand.mjs` turns it into the transparent site logo (`public/brand/vybecrew-logo.png`), the page icons, the share picture and the catalogue art in `assets/brand/`. The black background becomes transparent, so the logo is meant for black surfaces: the site's black bars and panels, and black garments.
+The logo's original is `assets/brand/vibecrew-logo-source.jpg` (light art on black). `node scripts/make-brand.mjs` turns it into the transparent site logo (`public/brand/vibecrew-logo.png`), the page icons, the share picture and the catalogue art in `assets/brand/`. The black background becomes transparent, so the logo is meant for black surfaces: the site's black bars and panels, and black garments.
 
 `scripts/seed-brand-catalogue.mjs` posts and publishes eight starter designs (logo on black T-shirts and hoodies: front, back, chest and back, front and back) through the admin page: `ADMIN_EMAIL=... ADMIN_PASSWORD=... node scripts/seed-brand-catalogue.mjs` with the app running. Add `REPLACE=1` to delete and re-post designs that already exist. Run it against the live site once it is deployed. The original is only about 830 pixels wide, so the artwork is enlarged for print; ask for a larger or vector version for the best print quality.
 

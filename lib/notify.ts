@@ -33,7 +33,7 @@ export class ResendEmailSender implements EmailSender {
 
 export function getEmailSender(): EmailSender {
   const key = process.env.RESEND_API_KEY;
-  if (key) return new ResendEmailSender(key, process.env.EMAIL_FROM ?? 'VybeCrew <orders@vybecrew.co.ke>');
+  if (key) return new ResendEmailSender(key, process.env.EMAIL_FROM ?? 'VibeCrew <orders@vibecrew.co.ke>');
   return new ConsoleEmailSender();
 }
 
@@ -42,7 +42,7 @@ export const getSiteUrl = () => (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://loc
 const kes = (n: number) => `KES ${n.toLocaleString('en-KE')}`;
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** A plain VybeCrew email: black header, the message, one yellow button. Works in every mail app (tables, inline CSS). */
+/** A plain VibeCrew email: black header, the message, one yellow button. Works in every mail app (tables, inline CSS). */
 export function emailHtml(args: { title: string; lines: string[]; button?: { label: string; href: string } }): string {
   const lines = args.lines.map((l) => `<p style="margin:0 0 14px;font-size:16px;line-height:1.5;color:#111111">${escapeHtml(l)}</p>`).join('');
   const button = args.button
@@ -51,9 +51,9 @@ export function emailHtml(args: { title: string; lines: string[]; button?: { lab
   return `<!doctype html><html><body style="margin:0;background:#f4f4f1;font-family:Arial,Helvetica,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f1;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:2px solid #0a0a0a;border-radius:14px;overflow:hidden">
-<tr><td style="background:#0a0a0a;padding:18px 24px;font-size:22px;font-weight:800;color:#ffffff">Vybe<span style="color:#ffd60a">Crew</span></td></tr>
+<tr><td style="background:#0a0a0a;padding:18px 24px;font-size:22px;font-weight:800;color:#ffffff">Vibe<span style="color:#ffd60a">Crew</span></td></tr>
 <tr><td style="padding:26px 24px"><h1 style="margin:0 0 16px;font-size:22px;color:#0a0a0a">${escapeHtml(args.title)}</h1>${lines}${button}</td></tr>
-<tr><td style="padding:14px 24px;border-top:1px solid #e2dfd2;font-size:12px;color:#5f5d55">VybeCrew &middot; Custom T-shirts and hoodies, printed in Nairobi and delivered across Kenya.</td></tr>
+<tr><td style="padding:14px 24px;border-top:1px solid #e2dfd2;font-size:12px;color:#5f5d55">VibeCrew &middot; Custom T-shirts and hoodies, printed in Nairobi and delivered across Kenya.</td></tr>
 </table></td></tr></table></body></html>`;
 }
 

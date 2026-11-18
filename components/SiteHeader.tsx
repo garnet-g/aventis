@@ -3,19 +3,19 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { AccountMenu } from '@/components/AccountMenu';
 // A static import: Next.js serves a resized WebP under a content-hashed URL that browsers may cache for good.
-import logoImage from '@/public/brand/vybecrew-logo.png';
+import logoImage from '@/public/brand/vibecrew-logo.png';
 
 export { logoImage };
 
-/** The VybeCrew logo. It is drawn for a dark background, so it is used on the black bars and panels only. */
+/** The VibeCrew logo. It is drawn for a dark background, so it is used on the black bars and panels only. */
 export function Logo({ className = 'h-12' }: { className?: string }) {
   return (
     <Link href="/" className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight text-white">
       <Image src={logoImage} alt="" sizes="56px" className={`${className} w-auto`} />
       <span className="hidden sm:inline">
-        Vybe<span className="text-marigold">Crew</span>
+        Vibe<span className="text-marigold">Crew</span>
       </span>
-      <span className="sr-only sm:hidden">VybeCrew</span>
+      <span className="sr-only sm:hidden">VibeCrew</span>
     </Link>
   );
 }

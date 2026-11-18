@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { addAdmin, removeAdmin, type AdminDirectory } from '@/lib/admins';
 
 function directory() {
-  const users = new Map([['a1', 'boss@vybecrew.co.ke'], ['u2', 'wanjiku@example.com']]);
+  const users = new Map([['a1', 'boss@vibecrew.co.ke'], ['u2', 'wanjiku@example.com']]);
   const admins = new Set(['a1']);
   const dir: AdminDirectory = {
     list: async () => [...admins].map((id) => ({ id, email: users.get(id) ?? null })),

@@ -10,7 +10,7 @@ const password = process.env.DEMO_PASSWORD ?? 'demo1234';
 const db = createClient(url, key, { auth: { persistSession: false } });
 
 const { data: existing } = await db.auth.admin.listUsers({ perPage: 1000 });
-for (const [email, admin] of [['admin@vybecrew.com', true], ['customer@vybecrew.com', false]]) {
+for (const [email, admin] of [['admin@vibecrew.com', true], ['customer@vibecrew.com', false]]) {
   let user = existing?.users.find((u) => u.email === email);
   if (!user) {
     const { data, error } = await db.auth.admin.createUser({ email, password, email_confirm: true });

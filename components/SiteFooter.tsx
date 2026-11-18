@@ -10,7 +10,7 @@ export function SiteFooter() {
         <div className="max-w-sm">
           <Logo />
           <p className="mt-2 text-sm text-white/60">Custom and ready-made T-shirts and hoodies, printed in Nairobi and delivered across Kenya. Pay with M-Pesa.</p>
-          <a href={whatsappLink('Hello VybeCrew!')} className="mt-3 inline-block rounded-lg border-2 border-marigold px-3 py-1.5 text-sm font-bold text-marigold hover:bg-marigold hover:text-ink">
+          <a href={whatsappLink('Hello VibeCrew!')} className="mt-3 inline-block rounded-lg border-2 border-marigold px-3 py-1.5 text-sm font-bold text-marigold hover:bg-marigold hover:text-ink">
             Chat on WhatsApp &middot; {business.phone}
           </a>
         </div>

@@ -74,7 +74,7 @@ describe('cancelling', () => {
     const mail: EmailMessage[] = [];
     const texts: { to: string; text: string }[] = [];
     const sms: SmsSender = { send: async (to: string, text: string) => void texts.push({ to, text }) } as SmsSender;
-    return { mail, texts, deps: { orders, email: { send: async (m: EmailMessage) => void mail.push(m) }, emailFor: async () => 'c@example.com', siteUrl: 'https://vybecrew.co.ke', sms } };
+    return { mail, texts, deps: { orders, email: { send: async (m: EmailMessage) => void mail.push(m) }, emailFor: async () => 'c@example.com', siteUrl: 'https://vibecrew.co.ke', sms } };
   };
 
   test('only before shipping, and only with a reason', async () => {

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { LegalPage } from '@/components/LegalPage';
 import { business } from '@/lib/business';
 
-export const metadata = { title: 'Terms of sale', description: 'The terms for ordering custom and ready-made clothing from VybeCrew.' };
+export const metadata = { title: 'Terms of sale', description: 'The terms for ordering custom and ready-made clothing from VibeCrew.' };
 
 export default function TermsPage() {
   return (
