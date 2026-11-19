@@ -51,7 +51,12 @@ export function CheckoutForm({
     const r = await send('/api/pay', json('POST', body));
     setBusy(false);
     // A dropped connection is safe to retry: paying for the same cart twice never charges twice.
-    if (!r.ok) return setError(errorText(r, 'Payment failed. Please try again.'));
+    if (!r.ok) {
+      setError(errorText(r, 'Payment failed. Please try again.'));
+      // the total changed (prices, or the cart in another tab): show the new one before they press Pay again
+      if (r.status === 409) router.refresh();
+      return;
+    }
     if (r.body.status === 'pending') {
       setWaiting({ paymentId: String(r.body.paymentId), message: String(r.body.message ?? 'Check your phone.'), since: Date.now() });
       return;
@@ -63,7 +68,8 @@ export function CheckoutForm({
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const delivery = Object.fromEntries(['name', 'phone', 'city', 'county', 'address'].map((k) => [k, String(f.get(k) ?? '')]));
-    const body = { delivery, mpesaPhone: String(f.get('mpesaPhone') ?? ''), acceptTerms: f.get('acceptTerms') === 'on' };
+    // the total on the Pay button: the server refuses to charge anything else
+    const body = { delivery, mpesaPhone: String(f.get('mpesaPhone') ?? ''), acceptTerms: f.get('acceptTerms') === 'on', expectedTotalKes: totalKes };
     lastBody.current = body;
     await pay(body);
   }
@@ -82,9 +88,13 @@ export function CheckoutForm({
       const r = await send(`/api/payments/${waiting.paymentId}`);
       if (stopped) return;
       if (r.ok && r.body.status === 'paid') return router.push(`/orders/thank-you/${waiting.paymentId}`);
-      if (r.ok && (r.body.status === 'failed' || r.body.status === 'needs_refund')) {
+      if (r.ok && (r.body.status === 'failed' || r.body.status === 'needs_refund' || r.body.status === 'refunded')) {
         setWaiting(null);
         return setError(typeof r.body.reason === 'string' && r.body.reason ? r.body.reason : 'The payment did not go through. Please try again.');
+      }
+      if (r.ok && r.body.status === 'expired') {
+        setWaiting(null);
+        return setError('The M-Pesa request timed out before it was approved, so nothing was charged. Press Pay to send a new one.');
       }
       timer = setTimeout(tick, POLL_MS);
     };

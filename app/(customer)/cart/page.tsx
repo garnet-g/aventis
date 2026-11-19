@@ -8,7 +8,8 @@ import { loadCart } from '@/lib/cart';
 import { supabasePriceStore } from '@/lib/pricesStore';
 import { supabaseCartStore } from '@/lib/cartStore';
 import { supabaseDesignStore } from '@/lib/designsStore';
-import { kes } from '@/lib/labels';
+import { CheckoutLink } from '@/components/CheckoutLink';
+import { kes, printedSides } from '@/lib/labels';
 
 export const metadata = { title: 'Your cart' };
 
@@ -43,15 +44,14 @@ async function Cart() {
                 <div className="flex gap-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={`/api/designs/${l.designId}/preview`}
+                    src={`/api/designs/${l.designId}/preview?v=${encodeURIComponent(l.design.version)}`}
                     alt="Your design"
                     className="h-28 w-[5.6rem] flex-none sm:h-36 sm:w-28 rounded-lg border-2 border-ink bg-paper-2 object-cover"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="font-display text-lg font-extrabold">{catalog[l.design.product].label}</p>
                     <p className="text-sm text-mute">
-                      {colorLabel(l.design.color)} &middot; Size {l.design.size}
-                      {l.design.backLayers.length > 0 ? ' · front and back' : ''}
+                      {colorLabel(l.design.color)} &middot; Size {l.design.size} &middot; printed on the {printedSides(l.design)}
                     </p>
                     <p className="text-sm">
                       {l.bulkPercentOff > 0 && <s className="mr-1.5 text-mute">{kes(l.listUnitPriceKes)}</s>}
@@ -63,6 +63,11 @@ async function Cart() {
                       </p>
                     )}
                     {l.problem && <p className="badge badge-gold mt-2">{l.problem}</p>}
+                    {l.needsRecheck && (
+                      <Link href={`/design?d=${l.designId}`} prefetch={false} className="mt-2 block text-sm font-bold underline">
+                        Open it and check again
+                      </Link>
+                    )}
                   </div>
                 </div>
                 <div className="mt-3 flex items-end justify-between gap-2">
@@ -80,9 +85,10 @@ async function Cart() {
               <span>{kes(cart.subtotalKes)}</span>
             </div>
             <div className="flex justify-between py-0.5">
-              <span>Delivery</span>
+              <span>Delivery, Nairobi area</span>
               <span>{kes(cart.deliveryFeeKes)}</span>
             </div>
+            <p className="text-xs text-mute">Rest of Kenya: {kes(cart.upcountryFeeKes)}. You choose your county at checkout.</p>
             <div className="mt-1 flex items-baseline justify-between">
               <span className="font-bold">Total</span>
               <span data-testid="cart-total" className="font-display text-2xl font-extrabold">
@@ -91,14 +97,7 @@ async function Cart() {
             </div>
           </section>
 
-          <Link
-            href="/checkout"
-            aria-disabled={!cart.canCheckout}
-            tabIndex={cart.canCheckout ? undefined : -1}
-            className={`btn ${cart.canCheckout ? '' : 'pointer-events-none opacity-50'}`}
-          >
-            Checkout &rarr;
-          </Link>
+          <CheckoutLink enabled={cart.canCheckout} />
           {!cart.canCheckout && <p className="text-center text-sm font-semibold text-vermilion">Fix the items marked above to continue.</p>}
           <Link className="text-center text-sm underline" href="/design" prefetch={false}>
             Add another design

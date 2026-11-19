@@ -185,3 +185,40 @@ describe('Kenya pricing at checkout', () => {
     expect(provider.starts[0].amountKes).toBe(each * 6 + DELIVERY_FEE_KES);
   });
 });
+
+describe('charging exactly what the customer agreed to, once', () => {
+  test('approving an old prompt and a new one for the same cart: the second payment is held for a refund', async () => {
+    await approvedDesign(alice, 'Crew');
+    const first = await startCheckout(deps(), { userId: alice, delivery });
+    clock += PROMPT_WINDOW_MS + 1000; // no answer yet, so Pay again sends a new prompt
+    const second = await startCheckout(deps(), { userId: alice, delivery });
+    expect(second.payment!.id).not.toBe(first.payment!.id);
+    // the customer approves both prompts on the phone
+    const a = await finalizePayment(deps(), first.payment!.id, { providerRef: 'TKA0000001', amountKes: first.payment!.amountKes });
+    const b = await finalizePayment(deps(), second.payment!.id, { providerRef: 'TKB0000002', amountKes: second.payment!.amountKes });
+    expect(a).toMatchObject({ status: 'paid', created: true });
+    expect(b).toMatchObject({ status: 'needs_refund', flagged: true });
+    expect((await payments.get(second.payment!.id))!.status).toBe('needs_refund');
+    // the same payment reported twice is still fine
+    expect(await finalizePayment(deps(), first.payment!.id, { providerRef: 'TKA0000001' })).toMatchObject({ status: 'paid', created: false });
+  });
+
+  test('changed delivery details while a prompt is open are a new request, not the old one with the old address', async () => {
+    await approvedDesign(alice, 'Crew');
+    await startCheckout(deps(), { userId: alice, delivery });
+    await expect(startCheckout(deps(), { userId: alice, delivery: { ...delivery, county: 'Mombasa', city: 'Mombasa' } })).rejects.toMatchObject({ status: 409 });
+    expect(provider.starts).toHaveLength(1);
+    clock += PROMPT_WINDOW_MS + 1000;
+    const moved = await startCheckout(deps(), { userId: alice, delivery: { ...delivery, county: 'Mombasa', city: 'Mombasa' } });
+    expect(moved.payment!.delivery.county).toBe('Mombasa');
+    expect(provider.starts[1].amountKes).toBe(catalog.tee.priceKes + DELIVERY_FEE_UPCOUNTRY_KES);
+  });
+
+  test('a total different from the one the customer was shown is refused before any prompt', async () => {
+    await approvedDesign(alice, 'Crew');
+    const right = catalog.tee.priceKes + DELIVERY_FEE_KES;
+    await expect(startCheckout(deps(), { userId: alice, delivery, expectedTotalKes: right - 100 })).rejects.toMatchObject({ status: 409 });
+    expect(provider.starts).toHaveLength(0);
+    await expect(startCheckout(deps(), { userId: alice, delivery, expectedTotalKes: right })).resolves.toMatchObject({ status: 'pending' });
+  });
+});

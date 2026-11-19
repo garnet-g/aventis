@@ -44,6 +44,8 @@ export async function removeFromCart(deps: { cart: CartStore }, userId: string, 
   await deps.cart.remove(userId, designId);
 }
 
+const RECHECK = 'Needs to be checked again before you can pay.';
+
 export type CartLineView = {
   designId: string;
   design: Design;
@@ -59,6 +61,8 @@ export type CartLineView = {
   /** False when this line cannot be paid for yet, with the reason in `problem`. */
   ok: boolean;
   problem?: string;
+  /** The design changed after it was checked: the customer can open it and send it for checking again. */
+  needsRecheck: boolean;
 };
 
 /** The cart as the customer sees it: every line priced, flagged if it cannot be paid for, with the totals. */
@@ -75,7 +79,7 @@ export async function loadCart(deps: { designs: DesignStore; cart: CartStore; pr
         ? 'Waiting for review.'
         : isApproved(design)
           ? undefined
-          : 'Needs to be checked again before you can pay.';
+          : RECHECK;
     found.push({ design, quantity: item.quantity, problem });
   }
   // Bulk prices count every piece in the cart (as checkout does), so mixed sizes of a team order add up.
@@ -90,8 +94,10 @@ export async function loadCart(deps: { designs: DesignStore; cart: CartStore; pr
     ...lineTotals(design, quantity, prices, pieces),
     ok: !problem,
     problem,
+    needsRecheck: Boolean(problem) && problem === RECHECK,
   }));
-  return { lines, pieces, ...checkoutTotals(lines, prices), canCheckout: lines.length > 0 && lines.every((l) => l.ok) };
+  // Totals with the Nairobi-area delivery; checkout charges the rate for the county the customer picks.
+  return { lines, pieces, ...checkoutTotals(lines, prices), upcountryFeeKes: prices.deliveryFeeUpcountryKes, canCheckout: lines.length > 0 && lines.every((l) => l.ok) };
 }
 
 /** A stable key for "this exact cart": the same designs and quantities always give the same key. */

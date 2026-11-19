@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     const user = await apiUser();
     if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
     await limit('pay', user.id);
-    const { delivery, mpesaPhone, acceptTerms } = await readJsonObject(req);
+    const { delivery, mpesaPhone, acceptTerms, expectedTotalKes } = await readJsonObject(req);
     if (acceptTerms !== true) throw new HttpError(400, 'Please accept the terms and confirm you own the rights to your designs.');
     // Prompts go to a phone that must approve them with its PIN, but nobody should be able to pester a number with
     // M-Pesa requests. Only prompts actually sent count. Every number: 5 per account per 10 minutes. A number this
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       // in test mode nothing reaches a real phone, so only the per-account limit applies
       if (!deps.provider.isTestMode && !(await deps.payments.hasPaidFrom(user.id, phone))) await rateLimit(`prompt:${phone}`, 5, 10 * 60, { failClosed: true });
     };
-    const result = await startCheckout({ ...deps, beforePrompt }, { userId: user.id, delivery, mpesaPhone: typeof mpesaPhone === 'string' ? mpesaPhone : undefined });
+    const result = await startCheckout({ ...deps, beforePrompt }, { userId: user.id, delivery, mpesaPhone: typeof mpesaPhone === 'string' ? mpesaPhone : undefined, expectedTotalKes });
     if (result.status === 'pending') {
       return NextResponse.json({ status: 'pending', paymentId: result.payment.id, message: result.message });
     }

@@ -6,7 +6,8 @@ import { requireUser } from '@/lib/auth';
 import { catalog, colorLabel, TURNAROUND } from '@/lib/catalog';
 import { isNairobiArea } from '@/lib/counties';
 import { supabaseDesignStore } from '@/lib/designsStore';
-import { kes } from '@/lib/labels';
+import { RefreshWhilePending } from '@/components/RefreshWhilePending';
+import { kes, printedSides } from '@/lib/labels';
 import { supabaseOrderStore } from '@/lib/ordersStore';
 import { supabasePaymentStore } from '@/lib/paymentsStore';
 
@@ -32,6 +33,7 @@ async function ThankYou({ params }: { params: Promise<{ id: string }> }) {
   if (payment.status !== 'paid') {
     return (
       <main className="shell flex flex-col gap-4 py-10">
+        {(payment.status === 'pending' || payment.status === 'expired') && <RefreshWhilePending />}
         <h1 className="font-display text-4xl font-extrabold tracking-tight">{payment.status === 'pending' || payment.status === 'expired' ? 'Waiting for M-Pesa' : 'Payment not completed'}</h1>
         <p className="max-w-xl text-mute">
           {payment.status === 'needs_refund'
@@ -71,8 +73,7 @@ async function ThankYou({ params }: { params: Promise<{ id: string }> }) {
                 <p className="font-display text-lg font-extrabold">{design ? catalog[design.product].label : 'Item'}</p>
                 {design && (
                   <p className="text-mute">
-                    {colorLabel(design.color)} &middot; Size {design.size}
-                    {design.backLayers.length ? ' · front and back' : ''}
+                    {colorLabel(design.color)} &middot; Size {design.size} &middot; {printedSides(design)}
                   </p>
                 )}
                 <p>Quantity {order.quantity}</p>

@@ -106,9 +106,16 @@ async function clearPaid(cart: CartStore, userId: string, items: CheckoutItem[])
 }
 
 /** Step 1. Returns orders straight away for test mode, or a pending payment for M-Pesa. */
-export async function startCheckout(deps: Deps, args: { userId: string; delivery: unknown; mpesaPhone?: string }): Promise<CheckoutResult> {
+export async function startCheckout(
+  deps: Deps,
+  args: { userId: string; delivery: unknown; mpesaPhone?: string; /** The total the customer was shown; a different total is refused. */ expectedTotalKes?: unknown },
+): Promise<CheckoutResult> {
   const now = deps.now ?? Date.now;
   const prep = await prepareCheckout(deps, args.userId, args.delivery);
+  // Never charge a different amount from the one on the Pay button (prices, or the cart in another tab, changed).
+  if (args.expectedTotalKes !== undefined && Number(args.expectedTotalKes) !== prep.totalKes) {
+    throw new HttpError(409, `Your total is now KES ${prep.totalKes.toLocaleString('en-KE')}: prices or your cart changed. Check it and press Pay again.`);
+  }
   const phone = toMpesaPhone(args.mpesaPhone?.trim() || prep.delivery.phone);
   if (!phone) throw new HttpError(400, 'Enter a Safaricom M-Pesa number like 0712345678.');
 
@@ -125,7 +132,10 @@ export async function startCheckout(deps: Deps, args: { userId: string; delivery
     const settled = await refreshPayment(deps, open);
     if (settled.status === 'paid' && settled.payment?.reference === prep.reference) return settled as CheckoutResult;
     if (settled.status === 'pending' && now() - Date.parse(open.createdAt) < PROMPT_WINDOW_MS) {
-      if (open.reference === prep.reference) return { status: 'pending', payment: open, message: 'Check your phone and enter your M-Pesa PIN.' };
+      // The same request again (a double tap, or "send it again" too early): keep waiting for that one. Changed
+      // delivery details or amount are a different request, which must wait until the open one can no longer be paid.
+      const same = open.reference === prep.reference && open.amountKes === prep.totalKes && JSON.stringify(open.delivery) === JSON.stringify(prep.delivery);
+      if (same) return { status: 'pending', payment: open, message: 'Check your phone and enter your M-Pesa PIN.' };
       throw new HttpError(409, 'An M-Pesa request is still open on your phone. Finish or cancel it, then try again in a minute.');
     }
     if (settled.status === 'pending') await deps.payments.transition(open.id, ['pending'], 'expired', { failureReason: 'No answer from the phone.' });
@@ -202,7 +212,14 @@ export async function finalizePayment(
   } catch (e) {
     if (e instanceof DuplicateCheckoutError) {
       const winner = await deps.orders.findCheckoutOrders(p.reference);
-      if (winner) return { status: 'paid', payment: paid, orders: winner, created: false };
+      // The same payment reported twice: those are its orders.
+      if (winner && winner[0]?.paymentRef === args.providerRef) return { status: 'paid', payment: paid, orders: winner, created: false };
+      if (winner) {
+        // Another payment for this same cart already made the orders (the customer approved an old prompt and a new
+        // one): this money was paid twice and must go back.
+        const flagged = await deps.payments.transition(p.id, ['paid'], 'needs_refund', { failureReason: 'This cart was already paid by another M-Pesa payment.' });
+        return { status: 'needs_refund', payment: flagged ?? paid, reason: 'This order was already paid. We will refund this second payment.', flagged: Boolean(flagged) };
+      }
     }
     // Paid, but a design changed or was ordered meanwhile: the money must go back. An admin is alerted.
     console.error('paid checkout could not become orders', p.id, e);

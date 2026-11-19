@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { cartPending } from '@/lib/cartPending';
 import { errorText, json, send } from '@/lib/clientFetch';
 import { MAX_QUANTITY } from '@/lib/pricing';
 
@@ -16,6 +17,8 @@ export function CartItemControls({ designId, quantity }: { designId: string; qua
   const [error, setError] = useState('');
   const [removing, setRemoving] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // the quantity still waiting to be sent, so leaving the page sends it instead of dropping it
+  const unsent = useRef<number | null>(null);
 
   // When the page refreshes with a new quantity from the server, show it (React's "adjust state on prop change").
   if (quantity !== serverQty) {
@@ -23,17 +26,29 @@ export function CartItemControls({ designId, quantity }: { designId: string; qua
     setQty(quantity);
   }
 
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+      if (unsent.current !== null) {
+        // keepalive lets the request finish even though this page is going away
+        void fetch(`/api/cart/${designId}`, { ...json('PUT', { quantity: unsent.current }), keepalive: true }).finally(() => cartPending.done());
+      }
+    },
+    [designId],
+  );
 
   function change(next: number) {
     if (next < 1 || next > MAX_QUANTITY) return;
     setQty(next);
     setError('');
     if (timer.current) clearTimeout(timer.current);
+    else cartPending.start(); // first tap of a burst: checkout waits until it is saved
+    unsent.current = next;
     timer.current = setTimeout(async () => {
+      timer.current = null;
+      unsent.current = null;
       const r = await send(`/api/cart/${designId}`, json('PUT', { quantity: next }));
+      cartPending.done();
       if (!r.ok) {
         setQty(serverQty);
         return setError(errorText(r, 'Could not change the quantity.'));
@@ -43,7 +58,12 @@ export function CartItemControls({ designId, quantity }: { designId: string; qua
   }
 
   async function remove() {
-    if (timer.current) clearTimeout(timer.current);
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+      unsent.current = null;
+      cartPending.done();
+    }
     setError('');
     setRemoving(true);
     const r = await send(`/api/cart/${designId}`, { method: 'DELETE' });

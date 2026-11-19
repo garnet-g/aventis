@@ -159,7 +159,8 @@ describe('loadCart', () => {
     const view = await loadCart(deps(), 'alice');
     expect(view.lines.find((l) => l.designId === b.id)).toMatchObject({ ok: false });
     expect(view.lines.find((l) => l.designId === b.id)?.problem).toMatch(/checked again/i);
-    expect(view.lines.find((l) => l.designId === a.id)?.ok).toBe(true);
+    expect(view.lines.find((l) => l.designId === b.id)?.needsRecheck).toBe(true); // the cart offers to open it and check again
+    expect(view.lines.find((l) => l.designId === a.id)).toMatchObject({ ok: true, needsRecheck: false });
     expect(view.canCheckout).toBe(false);
   });
 

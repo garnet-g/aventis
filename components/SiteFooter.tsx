@@ -19,7 +19,7 @@ export function SiteFooter() {
             <Link href="/catalogue">Catalogue</Link>
             <Link href="/design" prefetch={false}>Design your own</Link>
             <Link href="/cart">Cart</Link>
-            <Link href="/orders">My orders</Link>
+            <Link href="/orders">My prints</Link>
           </nav>
           <nav aria-label="Help" className="flex flex-col gap-2">
             <Link href="/delivery">Delivery</Link>

@@ -449,3 +449,42 @@ test('a wide text turned upright and made as big as it goes still saves', async 
   await page.getByTestId('continue').click();
   await page.waitForURL('**/cart');
 });
+
+test('a quantity tapped just before Checkout is in the total, not lost', async ({ page }) => {
+  await signUp(page, uniqueEmail('tap'));
+  await addName(page, 'Tap');
+  await page.getByTestId('continue').click();
+  await page.waitForURL('**/cart');
+  await page.getByRole('button', { name: 'Increase quantity' }).click();
+  await page.getByRole('link', { name: /^Checkout|Updating/ }).click({ timeout: 15_000 });
+  await page.waitForURL('**/checkout');
+  await expect(page.getByRole('button', { name: /^Pay KES 3,250/ })).toBeVisible(); // 2 x 1,500 + 250
+});
+
+test('if the price changes while the customer is on checkout, nothing is charged and the new total is shown', async ({ page }) => {
+  const email = uniqueEmail('price');
+  await signUp(page, email);
+  await addName(page, 'Price');
+  await page.getByTestId('continue').click();
+  await goToCheckout(page);
+  await expect(page.getByRole('button', { name: /^Pay KES 1,750/ })).toBeVisible();
+  // the starting prices, with the T-shirt raised by KES 100
+  const raised = { tee: { priceKes: 1600, costKes: 800 }, hoodie: { priceKes: 2200, costKes: 1300 }, backPriceKes: 500, backCostKes: 400, deliveryFeeKes: 250, deliveryFeeUpcountryKes: 400, bulkTiers: [{ minQuantity: 5, percentOff: 5 }, { minQuantity: 10, percentOff: 10 }, { minQuantity: 25, percentOff: 15 }] };
+  try {
+    // an admin raises the T-shirt price meanwhile
+    await service().from('settings').upsert({ key: 'prices', value: raised });
+    await page.getByLabel('Full name').fill('Wanjiku Mwangi');
+    await page.getByLabel('Mobile number').fill('0712345678');
+    await page.getByLabel('Town or city').fill('Nairobi');
+    await page.getByLabel('County', { exact: true }).selectOption('Nairobi');
+    await page.getByLabel('Address and directions').fill('Apt 4, Ngong Road');
+    await page.getByLabel(/I agree to the/).check();
+    await page.getByRole('button', { name: /^Pay KES 1,750/ }).click();
+    await expect(page.getByText(/Your total is now KES 1,850/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Pay KES 1,850/ })).toBeVisible();
+    const { data: orders } = await service().from('orders').select('id').eq('user_id', await userId(email));
+    expect(orders).toEqual([]); // nothing was charged at the old price
+  } finally {
+    await service().from('settings').delete().eq('key', 'prices');
+  }
+});

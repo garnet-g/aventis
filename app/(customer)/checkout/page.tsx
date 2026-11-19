@@ -8,7 +8,8 @@ import { loadCart } from '@/lib/cart';
 import { supabasePriceStore } from '@/lib/pricesStore';
 import { supabaseCartStore } from '@/lib/cartStore';
 import { supabaseDesignStore } from '@/lib/designsStore';
-import { kes } from '@/lib/labels';
+import { kes, printedSides } from '@/lib/labels';
+import { printsBothSides } from '@/lib/pricing';
 import { getPaymentProvider } from '@/lib/payments';
 import { getServiceClient } from '@/lib/supabase/server';
 
@@ -58,8 +59,7 @@ async function Checkout() {
                 </b>
                 <br />
                 <span className="text-mute">
-                  {colorLabel(l.design.color)} &middot; Size {l.design.size} &middot;{' '}
-                  {l.design.backLayers.length > 0 ? 'front and back' : 'front'}
+                  {colorLabel(l.design.color)} &middot; Size {l.design.size} &middot; {printedSides(l.design)}
                 </span>
               </span>
               <span>{kes(l.priceKes)}</span>
@@ -67,8 +67,11 @@ async function Checkout() {
           ))}
         </ul>
         <div className="perf" />
-        {cart.lines.some((l) => l.design.backLayers.length > 0) && (
-          <p className="pb-1 text-xs text-mute">Back print is included in the prices above.</p>
+        {cart.lines.some((l) => printsBothSides(l.design)) && <p className="pb-1 text-xs text-mute">The second printed side is included in the prices above.</p>}
+        {cart.lines[0]?.bulkPercentOff > 0 && (
+          <p data-testid="checkout-bulk" className="pb-1 text-xs font-semibold">
+            Bulk price: {cart.lines[0].bulkPercentOff}% off every piece ({cart.pieces} pieces).
+          </p>
         )}
         <div className="flex justify-between py-0.5 text-sm">
           <span>Items</span>
