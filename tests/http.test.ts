@@ -59,3 +59,13 @@ describe('validation messages', () => {
     expect((await errorResponse(ours).json()).error).toBe('Enter a Kenyan mobile number like 0712345678.');
   });
 });
+
+describe('the visitor address behind the reverse proxy', () => {
+  test('X-Real-IP first, else the last X-Forwarded-For entry (the one the proxy added)', async () => {
+    const { clientIp } = await import('@/lib/rateLimit');
+    const h = (o: Record<string, string>) => ({ get: (k: string) => o[k] ?? null });
+    expect(clientIp(h({ 'x-real-ip': '41.90.1.2', 'x-forwarded-for': '1.1.1.1' }))).toBe('41.90.1.2');
+    expect(clientIp(h({ 'x-forwarded-for': '9.9.9.9, 41.90.1.2' }))).toBe('41.90.1.2'); // a faked first entry is ignored
+    expect(clientIp(h({}))).toBe('unknown');
+  });
+});

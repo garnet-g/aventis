@@ -12,7 +12,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const user = await apiUser();
     if (!user) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
-    await limit('catalogueOrder', user.id);
+    await limit('catalogueOrder', user);
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const { design, inCart } = await orderFromCatalogue(

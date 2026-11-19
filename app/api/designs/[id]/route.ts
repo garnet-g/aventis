@@ -10,7 +10,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   try {
     const user = await apiUser();
     if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
-    await limit('saveDesign', user.id);
+    await limit('saveDesign', user);
     const { id } = await params;
     await deleteDesign(supabaseDesignStore(), id, user.id);
     return NextResponse.json({ ok: true });

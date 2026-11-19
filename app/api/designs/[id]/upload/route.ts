@@ -10,7 +10,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const user = await apiUser();
   if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
   try {
-    await limit('upload', user.id);
+    await limit('upload', user);
   } catch (e) {
     return errorResponse(e);
   }

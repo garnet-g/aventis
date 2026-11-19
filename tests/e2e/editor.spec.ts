@@ -216,9 +216,9 @@ test('send to back and bring to front change which layer is on top', async ({ pa
   await addName(page, 'A');
   await addName(page, 'B');
   await expect.poll(() => texts(page)).toEqual(['A', 'B']);
-  await page.getByRole('button', { name: 'Send to back' }).click();
+  await page.getByRole('button', { name: 'Behind other items' }).click();
   await expect.poll(() => texts(page)).toEqual(['B', 'A']);
-  await page.getByRole('button', { name: 'Bring to front' }).click();
+  await page.getByRole('button', { name: 'In front of other items' }).click();
   await expect.poll(() => texts(page)).toEqual(['A', 'B']);
 });
 
@@ -379,4 +379,36 @@ test('removing the background replaces the picture with an edited copy (needs in
   const after = (await layers(page))[0];
   expect(after.rect.width).toBeCloseTo(before.rect.width, 2); // same size and place
   expect(after.rect.height).toBeCloseTo(before.rect.height, 2);
+});
+
+test('stacking buttons say what they do and are off when they cannot change anything', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await addName(page, 'One');
+  await expect(page.getByRole('button', { name: 'In front of other items' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Behind other items' })).toBeDisabled();
+  await addName(page, 'Two'); // the new one is on top
+  await expect(page.getByRole('button', { name: 'In front of other items' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Behind other items' }).click();
+  await expect.poll(async () => texts(page)).toEqual(['Two', 'One']);
+  await expect(page.getByRole('button', { name: 'Behind other items' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'In front of other items' })).toBeEnabled();
+});
+
+test('an item can be moved to the back of the shirt, and the extra price is explained', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await addName(page, 'Stays on front');
+  await addName(page, 'Goes to back');
+  await expect(page.getByTestId('move-note')).toContainText('adds KES 500');
+  await page.getByTestId('move-side').click();
+  await expect(page.getByRole('tab', { name: /Back/ })).toHaveAttribute('aria-selected', 'true');
+  await expect.poll(async () => (await backLayers(page)).map((l) => l.text)).toEqual(['Goes to back']);
+  expect(await texts(page)).toEqual(['Stays on front']);
+  await expect(page.getByRole('tab', { name: /Back/ })).toContainText('+KES 500');
+  // it arrives selected, and moving it again brings it home (and drops the extra)
+  await expect(page.getByTestId('move-note')).toContainText('KES 500 less');
+  await page.getByTestId('move-side').click();
+  await expect(page.getByRole('tab', { name: /Front/ })).toHaveAttribute('aria-selected', 'true');
+  await expect.poll(async () => (await texts(page)).sort()).toEqual(['Goes to back', 'Stays on front']);
+  expect(await backLayers(page)).toEqual([]);
+  await expect(page.getByRole('tab', { name: /Back/ })).not.toContainText('KES');
 });

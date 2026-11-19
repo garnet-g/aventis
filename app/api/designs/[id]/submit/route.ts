@@ -10,7 +10,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   try {
     const user = await apiUser();
     if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
-    await limit('submit', user.id);
+    await limit('submit', user);
     const { id } = await params;
     return NextResponse.json(await submitDesign(supabaseDesignStore(), getImageSafetyProvider(), id, user.id));
   } catch (e) {

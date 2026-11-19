@@ -11,7 +11,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const user = await apiUser();
     if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
-    await limit('preview', user.id);
+    await limit('preview', user);
     const { id } = await params;
     const design = await supabaseDesignStore().get(id);
     if (!design || design.userId !== user.id) return NextResponse.json({ error: 'Design not found.' }, { status: 404 });

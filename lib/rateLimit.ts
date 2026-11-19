@@ -31,4 +31,29 @@ export const LIMITS = {
   account: [10, 60 * 60],
 } as const satisfies Record<string, readonly [number, number]>;
 
-export const limit = (name: keyof typeof LIMITS, userId: string) => rateLimit(`${name}:${userId}`, LIMITS[name][0], LIMITS[name][1]);
+/**
+ * A guest can start a new guest session to get fresh per-account limits, so guests also share a limit per IP
+ * address. Many Kenyan mobile customers share one address (carrier NAT), so it is ten times the per-account one:
+ * enough for a busy network, but it stops one person from creating guests without end.
+ */
+export const GUEST_IP_FACTOR = 10;
+
+/** The visitor's address as the reverse proxy saw it (X-Real-IP, else the last X-Forwarded-For entry). */
+export function clientIp(h: { get(name: string): string | null }): string {
+  const real = h.get('x-real-ip')?.trim();
+  if (real) return real;
+  const forwarded = h.get('x-forwarded-for')?.split(',').map((p) => p.trim()).filter(Boolean);
+  return forwarded?.at(-1) ?? 'unknown';
+}
+
+type Who = string | { id: string; is_anonymous?: boolean };
+
+export async function limit(name: keyof typeof LIMITS, who: Who) {
+  const [max, windowSeconds] = LIMITS[name];
+  const id = typeof who === 'string' ? who : who.id;
+  await rateLimit(`${name}:${id}`, max, windowSeconds);
+  if (typeof who !== 'string' && who.is_anonymous) {
+    const { headers } = await import('next/headers');
+    await rateLimit(`${name}:guest-ip:${clientIp(await headers())}`, max * GUEST_IP_FACTOR, windowSeconds);
+  }
+}

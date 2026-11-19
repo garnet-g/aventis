@@ -9,7 +9,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ designId
   try {
     const user = await apiUser();
     if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
-    await limit('cart', user.id);
+    await limit('cart', user);
     const { designId } = await params;
     const { quantity } = await readJsonObject(req);
     await setCartQuantity({ cart: supabaseCartStore() }, user.id, designId, quantity as number);
@@ -23,7 +23,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ desi
   try {
     const user = await apiUser();
     if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
-    await limit('cart', user.id);
+    await limit('cart', user);
     const { designId } = await params;
     await removeFromCart({ cart: supabaseCartStore() }, user.id, designId);
     return NextResponse.json({ ok: true });

@@ -488,3 +488,14 @@ test('if the price changes while the customer is on checkout, nothing is charged
     await service().from('settings').delete().eq('key', 'prices');
   }
 });
+
+test('moving an item to the back of the shirt changes the price per piece, and back again', async ({ page }) => {
+  await signUp(page, uniqueEmail('move'));
+  await addName(page, 'Front words');
+  await expect(page.getByTestId('piece-price')).toHaveText('KES 1,500');
+  await addName(page, 'Back words');
+  await page.getByTestId('move-side').click();
+  await expect(page.getByTestId('piece-price')).toHaveText('KES 2,000'); // both sides printed
+  await page.getByTestId('move-side').click();
+  await expect(page.getByTestId('piece-price')).toHaveText('KES 1,500');
+});

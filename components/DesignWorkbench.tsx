@@ -171,6 +171,24 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
 
   const tool = 'rounded-[9px] border-2 border-ink bg-white/50 px-3 py-2 text-sm font-bold disabled:opacity-40';
 
+  // Moving the selected item to the other side of the garment, and what that does to the price: the extra is
+  // charged when both sides carry something, so a move can add it, remove it, or leave the price as it is.
+  const otherSide: Side = side === 'front' ? 'back' : 'front';
+  const counts = { front: state.layers.length, back: state.backLayers.length };
+  const bothNow = counts.front > 0 && counts.back > 0;
+  const after = { ...counts, [side]: counts[side] - 1, [otherSide]: counts[otherSide] + 1 };
+  const bothAfter = after.front > 0 && after.back > 0;
+  const itemName = state.product === 'hoodie' ? 'hoodie' : 'shirt';
+  const moveNote = !bothNow && bothAfter
+    ? `Printing both sides adds ${kes(backPriceKes)} per piece.`
+    : bothNow && !bothAfter
+      ? `Only one side would be printed: ${kes(backPriceKes)} less per piece.`
+      : null;
+  function moveToOtherSide() {
+    const to = editor.current?.moveSelectedToOtherSide();
+    if (to) setSide(to); // show it where it went, selected
+  }
+
   return (
     <div className="shell pb-32 lg:grid lg:grid-cols-[minmax(0,34rem)_minmax(0,1fr)] lg:items-start lg:gap-12">
       <div className="flex flex-col gap-4 lg:sticky lg:top-4">
@@ -364,12 +382,19 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
             <button className={tool} onClick={() => void editor.current?.duplicateSelected()}>
               Duplicate
             </button>
-            <button className={tool} onClick={() => editor.current?.bringToFront()}>
-              Bring to front
+            {/* stacking: which item covers which, on this side only (not the back of the shirt) */}
+            <button className={tool} disabled={selection.stack.index >= selection.stack.count - 1} onClick={() => editor.current?.bringToFront()}>
+              In front of other items
             </button>
-            <button className={tool} onClick={() => editor.current?.sendToBack()}>
-              Send to back
+            <button className={tool} disabled={selection.stack.index <= 0} onClick={() => editor.current?.sendToBack()}>
+              Behind other items
             </button>
+          </div>
+          <div className="flex flex-col gap-1 border-t border-ink/20 pt-3">
+            <button data-testid="move-side" className={`${tool} self-start`} onClick={moveToOtherSide}>
+              Move to the {otherSide} of the {itemName}
+            </button>
+            {moveNote && <p data-testid="move-note" className="text-xs text-mute">{moveNote}</p>}
           </div>
         </section>
       )}

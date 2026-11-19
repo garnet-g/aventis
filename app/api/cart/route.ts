@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   try {
     const user = await apiUser();
     if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
-    await limit('cart', user.id);
+    await limit('cart', user);
     const { designId } = await readJsonObject(req);
     await addToCart({ designs: supabaseDesignStore(), cart: supabaseCartStore() }, user.id, String(designId));
     return NextResponse.json({ ok: true });

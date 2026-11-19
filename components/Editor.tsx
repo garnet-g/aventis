@@ -33,9 +33,12 @@ const BASE_FONT_SIZE = 26;
 type Meta = { kind: 'image'; uploadPath: string } | { kind: 'text'; font: FontKey };
 
 /** What is currently selected on the canvas, so the page can show the right tools. */
+/** Where the selected item sits in the stack on its side: 0 is the bottom, count - 1 the top. */
+export type StackPosition = { index: number; count: number };
+
 export type Selection =
-  | { kind: 'image'; quality: PrintQuality }
-  | { kind: 'text'; text: string; font: FontKey; fill: string; size: number; direction: 'ltr' | 'rtl' }
+  | { kind: 'image'; quality: PrintQuality; stack: StackPosition }
+  | { kind: 'text'; text: string; font: FontKey; fill: string; size: number; direction: 'ltr' | 'rtl'; stack: StackPosition }
   | null;
 
 export type TextPatch = { text?: string; font?: FontKey; fill?: string; size?: number };
@@ -57,6 +60,8 @@ export type EditorHandle = {
   sendToBack(): void;
   flipSelected(axis: 'x' | 'y'): void;
   rotateSelected(degrees: number): void;
+  /** Moves the selected item to the other side of the garment (front to back or back to front). Returns that side. */
+  moveSelectedToOtherSide(): Side | null;
   undo(): Promise<void>;
   redo(): Promise<void>;
 };
@@ -100,6 +105,8 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   });
   const hist = () => historiesRef.current[sideRef.current];
   const switchChain = useRef<Promise<void>>(Promise.resolve());
+  // set by moveSelectedToOtherSide: select the item that just arrived when its side comes on screen
+  const selectArrivalRef = useRef(false);
   const restoringRef = useRef(false);
   const onChangeRef = useRef(onChange);
   const onSelectionRef = useRef(onSelectionChange);
@@ -190,6 +197,8 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     const obj = fabricRef.current?.getActiveObject();
     const meta = obj && metaRef.current.get(obj);
     if (!obj || !meta) return onSelectionRef.current?.(null);
+    const items = fabricRef.current!.getObjects().filter((o) => metaRef.current.has(o));
+    const stack = { index: items.indexOf(obj), count: items.length };
     if (meta.kind === 'text') {
       const t = obj as Textbox;
       onSelectionRef.current?.({
@@ -199,11 +208,12 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         fill: String(t.fill),
         size: Math.round((t.fontSize ?? BASE_FONT_SIZE) * (obj.scaleY ?? 1)),
         direction: detectDirection(t.text),
+        stack,
       });
       return;
     }
     const printedWidthCm = (obj.getScaledWidth() / areaRef.current.width) * printAreaFor(productRef.current, sideRef.current).widthCm;
-    onSelectionRef.current?.({ kind: 'image', quality: printQuality((obj as FabricImage).width, printedWidthCm) });
+    onSelectionRef.current?.({ kind: 'image', quality: printQuality((obj as FabricImage).width, printedWidthCm), stack });
   };
 
   /** Draws one saved layer onto the canvas. Used by undo/redo and duplicate (and later, resuming a saved design). */
@@ -346,6 +356,16 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     sideRef.current = next;
     areaRef.current = printAreaRect(productRef.current, next);
     await restore(sidesRef.current[next]);
+    if (selectArrivalRef.current) {
+      selectArrivalRef.current = false;
+      const items = canvas.getObjects().filter((o) => metaRef.current.has(o));
+      const arrived = items[items.length - 1];
+      if (arrived) {
+        canvas.setActiveObject(arrived);
+        canvas.requestRenderAll();
+        reportSelection();
+      }
+    }
     await paintBackground();
   };
 
@@ -600,6 +620,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       canvas.bringObjectToFront(active.obj);
       canvas.requestRenderAll();
       emit();
+      reportSelection();
     },
 
     sendToBack() {
@@ -609,6 +630,31 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       canvas.sendObjectToBack(active.obj);
       canvas.requestRenderAll();
       emit();
+      reportSelection();
+    },
+
+    moveSelectedToOtherSide() {
+      const canvas = fabricRef.current;
+      const active = activeOf();
+      if (!canvas || !active) return null;
+      const layers = readLayers();
+      const layer = layers[canvas.getObjects().filter((o) => metaRef.current.has(o)).indexOf(active.obj)];
+      if (!layer) return null;
+      const other: Side = sideRef.current === 'front' ? 'back' : 'front';
+      // Same place on the other side's print area (as fractions of it); it is kept inside when drawn there.
+      const arrived = [...sidesRef.current[other], layer];
+      sidesRef.current[other] = arrived;
+      const h = historiesRef.current[other];
+      h.stack.splice(h.index + 1);
+      h.stack.push(JSON.stringify(arrived));
+      if (h.stack.length > HISTORY_LIMIT) h.stack.shift();
+      h.index = h.stack.length - 1;
+      onChangeRef.current?.(arrived, other);
+      canvas.discardActiveObject();
+      canvas.remove(active.obj); // records this side's step and reports its layers
+      canvas.requestRenderAll();
+      selectArrivalRef.current = true;
+      return other;
     },
 
     flipSelected(axis) {
