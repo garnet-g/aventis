@@ -17,7 +17,7 @@ export type Prices = {
   deliveryFeeKes: number;
   /** Delivery to every other county. */
   deliveryFeeUpcountryKes: number;
-  /** Cheaper per piece for bigger orders of one design, smallest tier first. Empty means no bulk pricing. */
+  /** Cheaper per piece for bigger orders: every piece in the cart counts. Smallest tier first; empty means none. */
   bulkTiers: BulkTier[];
 };
 

@@ -1,5 +1,12 @@
 'use client';
 
+// The fonts customers can pick for their text: loaded with the editor, so only pages that show it download them.
+import '@fontsource/noto-sans/700.css';
+import '@fontsource/bricolage-grotesque/800.css';
+import '@fontsource/bebas-neue/400.css';
+import '@fontsource/pacifico/400.css';
+import '@fontsource/noto-naskh-arabic/700.css';
+
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { BACK_PRINT_PRICE_KES, catalog, colorHex, colorLabel, fallbackColor, SIZES, type Color, type ProductId, type Side, type Size } from '@/lib/catalog';
 import { kes } from '@/lib/labels';
@@ -179,7 +186,8 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
               className={`flex-1 py-2.5 text-sm font-bold ${side === s ? 'bg-ink text-paper' : ''}`}
             >
               {s === 'front' ? 'Front' : 'Back'} ({count})
-              {s === 'back' && count > 0 && <span className="ml-1 text-[0.7rem] font-semibold opacity-80">· +{kes(backPriceKes)}</span>}
+              {/* the extra is for a second printed side: shown once both sides have something on them */}
+              {s === 'back' && count > 0 && state.layers.length > 0 && <span className="ml-1 text-[0.7rem] font-semibold opacity-80">· +{kes(backPriceKes)}</span>}
             </button>
           );
         })}
@@ -252,7 +260,14 @@ export function DesignWorkbench({ initial, uploadFile, onChange, onUploadingChan
             data-testid="text-input"
             disabled={!ready}
             value={text}
+            enterKeyHint="done"
             onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void addText();
+              }
+            }}
             placeholder="Add your text"
             className="field min-w-0 flex-1"
           />

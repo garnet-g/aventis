@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import { BACK_PRINT_COST_KES, BACK_PRINT_PRICE_KES, catalog, DELIVERY_FEE_KES } from '@/lib/catalog';
-import { checkoutTotals, bulkPercentOff, lineTotals, listUnitPriceKes, MAX_QUANTITY, unitCostKes, unitPriceKes } from '@/lib/pricing';
+import { checkoutTotals, bulkPercentOff, lineTotals, listUnitPriceKes, MAX_QUANTITY, printsBothSides, unitCostKes, unitPriceKes } from '@/lib/pricing';
 import { DEFAULT_BULK_TIERS, DEFAULT_PRICES, parsePrices, pricesFromStored } from '@/lib/prices';
 
-const tee = { product: 'tee' as const, backLayers: [] };
-const teeBack = { product: 'tee' as const, backLayers: [{}] };
-const hoodie = { product: 'hoodie' as const, backLayers: [] };
+const tee = { product: 'tee' as const, layers: [{}], backLayers: [] };
+const teeBack = { product: 'tee' as const, layers: [{}], backLayers: [{}] };
+const hoodie = { product: 'hoodie' as const, layers: [{}], backLayers: [] };
 
 describe('unit price and cost', () => {
   test('a front-only item costs the catalog price', () => {
@@ -96,5 +96,17 @@ describe('saving bulk prices', () => {
     ['more than 5 tiers', [2, 3, 4, 5, 6, 7].map((q) => ({ minQuantity: q, percentOff: q }))],
   ])('refuses %s', (_name, bulkTiers) => {
     expect(() => parsePrices({ ...base, bulkTiers })).toThrow();
+  });
+});
+
+describe('which side is printed', () => {
+  test('a design on the back alone is one print: no back extra; both sides pay the extra', () => {
+    const backOnly = { product: 'tee' as const, layers: [], backLayers: [{}] };
+    const both = { product: 'tee' as const, layers: [{}], backLayers: [{}] };
+    expect(listUnitPriceKes(backOnly)).toBe(listUnitPriceKes(tee));
+    expect(unitCostKes(backOnly)).toBe(unitCostKes(tee));
+    expect(listUnitPriceKes(both)).toBe(listUnitPriceKes(tee) + DEFAULT_PRICES.backPriceKes);
+    expect(printsBothSides(backOnly)).toBe(false);
+    expect(printsBothSides(both)).toBe(true);
   });
 });

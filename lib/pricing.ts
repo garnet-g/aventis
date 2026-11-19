@@ -6,15 +6,20 @@ import { MAX_QUANTITY } from '@/lib/limits';
 
 export { MAX_QUANTITY };
 
-type Priced = { product: ProductId; backLayers: readonly unknown[] };
+type Priced = { product: ProductId; layers: readonly unknown[]; backLayers: readonly unknown[] };
 
-const hasBack = (d: Priced) => d.backLayers.length > 0;
+/**
+ * The garment price includes one printed side. The back-print extra is for a second side, so it applies only when
+ * both the front and the back carry something; a design printed on the back alone is one print, like a front one.
+ */
+export const printsBothSides = (d: Priced) => d.layers.length > 0 && d.backLayers.length > 0;
+const hasBack = printsBothSides;
 
 /** The percentage taken off each piece when the cart holds this many pieces in all (0 when no bulk price applies). */
 export const bulkPercentOff = (quantity: number, p: Prices = DEFAULT_PRICES) =>
   p.bulkTiers.reduce((best, t) => (quantity >= t.minQuantity ? Math.max(best, t.percentOff) : best), 0);
 
-/** One piece at the normal price: the garment, plus the back print when the back has anything on it. */
+/** One piece at the normal price: the garment with one printed side, plus the extra when both sides are printed. */
 export const listUnitPriceKes = (d: Priced, p: Prices = DEFAULT_PRICES) => p[d.product].priceKes + (hasBack(d) ? p.backPriceKes : 0);
 
 /** What the customer pays for one piece when the cart holds `pieces` pieces in all: the normal price less any bulk discount. */

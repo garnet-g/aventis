@@ -90,6 +90,9 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   const areaRef = useRef(printAreaRect(product, side));
   const sidesRef = useRef<Record<Side, DesignLayer[]>>({ front: [], back: [] }); // the side that is NOT on the canvas
   const metaRef = useRef(new WeakMap<FabricObject, Meta>());
+  // The size the customer chose for an item before turning it had to shrink it to fit. Turning it back (or on to an
+  // angle where it fits) restores that size, instead of each turn making it a little smaller for good.
+  const wantedScaleRef = useRef(new WeakMap<FabricObject, { x: number; y: number }>());
   const urlsRef = useRef(new Map<string, string>()); // uploadPath -> browser URL, so undo can redraw images
   const historiesRef = useRef<Record<Side, { stack: string[]; index: number }>>({
     front: { stack: ['[]'], index: 0 },
@@ -292,7 +295,10 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       emit();
       reportSelection();
     });
-    canvas.on('object:scaling', reportSelection);
+    canvas.on('object:scaling', (e) => {
+      wantedScaleRef.current.delete(e.target); // a new size chosen by hand
+      reportSelection();
+    });
     canvas.on('object:added', () => emit());
     canvas.on('object:removed', () => {
       emit();
@@ -366,8 +372,12 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         obj.scaleY = (obj.scaleY ?? 1) * k;
       }
       areaRef.current = next;
-      canvas.getObjects().forEach(constrain);
+      canvas.getObjects().forEach((o) => {
+        wantedScaleRef.current.delete(o);
+        constrain(o);
+      });
       emit();
+      reportSelection(); // the same picture prints at a different size on the other garment
     }
     // Text still in the default ink would vanish on the other garment color, so it follows the garment.
     if (prevColorRef.current !== color) {
@@ -543,6 +553,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       if (patch.fill) t.set({ fill: patch.fill });
       if (patch.size !== undefined) {
         t.set({ fontSize: clamp(Math.round(patch.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE), scaleX: 1, scaleY: 1 });
+        wantedScaleRef.current.delete(t);
       }
       t.set({ direction });
       t.initDimensions();
@@ -616,8 +627,15 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       const canvas = fabricRef.current;
       const active = activeOf();
       if (!canvas || !active) return;
-      active.obj.rotate(((((active.obj.angle ?? 0) + degrees) % 360) + 360) % 360);
-      active.obj.setCoords();
+      const obj = active.obj;
+      const wanted = wantedScaleRef.current.get(obj) ?? { x: obj.scaleX ?? 1, y: obj.scaleY ?? 1 };
+      obj.rotate(((((obj.angle ?? 0) + degrees) % 360) + 360) % 360);
+      obj.set({ scaleX: wanted.x, scaleY: wanted.y }); // try the chosen size again; constrain shrinks it only if needed
+      constrain(obj);
+      // remember the chosen size only while turning has made it smaller
+      if (Math.abs((obj.scaleX ?? 1) - wanted.x) > 1e-6) wantedScaleRef.current.set(obj, wanted);
+      else wantedScaleRef.current.delete(obj);
+      obj.setCoords();
       canvas.requestRenderAll();
       canvas.fire('object:modified', { target: active.obj });
     },

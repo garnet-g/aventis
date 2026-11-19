@@ -268,3 +268,17 @@ describe('deleting a design', () => {
     expect(await store.get(mine.id)).toBeNull();
   });
 });
+
+describe('turned items and the print area', () => {
+  test('a banner turned upright saves; one that really sticks out does not', async () => {
+    const upright: DesignLayer = { ...text('WIDE BANNER'), rect: { x: 0.0828, y: -0.0698, width: 0.8345, height: 0.84375 }, rotation: 90 };
+    await expect(saveDesign(store, 'alice', { ...base, layers: [upright] })).resolves.toMatchObject({ status: 'draft' });
+    const sticksOut: DesignLayer = { ...upright, rotation: 0 };
+    await expect(saveDesign(store, 'alice', { ...base, layers: [sticksOut] })).rejects.toThrow('inside the print area');
+  });
+
+  test('the back is checked against the back print area', async () => {
+    const tooLow: DesignLayer = { ...text('BACK'), rect: { x: 0.2, y: 0.9, width: 0.6, height: 0.3 } };
+    await expect(saveDesign(store, 'alice', { ...base, layers: [text('Front')], backLayers: [tooLow] })).rejects.toThrow('inside the print area');
+  });
+});

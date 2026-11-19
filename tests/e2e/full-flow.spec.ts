@@ -435,3 +435,17 @@ test('a cropped picture with its background removed is stored, checked and can b
   await goToCheckout(page);
   await fillDeliveryAndPay(page);
   });
+
+test('a wide text turned upright and made as big as it goes still saves', async ({ page }) => {
+  await signUp(page, uniqueEmail('turn'));
+  await addName(page, 'WIDE BANNER TEXT HERE');
+  await page.getByRole('button', { name: 'Rotate 90°' }).click();
+  await page.getByLabel('Text size').evaluate((el) => {
+    const input = el as HTMLInputElement;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '90');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await expect(page.getByTestId('save-status')).toHaveText('Saved ✓', { timeout: 15_000 });
+  await page.getByTestId('continue').click();
+  await page.waitForURL('**/cart');
+});

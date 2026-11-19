@@ -285,14 +285,43 @@ test('undo history is kept separately for each side', async ({ page }) => {
   await expect.poll(async () => (await layers(page)).length).toBe(0);
 });
 
-test('the tabs show how much is on each side, and the extra price for printing the back', async ({ page }) => {
+test('the tabs show how much is on each side; the extra price shows once both sides are printed', async ({ page }) => {
   await page.goto('/dev/editor');
   await expect(page.getByRole('tab', { name: /Back/ })).not.toContainText('KES');
   await page.getByRole('tab', { name: /Back/ }).click();
   await addName(page, 'Back one');
   await expect(page.getByRole('tab', { name: /Back/ })).toContainText('(1)');
+  // printed on the back alone it is one print, like a front: no extra
+  await expect(page.getByRole('tab', { name: /Back/ })).not.toContainText('KES');
+  await page.getByRole('tab', { name: /Front/ }).click();
+  await addName(page, 'Front one');
   await expect(page.getByRole('tab', { name: /Back/ })).toContainText('+KES 500');
-  await expect(page.getByRole('tab', { name: /Front/ })).toContainText('(0)');
+});
+
+test('a wide text turned upright stays inside, and a full turn gives back its size', async ({ page }) => {
+  await page.goto('/dev/editor');
+  await expect(page.getByTestId('text-input')).toBeEnabled();
+  await page.getByTestId('text-input').fill('WIDE BANNER TEXT HERE');
+  await page.getByTestId('text-input').press('Enter'); // Enter adds it, as on a phone keyboard
+  await expect.poll(async () => (await layers(page)).length).toBe(1);
+  const start = (await layers(page))[0].fontSize!;
+  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Rotate 90°' }).click();
+  await expect.poll(async () => (await layers(page))[0].rotation).toBe(0);
+  expect((await layers(page))[0].fontSize).toBeCloseTo(start, 4);
+});
+
+test('the print quality is worked out again when the item changes (the hoodie prints narrower)', async ({ page }) => {
+  await page.goto('/dev/editor');
+  const upload = page.getByTestId('upload-input');
+  await expect(upload).toBeEnabled();
+  const art = await sharp({ create: { width: 900, height: 900, channels: 3, background: '#38c' } }).png().toBuffer();
+  await upload.setInputFiles({ name: 'art.png', mimeType: 'image/png', buffer: art });
+  const dpi = async () => Number(((await page.getByTestId('print-quality').textContent()) ?? '').match(/([0-9]+) DPI/)?.[1]);
+  await expect.poll(dpi).toBeGreaterThan(0);
+  const onTee = await dpi();
+  await page.getByRole('group', { name: 'Item' }).getByRole('button', { name: 'Hoodie' }).click();
+  // the same share of a 25 cm area instead of 27 cm: more dots per inch
+  await expect.poll(dpi).toBeGreaterThan(onTee);
 });
 
 test('cropping keeps the chosen part where it was, at the same size on the shirt', async ({ page }) => {

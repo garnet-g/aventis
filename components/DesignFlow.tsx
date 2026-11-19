@@ -7,6 +7,7 @@ import { type ProductId } from '@/lib/catalog';
 import { errorText, json, OFFLINE_MESSAGE, send } from '@/lib/clientFetch';
 import { postFormWithProgress, shrinkForUpload } from '@/lib/clientUpload';
 import { kes } from '@/lib/labels';
+import { listUnitPriceKes, printsBothSides } from '@/lib/pricing';
 import type { Prices } from '@/lib/prices';
 
 type Outcome = { status: 'approved' | 'pending_review' | 'rejected'; message: string };
@@ -52,7 +53,7 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSaved = useRef<string | null>(initial ? snapshot(start) : null);
   const [product, setProduct] = useState<ProductId>(start.product);
-  const [hasBack, setHasBack] = useState(start.backLayers.length > 0);
+  const [bothSides, setBothSides] = useState(printsBothSides(start));
   const [hasAnything, setHasAnything] = useState(hasContent(start));
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initial ? 'saved' : 'idle');
   const [saveError, setSaveError] = useState(SAVE_TEXT.error);
@@ -182,7 +183,10 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
     }
   }
 
-  const total = prices[product].priceKes + (hasBack ? prices.backPriceKes : 0) + prices.deliveryFeeKes;
+  // What this design costs per piece. Delivery depends on the county and is charged once per order, and the bulk
+  // discount depends on every piece in the cart, so both are shown as notes rather than folded into a "total".
+  const piece = listUnitPriceKes({ product, layers: bothSides ? [1] : [], backLayers: bothSides ? [1] : [] }, prices);
+  const bulk = prices.bulkTiers[0];
 
   return (
     <>
@@ -206,7 +210,7 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
         onChange={(s) => {
           state.current = s;
           setProduct(s.product);
-          setHasBack(s.backLayers.length > 0);
+          setBothSides(printsBothSides(s));
           setHasAnything(hasContent(s));
           if (hasContent(s) && snapshot(s) !== lastSaved.current) scheduleAutosave();
         }}
@@ -231,8 +235,12 @@ function DesignFlowInner({ initial, prices, onFinished }: { initial?: Initial; p
       <div className="fixed inset-x-0 bottom-0 z-20 bg-ink text-paper">
         <div className="shell flex items-center justify-between gap-3 pb-4 pt-3">
           <div>
-            <small className="block text-[0.7rem] text-[#bdb2a0]">Total with delivery{hasBack ? ', incl. back print' : ''}</small>
-            <b className="font-display text-2xl leading-none">{kes(total)}</b>
+            <small className="block text-[0.7rem] text-[#bdb2a0]">Per piece{bothSides ? ', front and back' : ''}</small>
+            <b data-testid="piece-price" className="font-display text-2xl leading-none">{kes(piece)}</b>
+            <small data-testid="price-notes" className="block text-[0.65rem] leading-tight text-[#bdb2a0]">
+              + delivery {kes(prices.deliveryFeeKes)} Nairobi area, {kes(prices.deliveryFeeUpcountryKes)} elsewhere
+              {bulk ? ` · ${bulk.minQuantity}+ pieces save ${bulk.percentOff}%` : ''}
+            </small>
           </div>
           <button data-testid="continue" disabled={busy || uploading} onClick={onContinue} className="btn btn-dock btn-sm sm:min-w-56">
             {busy ? 'Working…' : uploading ? 'Uploading…' : 'Add to cart'}

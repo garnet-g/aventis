@@ -109,8 +109,8 @@ describe('editable prices', () => {
     expect(pricesFromStored(good)).toEqual(good);
   });
   test('pricing uses the prices it is given, the back extra only when the back is printed', () => {
-    const front = { product: 'hoodie' as const, backLayers: [] };
-    const both = { product: 'hoodie' as const, backLayers: [{}] };
+    const front = { product: 'hoodie' as const, layers: [{}], backLayers: [] };
+    const both = { product: 'hoodie' as const, layers: [{}], backLayers: [{}] };
     expect(unitPriceKes(front, good)).toBe(2600);
     expect(unitPriceKes(both, good)).toBe(3300);
     expect(unitCostKes(both, good)).toBe(1850);

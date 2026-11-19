@@ -9,6 +9,7 @@ import { previewKey } from '@/lib/catalogueItems';
 import { cataloguePictureUrl, supabaseCatalogueStore } from '@/lib/catalogueStore';
 import { bulkTiersLabel, kes } from '@/lib/labels';
 import { supabasePriceStore } from '@/lib/pricesStore';
+import { listUnitPriceKes } from '@/lib/pricing';
 
 /** Each design gets its own title, description and share picture (what WhatsApp shows when the link is shared). */
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -41,7 +42,7 @@ async function Item({ params }: { params: Promise<{ id: string }> }) {
   const item = /^[0-9a-f-]{36}$/i.test(id) ? await supabaseCatalogueStore().get(id) : null;
   if (!item || !item.published) notFound();
   const prices = await supabasePriceStore().get();
-  const price = prices[item.product].priceKes + (item.backLayers.length ? prices.backPriceKes : 0);
+  const price = listUnitPriceKes(item, prices);
   const previews = Object.fromEntries(Object.entries(item.mockups).map(([k, path]) => [k, cataloguePictureUrl(path)]));
 
   return (

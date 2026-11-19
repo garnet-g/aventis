@@ -1,9 +1,3 @@
-// The fonts customers can pick for their text: only the designer needs them, so only this page loads them.
-import '@fontsource/noto-sans/700.css';
-import '@fontsource/bricolage-grotesque/800.css';
-import '@fontsource/bebas-neue/400.css';
-import '@fontsource/pacifico/400.css';
-import '@fontsource/noto-naskh-arabic/700.css';
 import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { DesignFlow } from '@/components/DesignFlow';

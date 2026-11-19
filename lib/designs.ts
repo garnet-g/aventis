@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { catalog, COLORS, offersColor, SIZES } from '@/lib/catalog';
+import { catalog, COLORS, offersColor, printAreaFor, SIZES, type Side } from '@/lib/catalog';
+import { layerFitsArea } from '@/lib/printArea';
 import type { DesignLayer } from '@/lib/designLayers';
 import { normalizeFont } from '@/lib/fonts';
 import { HttpError } from '@/lib/errors';
@@ -43,13 +44,25 @@ export interface DesignStore {
   remove(id: string): Promise<void>;
 }
 
-// Rects are fractions of the print area; anything outside 0..1 would print off the garment's print area.
-const EPS = 0.001;
-const rectSchema = z
-  .object({ x: z.number(), y: z.number(), width: z.number().positive(), height: z.number().positive() })
-  .refine((r) => r.x >= -EPS && r.y >= -EPS && r.x + r.width <= 1 + EPS && r.y + r.height <= 1 + EPS, {
-    message: 'Design must stay inside the print area.',
-  });
+// Rects are fractions of the print area: the item's box before it is turned by `rotation`. Whether the turned item
+// stays inside the area is checked per side (it depends on the area's shape): see insideArea below.
+const rectSchema = z.object({
+  x: z.number().min(-2).max(2),
+  y: z.number().min(-2).max(2),
+  width: z.number().positive().max(3),
+  height: z.number().positive().max(3),
+});
+
+const OUTSIDE = 'Design must stay inside the print area.';
+
+/** Every layer, turned as it will print, must stay inside that side's print area. */
+function insideArea(product: keyof typeof catalog, layers: DesignLayer[], backLayers: DesignLayer[]): boolean {
+  const fits = (side: Side, list: DesignLayer[]) => {
+    const area = printAreaFor(product, side);
+    return list.every((l) => layerFitsArea(l, area.widthCm / area.heightCm));
+  };
+  return fits('front', layers) && fits('back', backLayers);
+}
 
 const layerSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -79,7 +92,9 @@ const inputSchema = z.object({
   size: z.enum(SIZES, { message: 'Choose a size.' }),
   layers: z.array(layerSchema).max(20, 'Use at most 20 items on each side.'),
   backLayers: z.array(layerSchema).max(20, 'Use at most 20 items on each side.').default([]),
-}).refine((v) => offersColor(v.product, v.color), { message: 'That colour is not available for this item.', path: ['color'] });
+})
+  .refine((v) => offersColor(v.product, v.color), { message: 'That colour is not available for this item.', path: ['color'] })
+  .refine((v) => insideArea(v.product, v.layers as DesignLayer[], v.backLayers as DesignLayer[]), { message: OUTSIDE, path: ['layers'] });
 
 export type DesignInput = z.input<typeof inputSchema>;
 
@@ -149,6 +164,7 @@ export async function submitDesign(store: DesignStore, provider: ImageSafetyProv
   const backLayers = z.array(layerSchema).max(20).parse(d.backLayers) as DesignLayer[];
   const everything = [...layers, ...backLayers];
   assertUploadsOwned(userId, id, everything);
+  if (!insideArea(d.product, layers, backLayers)) throw new Error(OUTSIDE);
 
   const hash = layersHash(d.layers, d.backLayers);
   if (d.status !== 'draft' && d.moderatedHash === hash) return resultFor(d);

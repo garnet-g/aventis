@@ -6,6 +6,7 @@ import { previewKey } from '@/lib/catalogueItems';
 import { cataloguePictureUrl, supabaseCatalogueStore } from '@/lib/catalogueStore';
 import { kes } from '@/lib/labels';
 import { supabasePriceStore } from '@/lib/pricesStore';
+import { listUnitPriceKes } from '@/lib/pricing';
 
 export const metadata = { title: 'Catalogue', description: 'Ready-made VibeCrew T-shirt and hoodie designs. Pick one, choose your size and order.' };
 
@@ -65,7 +66,7 @@ async function Grid({ searchParams }: { searchParams: Promise<{ p?: string }> })
           {items.map((item) => {
             const key = previewKey(item, item.colors[0]);
             const picture = key ? cataloguePictureUrl(item.mockups[key]) : null;
-            const price = prices[item.product].priceKes + (item.backLayers.length ? prices.backPriceKes : 0);
+            const price = listUnitPriceKes(item, prices);
             return (
               <li key={item.id} data-testid="catalogue-card">
                 <Link href={`/catalogue/${item.id}`} className="group block overflow-hidden rounded-2xl border-2 border-ink bg-white shadow-[5px_5px_0_var(--color-marigold)] transition-transform hover:-translate-y-1">
