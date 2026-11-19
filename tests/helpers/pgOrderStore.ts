@@ -29,6 +29,7 @@ const toOrder = (r: Row): Order => ({
   backDesignFilePath: (r.back_design_file_path as string) ?? null,
   artifactsFailed: r.artifacts_failed as boolean,
   createdAt: String(r.created_at),
+  checkoutId: (r.checkout_id as string) ?? null,
   courier: (r.courier as string) ?? null,
   tracking: (r.tracking as string) ?? null,
   cancelReason: (r.cancel_reason as string) ?? null,
@@ -47,6 +48,10 @@ export function pgOrderStore(db: PGlite): OrderStore {
     async findById(id) {
       const r = await db.query<Row>('select * from orders where id = $1', [id]);
       return r.rows[0] ? toOrder(r.rows[0]) : null;
+    },
+    async findCheckoutOrdersById(checkoutId) {
+      const r = await db.query<Row>('select * from orders where checkout_id = $1 order by position', [checkoutId]);
+      return r.rows.map(toOrder);
     },
     async findCheckoutOrders(reference) {
       const r = await db.query<Row>(

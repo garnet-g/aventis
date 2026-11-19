@@ -28,7 +28,12 @@ async function Orders({ searchParams }: { searchParams: SearchParams }) {
   const page = Math.max(1, Math.min(10_000, Number.parseInt(pageParam, 10) || 1));
   const { rows, total } = await queryAdminOrders({ q, status, from, to }, { offset: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE });
   // the saved mockups (private files) through short-lived links, instead of drawing 50 previews
-  const paths = rows.map((r) => r.order.mockupPath).filter((p): p is string => Boolean(p));
+  // the side that is printed: a design on the back alone has a blank front picture
+  const pictureOf = (o: (typeof rows)[number]['order']) => (o.layersSnapshot.length === 0 && o.backMockupPath ? o.backMockupPath : o.mockupPath);
+  const paths = rows.map((r) => pictureOf(r.order)).filter((p): p is string => Boolean(p));
+  // how many orders on this page share each payment (they ship in one parcel)
+  const perCheckout = new Map<string, number>();
+  for (const { order } of rows) if (order.checkoutId) perCheckout.set(order.checkoutId, (perCheckout.get(order.checkoutId) ?? 0) + 1);
   const { data: signed } = paths.length ? await getServiceClient().storage.from('artifacts').createSignedUrls(paths, 3600) : { data: [] };
   const thumb = new Map((signed ?? []).filter((x) => x.path && x.signedUrl).map((x) => [x.path as string, x.signedUrl as string]));
   const filtering = Boolean(q || status || from || to);
@@ -102,11 +107,14 @@ async function Orders({ searchParams }: { searchParams: SearchParams }) {
                   <Link className="font-mono underline" href={`/admin/orders/${order.id}`}>
                     {order.id.slice(0, 8)}
                   </Link>
+                  {order.checkoutId && (perCheckout.get(order.checkoutId) ?? 0) > 1 && (
+                    <span className="block text-xs text-mute">paid with {(perCheckout.get(order.checkoutId) ?? 0) - 1} more</span>
+                  )}
                 </td>
                 <td className="p-2">
                   <div className="flex items-start gap-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={(order.mockupPath && thumb.get(order.mockupPath)) || `/api/admin/designs/${order.designId}/preview`} alt="" loading="lazy" className="h-12 w-10 flex-none rounded border border-ink/30 bg-paper-2 object-cover" />
+                    <img src={(pictureOf(order) && thumb.get(pictureOf(order)!)) || `/api/admin/designs/${order.designId}/preview`} alt="" loading="lazy" className="h-12 w-10 flex-none rounded border border-ink/30 bg-paper-2 object-cover" />
                     <span>
                       {product ? `${catalog[product].label} · ${color ? colorLabel(color) : ''} · ${size}` : '—'}
                       {order.quantity > 1 ? ` × ${order.quantity}` : ''}

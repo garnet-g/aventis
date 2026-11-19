@@ -19,9 +19,31 @@ export async function requireUser(returnTo?: string) {
   return user;
 }
 
+/** The visitor, signed in or as a guest, or null when there is no session at all (never redirects). */
+export async function currentUser() {
+  const {
+    data: { user },
+  } = await (await getServerClient()).auth.getUser();
+  return user;
+}
+
+/** A guest: someone designing without an account yet (Supabase anonymous sign-in). */
+export const isGuest = (user: { is_anonymous?: boolean } | null | undefined) => Boolean(user?.is_anonymous);
+
+/**
+ * For pages that need a real account (paying, the account page): guests and visitors are sent to sign up or sign in,
+ * then come back. A guest's designs and cart move into the account when they do.
+ */
+export async function requireAccount(returnTo: string) {
+  const user = await currentUser();
+  if (!user || isGuest(user)) redirect(`/login?next=${encodeURIComponent(returnTo)}&reason=account`);
+  return user;
+}
+
 /** Non-admins get a 404 so admin routes are not discoverable. */
 export async function requireAdmin() {
   const user = await requireUser();
+  if (isGuest(user)) notFound();
   const { data } = await getServiceClient().from('profiles').select('is_admin').eq('id', user.id).single();
   if (!data?.is_admin) notFound();
   return user;

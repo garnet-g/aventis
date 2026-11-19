@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { apiUser } from '@/lib/auth';
+import { apiUser, isGuest } from '@/lib/auth';
 import { errorResponse } from '@/lib/http';
 import { limit } from '@/lib/rateLimit';
 import { getServiceClient } from '@/lib/supabase/server';
@@ -8,7 +8,7 @@ import { getServiceClient } from '@/lib/supabase/server';
 export async function GET() {
   try {
     const user = await apiUser();
-    if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
+    if (!user || isGuest(user)) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
     await limit('account', user.id);
     const db = getServiceClient();
     const [designs, orders, payments, cart] = await Promise.all([

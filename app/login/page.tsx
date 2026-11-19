@@ -1,9 +1,10 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { SiteHeader } from '@/components/SiteHeader';
 import { authErrorMessage, safeNextPath } from '@/lib/authFlow';
+import { claimGuest, rememberGuest } from '@/lib/guest';
 import { getBrowserClient } from '@/lib/supabase/client';
 
 type Mode = 'signin' | 'signup' | 'reset';
@@ -29,11 +30,12 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const next = safeNextPath(params.get('next'));
   const linkFailed = params.get('error') === 'link';
-  const [mode, setMode] = useState<Mode>(params.get('mode') === 'reset' ? 'reset' : 'signin');
+  // Sent here to pay (or to keep their designs): most of these people are new, so the form starts on "create account".
+  const forAccount = params.get('reason') === 'account' || params.get('reason') === 'save';
+  const [mode, setMode] = useState<Mode>(params.get('mode') === 'reset' ? 'reset' : forAccount ? 'signup' : 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -45,6 +47,10 @@ function LoginForm() {
     setError('');
     setNotice('');
   }
+
+  // A full page load after signing in or up: pages the browser saw a moment ago as a guest (checkout sending them
+  // here, say) must not be reused from the router's memory now that they have an account.
+  const go = (to: string) => window.location.replace(to);
 
   // After the emailed link is opened, the callback signs the person in and sends them on to `then`.
   const callbackUrl = (then: string) => `${window.location.origin}/auth/callback?next=${encodeURIComponent(then)}`;
@@ -64,6 +70,9 @@ function LoginForm() {
       return setNotice(`If ${email} has an account, a link to set a new password is on its way. Open it on this device.`);
     }
 
+    // a guest's designs and cart follow them into the account they sign up or sign in with
+    await rememberGuest();
+
     if (mode === 'signup') {
       const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: callbackUrl(next ?? '/design') } });
       if (error) {
@@ -75,8 +84,8 @@ function LoginForm() {
         setBusy(false);
         return setNotice(`Almost done: open the link we sent to ${email} to confirm your account.`);
       }
-      router.replace(next ?? '/design');
-      return router.refresh();
+      await claimGuest();
+      return go(next ?? '/design');
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -84,22 +93,27 @@ function LoginForm() {
       setBusy(false);
       return setError(authErrorMessage(error));
     }
+    await claimGuest();
     // Back to where they were; otherwise admins land in the admin area and everyone else starts designing.
     let destination = next ?? '/design';
     if (!next) {
       const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', data.user.id).maybeSingle();
       if (profile?.is_admin) destination = '/admin/orders';
     }
-    router.replace(destination);
-    router.refresh();
+    go(destination);
   }
 
   const h = HEADINGS[mode];
   return (
     <>
       <div>
-        <p className="eyebrow">{next && mode !== 'reset' ? 'Sign in to continue' : h.eyebrow}</p>
+        <p className="eyebrow">{next && mode !== 'reset' ? (forAccount ? 'One last step' : 'Sign in to continue') : h.eyebrow}</p>
         <h1 className="font-display text-4xl font-extrabold tracking-tight">{h.title}</h1>
+        {forAccount && mode !== 'reset' && (
+          <p className="mt-2 text-sm" data-testid="account-reason">
+            {params.get('reason') === 'save' ? 'Create an account to keep your designs.' : 'To pay, create an account or sign in, so we can send your receipt and delivery updates.'} Your designs and cart come with you.
+          </p>
+        )}
         {mode === 'reset' && <p className="mt-2 text-sm text-mute">Enter the email you signed up with and we will send you a link to choose a new password.</p>}
       </div>
       {linkFailed && (

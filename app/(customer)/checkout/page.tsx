@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { CheckoutForm } from '@/components/CheckoutForm';
 import { SiteHeader } from '@/components/SiteHeader';
-import { requireUser } from '@/lib/auth';
+import { requireAccount } from '@/lib/auth';
 import { catalog, colorLabel } from '@/lib/catalog';
 import { loadCart } from '@/lib/cart';
 import { supabasePriceStore } from '@/lib/pricesStore';
@@ -27,7 +27,8 @@ export default function CheckoutPage() {
 }
 
 async function Checkout() {
-  const user = await requireUser('/checkout');
+  // Paying needs an account (receipts, delivery updates, refunds): a guest signs up here and their cart comes along.
+  const user = await requireAccount('/checkout');
   const prices = await supabasePriceStore().get();
   const cart = await loadCart({ designs: supabaseDesignStore(), cart: supabaseCartStore(), prices }, user.id);
   // Only a cart whose designs are all approved, exactly as they are now, can be paid for.

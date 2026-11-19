@@ -2,7 +2,8 @@ import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { DesignFlow } from '@/components/DesignFlow';
 import { SiteHeader } from '@/components/SiteHeader';
-import { requireUser } from '@/lib/auth';
+import { GuestStart } from '@/components/GuestStart';
+import { currentUser } from '@/lib/auth';
 import { supabaseDesignStore } from '@/lib/designsStore';
 import { supabasePriceStore } from '@/lib/pricesStore';
 import { getServiceClient } from '@/lib/supabase/server';
@@ -24,8 +25,10 @@ export default function DesignPage({ searchParams }: { searchParams: Promise<{ d
 }
 
 async function SignedInDesign({ searchParams }: { searchParams: Promise<{ d?: string }> }) {
-  const user = await requireUser('/design');
   const { d } = await searchParams;
+  // No account needed to design: a visitor gets a guest session, and only signs up when they pay.
+  const user = await currentUser();
+  if (!user) return <GuestStart next={d ? `/design?d=${d}` : '/design'} />;
   const prices = await supabasePriceStore().get();
   if (!d) return <DesignFlow prices={prices} />;
 

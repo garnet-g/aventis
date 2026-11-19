@@ -19,6 +19,7 @@ export function OrderActions({
   paidKes,
   refunded,
   needsFiles,
+  together = 0,
 }: {
   orderId: string;
   next: OrderStatus | null;
@@ -28,6 +29,8 @@ export function OrderActions({
   paidKes: number;
   refunded: boolean;
   needsFiles: boolean;
+  /** How many other orders were paid with this one and are at the same step (they can move on with it). */
+  together?: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -38,6 +41,7 @@ export function OrderActions({
   const [reason, setReason] = useState('');
   const [refundKes, setRefundKes] = useState(String(paidKes));
   const [refundRef, setRefundRef] = useState('');
+  const [withOthers, setWithOthers] = useState(true);
 
   async function post(path: string, body?: unknown) {
     setBusy(true);
@@ -85,7 +89,7 @@ export function OrderActions({
           className="flex flex-col gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            void post('status', next === 'shipped' ? { courier, tracking } : {});
+            void post('status', { ...(next === 'shipped' && { courier, tracking }), ...(together > 0 && withOthers && { together: true }) });
           }}
         >
           {next === 'shipped' && (
@@ -99,6 +103,14 @@ export function OrderActions({
                 <input value={tracking} onChange={(e) => setTracking(e.target.value)} maxLength={120} className="field font-normal" />
               </label>
             </div>
+          )}
+          {together > 0 && (
+            <label className="flex items-start gap-2">
+              <input type="checkbox" checked={withOthers} onChange={(e) => setWithOthers(e.target.checked)} className="mt-1 h-4 w-4 flex-none" />
+              <span>
+                Also move the other {together} order{together === 1 ? '' : 's'} paid together with this one{messagesCustomer ? ' (one message to the customer for all of them)' : ''}
+              </span>
+            </label>
           )}
           <p className="text-mute">{messagesCustomer ? 'The customer gets an email and an SMS about this.' : 'The customer is not messaged for this step.'}</p>
           <button disabled={busy} className="btn btn-ink btn-sm self-start">

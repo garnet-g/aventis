@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { claimGuest } from '@/lib/guest';
 import { getBrowserClient } from '@/lib/supabase/client';
 
 type Who = { state: 'loading' } | { state: 'out' } | { state: 'in'; admin: boolean };
@@ -22,7 +23,11 @@ export function AccountMenu({ showAdminLink = true }: { showAdminLink?: boolean 
     const check = async () => {
       try {
         const { data } = await supabase.auth.getUser();
-        if (!data.user) return live && setWho({ state: 'out' });
+        // a guest (designing without an account) is offered sign-in, like a visitor
+        if (!data.user || data.user.is_anonymous) return live && setWho({ state: 'out' });
+        // signed in after confirming their email: bring over what they made as a guest in this browser (the login
+        // page does this itself, then moves on, so it is left to do so there)
+        if (!window.location.pathname.startsWith('/login') && (await claimGuest())) router.refresh();
         // customers can only read their own profile row, so this is true only for an admin's own account
         const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', data.user.id).maybeSingle();
         if (live) setWho({ state: 'in', admin: Boolean(profile?.is_admin) });
@@ -38,7 +43,7 @@ export function AccountMenu({ showAdminLink = true }: { showAdminLink?: boolean 
       live = false;
       sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [router]);
 
   async function signOut() {
     setBusy(true);

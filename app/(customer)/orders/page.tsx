@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { AddToCartButton } from '@/components/AddToCartButton';
 import { DeleteDesignButton } from '@/components/DeleteDesignButton';
 import { SiteHeader } from '@/components/SiteHeader';
-import { requireUser } from '@/lib/auth';
+import { currentUser, isGuest } from '@/lib/auth';
 import { catalog, colorLabel } from '@/lib/catalog';
 import { buildCustomerView, type Tone } from '@/lib/customerItems';
 import { toDesign, type DesignRow } from '@/lib/designsStore';
@@ -57,7 +57,18 @@ type Card = ReturnType<typeof buildCustomerView>[number] & { thumb: string | nul
 type OrderExtra = { tracking: string | null; cancelReason: string | null; refundedKes: number | null; createdAt: string };
 
 async function MyOrders() {
-  const user = await requireUser('/orders');
+  const user = await currentUser();
+  if (!user) {
+    return (
+      <main className="shell flex flex-col gap-4 py-8">
+        <h1 className="font-display text-3xl font-extrabold tracking-tight">Your prints</h1>
+        <p className="text-mute">
+          Nothing here yet. <Link className="underline" href="/design" prefetch={false}>Start a design</Link>, or{' '}
+          <Link className="underline" href="/login?next=%2Forders">sign in</Link> to see your orders.
+        </p>
+      </main>
+    );
+  }
   // These queries run as the customer, so row-level security already limits them to their own rows.
   const db = await getServerClient();
   const [{ data: designRows }, { data: orderRows }] = await Promise.all([
@@ -98,6 +109,11 @@ async function MyOrders() {
   return (
     <main className="shell flex flex-col gap-8 py-8">
       <h1 className="font-display text-3xl font-extrabold tracking-tight">Your prints</h1>
+      {isGuest(user) && cards.length > 0 && (
+        <p className="ticket text-sm" data-testid="guest-note">
+          You are designing as a guest. <Link className="underline" href="/login?next=%2Forders&reason=save">Create an account</Link> to keep these designs on any device; they come with you.
+        </p>
+      )}
       {!cards.length && (
         <p className="text-mute">
           Nothing here yet. <Link className="underline" href="/design" prefetch={false}>Start your first design</Link> or <Link className="underline" href="/catalogue">pick one from the catalogue</Link>.

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { colorHex, colorLabel, SIZES, type Color, type Size } from '@/lib/catalog';
 import { errorText, json, send } from '@/lib/clientFetch';
+import { ensureSession } from '@/lib/guest';
 import { MAX_QUANTITY } from '@/lib/pricing';
 
 
@@ -36,8 +37,11 @@ export function CatalogueOrder({
   async function order(customise: boolean) {
     setBusy(customise ? 'customise' : 'cart');
     setError('');
-    const r = await send(`/api/catalogue/${itemId}/order`, json('POST', { color, size, quantity, customise }));
-    // Reset first: Next.js keeps this page's state, so it would still say "Adding…" when they come back after signing in.
+    const place = () => send(`/api/catalogue/${itemId}/order`, json('POST', { color, size, quantity, customise }));
+    let r = await place();
+    // A visitor without a session shops as a guest (no sign-up until they pay): start one and try again.
+    if (r.status === 401 && (await ensureSession())) r = await place();
+    // Reset first: Next.js keeps this page's state, so it would still say "Adding…" when they come back.
     setBusy(null);
     if (r.status === 401) return router.push(`/login?next=${encodeURIComponent(`/catalogue/${itemId}`)}`);
     if (!r.ok) return setError(errorText(r, 'Something went wrong. Please try again.'));

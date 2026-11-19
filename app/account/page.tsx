@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { ChangePassword, DeleteAccount } from '@/components/AccountControls';
 import { SiteHeader } from '@/components/SiteHeader';
-import { requireUser } from '@/lib/auth';
+import { requireAccount } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase/server';
 
 export const metadata = { title: 'Your account', robots: { index: false } };
@@ -19,7 +19,7 @@ export default function AccountPage() {
 }
 
 async function Account() {
-  const user = await requireUser('/account');
+  const user = await requireAccount('/account');
   const { data: orders } = await getServiceClient()
     .from('orders')
     .select('name, phone, city, county, address')

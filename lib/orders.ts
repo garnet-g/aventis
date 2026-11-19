@@ -46,6 +46,8 @@ export type Order = {
   artifactsFailed: boolean;
   /** When the customer paid. */
   createdAt?: string;
+  /** The payment (checkout) this order was paid with; orders paid together share it and ship together. */
+  checkoutId?: string | null;
   /** Set when the order ships. */
   courier?: string | null;
   tracking?: string | null;
@@ -76,6 +78,8 @@ export type NewCheckout = {
 export interface OrderStore {
   findByDesign(designId: string): Promise<Order | null>;
   findById(id: string): Promise<Order | null>;
+  /** Every order paid with the same checkout as this id, in cart order. */
+  findCheckoutOrdersById(checkoutId: string): Promise<Order[]>;
   /** The orders made by the checkout with this reference, in cart order, or null when there is none. */
   findCheckoutOrders(reference: string): Promise<Order[] | null>;
   /** Compare-and-set: changes the status only if it is still `from`; returns null when someone else moved it first. */

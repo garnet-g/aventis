@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { deleteAccount } from '@/lib/account';
 import { supabaseAccountStore } from '@/lib/accountStore';
-import { apiUser } from '@/lib/auth';
+import { apiUser, isGuest } from '@/lib/auth';
 import { errorResponse, readJsonObject } from '@/lib/http';
 import { limit } from '@/lib/rateLimit';
 
@@ -9,7 +9,7 @@ import { limit } from '@/lib/rateLimit';
 export async function DELETE(req: Request) {
   try {
     const user = await apiUser();
-    if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
+    if (!user || isGuest(user)) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
     await limit('account', user.id);
     const { confirm } = await readJsonObject(req);
     const result = await deleteAccount(supabaseAccountStore(), user.id, confirm);

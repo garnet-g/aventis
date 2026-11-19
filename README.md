@@ -9,13 +9,13 @@ The design notes in `docs/design/` describe the first version and are kept for h
 
 ## How an order flows
 
-1. The customer opens `/design`, picks item, colour and size, uploads pictures and adds text. Art can only sit inside the print area (T-shirt front 27 x 32 cm, back 28 x 32 cm; hoodie front and back 25 x 28 cm). Big phone photos are shrunk in the browser first (4000 px, still over 300 dpi at full size), so uploads use little data.
+1. Anyone can open `/design` and start at once: no account is needed to design, save or fill a cart (see "Guests" below). The customer picks item, colour and size, uploads pictures and adds text. Art can only sit inside the print area (T-shirt front 27 x 32 cm, back 28 x 32 cm; hoodie front and back 25 x 28 cm). Big phone photos are shrunk in the browser first (4000 px, still over 300 dpi at full size), so uploads use little data.
 2. **Add to cart** saves the design and runs the safety check:
    - clearly fine: it goes into the cart (`/cart`)
    - unsure: payment is blocked, the customer sees "Waiting for review" (on `/orders`)
    - clearly explicit: rejected with a reason
 3. An admin reviews "unsure" designs at `/admin/review`, which shows why each one is there. Approving emails the customer; rejecting emails the reason.
-4. Checkout (`/checkout`): delivery details (pre-filled from the last order), the M-Pesa number and acceptance of the terms. The server works out the amount (prices x quantities, bulk discount over every piece in the cart, one delivery fee by county) and sends an M-Pesa prompt to the phone. The page waits ("Check your phone") and moves to the thank-you page once Safaricom confirms. One paid order is recorded per design, and the printer files are drawn from a **snapshot** of the design.
+4. Checkout (`/checkout`) needs an account: a guest is asked to create one (or sign in) and their designs and cart come with them. Then delivery details (pre-filled from the last order), the M-Pesa number and acceptance of the terms. The server works out the amount (prices x quantities, bulk discount over every piece in the cart, one delivery fee by county) and sends an M-Pesa prompt to the phone. The page waits ("Check your phone") and moves to the thank-you page once Safaricom confirms. One paid order is recorded per design, and the printer files are drawn from a **snapshot** of the design.
 5. The customer gets an email receipt and an SMS. Admins get an alert, see the order at `/admin/orders`, download the files, and move it through **Paid → At printer → Shipped (courier and tracking number) → Delivered**. The customer gets an email and an SMS when it ships and when it is delivered.
 
 ## Run it locally
@@ -65,13 +65,21 @@ docker run -d --restart unless-stopped -p 3000:3000 --env-file /etc/vibecrew.env
 - The image runs the standalone Next.js server on port 3000 in Nairobi time, with a health check at `/api/health`. Put a reverse proxy with HTTPS (Caddy or Nginx with Let's Encrypt) in front of it.
 - `NEXT_PUBLIC_*` values are read at build time: build the image with the production values present (for example `--build-arg` or a `.env.production` file that is not committed).
 - Database, storage and sign-in are Supabase. Create the hosted project in the closest region, run `npx supabase link` and `npx supabase db push` to apply the migrations, and turn on **email confirmations** in Authentication settings (admins can only be added once their email is confirmed).
-- Daily housekeeping: have cron call the cleanup once a day. It deletes drafts untouched for 90 days (never ordered, not in a cart) with their pictures, and old rate-limit records:
+- Daily housekeeping: have cron call the cleanup once a day. It deletes drafts untouched for 90 days (never ordered, not in a cart) with their pictures, guests idle for 30 days who never ordered, and old rate-limit records:
 
   ```bash
   curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://<your site>/api/cron/cleanup
   ```
 
 - Data protection: register with the Office of the Data Protection Commissioner (ODPC) as a data controller and fill in the business details (`NEXT_PUBLIC_BUSINESS_*`, `NEXT_PUBLIC_CONTACT_*`), which appear on the terms, privacy, refunds, delivery and contact pages. Customers can download their data and delete their account at `/account`.
+
+## Guests
+
+People can design, upload, save and add to the cart without an account. Opening the designer (or ordering from the catalogue) quietly starts a **guest** session (Supabase anonymous sign-in). An account is only asked for when they pay (and for the account page): they sign up or sign in, and everything they made as a guest moves into that account, pictures included.
+
+- Turn on **Anonymous sign-ins** in the hosted Supabase project (Authentication settings), and keep its per-IP limit on anonymous sign-ins (30 an hour is the default). Supabase recommends a CAPTCHA (Turnstile or hCaptcha) once the site is busy.
+- Guests can't pay or download/delete account data; the header offers them "Sign in".
+- The daily cleanup removes guests who have been idle for 30 days and never ordered, with their designs and pictures.
 
 ## Admins
 
@@ -86,7 +94,7 @@ After that, admins add and remove each other at `/admin/admins` (the person must
 
 What admins can do:
 
-- **Orders** (`/admin/orders`): search by name, phone, town, county, order number, tracking number, payment reference or private note; filter by status and date; export CSV for the accountant. On an order: move it on (courier and tracking when it ships), move it back a step after a mis-click, cancel it before it ships (the customer is told why by email and SMS), record an M-Pesa refund, add a private note, regenerate missing files.
+- **Orders** (`/admin/orders`): search by name, phone (07XX or +254), town, county, order number, tracking number, payment reference or private note; filter by status and date; export CSV for the accountant. Orders paid in one M-Pesa payment are shown as one parcel ("Paid together") and can be moved on together, with one SMS and email to the customer. On an order: move it on (courier and tracking when it ships), move it back a step after a mis-click, cancel it before it ships (the customer is told why by email and SMS), record an M-Pesa refund (profit then shows after the refund), add a private note, regenerate missing files.
 - **Payments** (`/admin/payments`): payments that need a refund, and the latest payments with their status.
 - **Review queue** (`/admin/review`): designs the automatic check was unsure about, with the reason, the customer and how long it has waited.
 - **Catalogue** (`/admin/catalogue`): post, edit (title, description, colours), feature (listed first), publish, hide and delete ready-made designs.
@@ -126,7 +134,6 @@ Treat the checks as a first line, not a guarantee. Review the queue regularly.
 ## Known limits
 
 - **Rendering runs inside the web server.** During testing, one full test run had a native crash in the image library that never happened again in many further runs. Before heavy traffic, move mockup and design-file rendering into a separate worker so a crash cannot take down the website.
-- Customers need an account to design (no guest designing yet).
 - Emails and the app are in English (Arabic-script text on garments is supported).
 - A single admin role: every admin can do everything.
 

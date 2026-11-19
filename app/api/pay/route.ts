@@ -1,5 +1,5 @@
 import { after, NextResponse } from 'next/server';
-import { apiUser } from '@/lib/auth';
+import { apiUser, isGuest } from '@/lib/auth';
 import { startCheckout } from '@/lib/checkout';
 import { HttpError } from '@/lib/errors';
 import { errorResponse, readJsonObject } from '@/lib/http';
@@ -16,6 +16,8 @@ export async function POST(req: Request) {
   try {
     const user = await apiUser();
     if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
+    // receipts, delivery messages and refunds need an account: guests sign up at checkout first
+    if (isGuest(user)) return NextResponse.json({ error: 'Create an account or sign in to pay. Your cart comes with you.' }, { status: 403 });
     await limit('pay', user.id);
     const { delivery, mpesaPhone, acceptTerms, expectedTotalKes } = await readJsonObject(req);
     if (acceptTerms !== true) throw new HttpError(400, 'Please accept the terms and confirm you own the rights to your designs.');

@@ -24,6 +24,7 @@ export type OrderRow = {
   back_design_file_path: string | null;
   artifacts_failed: boolean;
   created_at?: string;
+  checkout_id?: string | null;
   courier?: string | null;
   tracking?: string | null;
   cancel_reason?: string | null;
@@ -51,6 +52,7 @@ export const toOrder = (r: OrderRow): Order => ({
   backDesignFilePath: r.back_design_file_path ?? null,
   artifactsFailed: r.artifacts_failed,
   createdAt: r.created_at,
+  checkoutId: r.checkout_id ?? null,
   courier: r.courier ?? null,
   tracking: r.tracking ?? null,
   cancelReason: r.cancel_reason ?? null,
@@ -85,6 +87,10 @@ export function supabaseOrderStore(): OrderStore {
       const { data, error } = await db().from('orders').update({ refunded_kes: refund.kes, refund_ref: refund.ref, refunded_at: new Date().toISOString() }).eq('id', id).select('*');
       if (error) throw new Error(error.message);
       return data && data.length > 0 ? toOrder(data[0] as OrderRow) : null;
+    },
+    async findCheckoutOrdersById(checkoutId) {
+      const { data } = await db().from('orders').select('*').eq('checkout_id', checkoutId).order('position');
+      return (data ?? []).map((row) => toOrder(row as OrderRow));
     },
     async findCheckoutOrders(reference) {
       const { data: checkout } = await db().from('checkouts').select('id').eq('reference', reference).maybeSingle();

@@ -31,8 +31,10 @@ test('a customer can sign out, reset a forgotten password, and sign in with the 
   await header(page).getByRole('button', { name: 'Sign out' }).click();
   await page.waitForURL((u) => u.pathname === '/');
   await expect(header(page).getByRole('link', { name: 'Sign in' })).toBeVisible();
+  // signed out, the cart is simply empty: no account is needed until paying
   await page.goto('/cart');
-  await page.waitForURL('**/login?next=%2Fcart');
+  await expect(page.getByText('Your cart is empty.')).toBeVisible();
+  await page.goto('/login?next=%2Fcart');
 
   // a wrong password gets a plain message with the way out
   await page.getByPlaceholder('Email').fill(email);

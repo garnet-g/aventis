@@ -9,7 +9,19 @@ export type AdminOrderRow = { order: Order; product: ProductId | null; color: Co
 
 export const PAGE_SIZE = 50;
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
+/** A real calendar date in YYYY-MM-DD (2026-13-45 has the right shape but is not a day). */
+export function isDate(d: string): boolean {
+  if (!DATE_SHAPE.test(d)) return false;
+  const t = new Date(`${d}T00:00:00Z`);
+  return !Number.isNaN(t.getTime()) && t.toISOString().startsWith(d);
+}
+
+/** Kenyan mobiles are stored as 07XX / 01XX; a search typed as +254 7XX or 254 7XX means the same number. */
+export function searchWord(w: string): string {
+  const m = w.match(/^\+?254([17]\d{8})$/);
+  return m ? `0${m[1]}` : w;
+}
 /** Dates are entered in Nairobi time; the database keeps UTC. */
 const nairobiStart = (d: string) => `${d}T00:00:00+03:00`;
 const nextDay = (d: string) => {
@@ -29,10 +41,10 @@ export async function queryAdminOrders(filters: OrderFilters, page: { offset: nu
 
   const status = ORDER_STATUSES.find((s) => s === filters.status);
   if (status) q = q.eq('status', status);
-  if (filters.from && DATE.test(filters.from)) q = q.gte('created_at', nairobiStart(filters.from));
-  if (filters.to && DATE.test(filters.to)) q = q.lt('created_at', nairobiStart(nextDay(filters.to)));
+  if (filters.from && isDate(filters.from)) q = q.gte('created_at', nairobiStart(filters.from));
+  if (filters.to && isDate(filters.to)) q = q.lt('created_at', nairobiStart(nextDay(filters.to)));
 
-  const words = (filters.q ?? '').toLowerCase().split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}+@.\-]/gu, '')).filter(Boolean).slice(0, 5);
+  const words = (filters.q ?? '').toLowerCase().split(/\s+/).map((w) => searchWord(w.replace(/[^\p{L}\p{N}+@.\-]/gu, ''))).filter(Boolean).slice(0, 5);
   for (const w of words) {
     const like = `%${w}%`;
     const { data: noted } = await db.from('order_notes').select('order_id').ilike('note', like).limit(200);

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { CartItemControls } from '@/components/CartItemControls';
 import { SiteHeader } from '@/components/SiteHeader';
-import { requireUser } from '@/lib/auth';
+import { currentUser } from '@/lib/auth';
 import { catalog, colorLabel } from '@/lib/catalog';
 import { loadCart } from '@/lib/cart';
 import { supabasePriceStore } from '@/lib/pricesStore';
@@ -25,7 +25,17 @@ export default function CartPage() {
 }
 
 async function Cart() {
-  const user = await requireUser('/cart');
+  const user = await currentUser();
+  if (!user) {
+    return (
+      <main className="shell flex flex-col gap-6 py-8">
+        <h1 className="font-display text-3xl font-extrabold tracking-tight">Your cart</h1>
+        <p className="text-mute">
+          Your cart is empty. <Link className="underline" href="/design" prefetch={false}>Start a design</Link> or <Link className="underline" href="/catalogue">pick one from the catalogue</Link>.
+        </p>
+      </main>
+    );
+  }
   const cart = await loadCart({ designs: supabaseDesignStore(), cart: supabaseCartStore(), prices: await supabasePriceStore().get() }, user.id);
 
   return (

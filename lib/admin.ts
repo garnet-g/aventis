@@ -13,8 +13,9 @@ export const previousStatus = (current: OrderStatus): OrderStatus | null => (cur
 /** Orders can be cancelled until they ship. */
 export const canCancel = (current: OrderStatus) => current === 'paid' || current === 'at_printer';
 
-export const orderProfit = (o: Pick<Order, 'priceKes' | 'deliveryFeeKes' | 'costKes'>) =>
-  o.priceKes + o.deliveryFeeKes - o.costKes;
+/** What the order earned: what the customer paid, less the printing, less any money given back. */
+export const orderProfit = (o: Pick<Order, 'priceKes' | 'deliveryFeeKes' | 'costKes' | 'refundedKes'>) =>
+  o.priceKes + o.deliveryFeeKes - o.costKes - (o.refundedKes ?? 0);
 
 /** Approve or reject a design that is waiting for review. Approval is only valid for the layers that were checked. */
 export async function decideDesign(
@@ -73,6 +74,32 @@ export async function advanceAndNotify(
   }
   if (deps.sms) await sendSmsSafely(deps.sms, order.delivery.phone, smsText.status({ status: order.status, orderId: order.id, tracking, siteUrl: deps.siteUrl }));
   return order;
+}
+
+/**
+ * Moves every order paid together with this one (and at the same step) one step on, and tells the customer once:
+ * a parcel of five designs is one "shipped" SMS and email, not five.
+ */
+export async function advanceGroupAndNotify(
+  deps: { orders: OrderStore; email: EmailSender; emailFor: (userId: string) => Promise<string | null>; siteUrl: string; sms?: SmsSender },
+  id: string,
+  shipping: { courier?: string; tracking?: string } = {},
+): Promise<Order[]> {
+  const order = await deps.orders.findById(id);
+  if (!order) throw new HttpError(404, 'Order not found.');
+  const group = order.checkoutId ? (await deps.orders.findCheckoutOrdersById(order.checkoutId)).filter((o) => o.status === order.status) : [order];
+  const moved: Order[] = [];
+  for (const o of group) moved.push(await advanceOrder(deps.orders, o.id, shipping));
+  const first = moved[0];
+  const tracking = [first.courier, first.tracking].filter(Boolean).join(' ') || null;
+  try {
+    const to = await deps.emailFor(first.userId);
+    if (to) await notifyOrderStatus(deps.email, deps.siteUrl, { to, status: first.status, orderId: first.id, tracking });
+  } catch (e) {
+    console.error('could not email the customer about orders', moved.map((o) => o.id), e);
+  }
+  if (deps.sms) await sendSmsSafely(deps.sms, first.delivery.phone, smsText.status({ status: first.status, orderId: first.id, tracking, siteUrl: deps.siteUrl }));
+  return moved;
 }
 
 /** One step back (a mis-click). No message goes to the customer. */

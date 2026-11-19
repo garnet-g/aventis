@@ -12,3 +12,6 @@ export function cronAuthorized(header: string | null, secret: string | undefined
 }
 
 export const staleBefore = (now: Date, days = STALE_DRAFT_DAYS) => new Date(now.getTime() - days * 86_400_000).toISOString();
+
+/** Guests (designing without an account) idle this long, with no orders, are removed with what they made. */
+export const GUEST_IDLE_DAYS = 30;

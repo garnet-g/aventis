@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { advanceOrder, cancelAndNotify, canCancel, moveOrderBack, previousStatus, recordRefund } from '@/lib/admin';
+import { advanceGroupAndNotify, advanceOrder, cancelAndNotify, canCancel, moveOrderBack, orderProfit, previousStatus, recordRefund } from '@/lib/admin';
 import type { EmailMessage } from '@/lib/notify';
 import type { Order, OrderStatus, OrderStore, StatusFields } from '@/lib/orders';
 import type { SmsSender } from '@/lib/sms';
@@ -108,5 +108,55 @@ describe('recording a refund', () => {
     await expect(recordRefund(orders, now().id, { kes: 1750, ref: 'TK' })).rejects.toMatchObject({ status: 400 });
     await recordRefund(orders, now().id, { kes: '1750', ref: ' TKR1234567 ' });
     expect(now()).toMatchObject({ refundedKes: 1750, refundRef: 'TKR1234567' });
+  });
+});
+
+describe('orders paid together', () => {
+  function groupStore(statuses: OrderStatus[]) {
+    const rows = statuses.map((status, i) => ({ ...order(status), id: `0000000${i}-2222-3333-4444-555555555555`, checkoutId: 'chk1' }));
+    const orders = {
+      findById: async (id: string) => rows.find((r) => r.id === id) ?? null,
+      findCheckoutOrdersById: async (c: string) => rows.filter((r) => r.checkoutId === c),
+      setStatus: async (id: string, from: OrderStatus, to: OrderStatus, fields: StatusFields = {}) => {
+        const r = rows.find((x) => x.id === id);
+        if (!r || r.status !== from) return null;
+        Object.assign(r, fields, { status: to });
+        return { ...r };
+      },
+    } as unknown as OrderStore;
+    return { orders, rows };
+  }
+
+  test('ship together: every order at the same step moves, and the customer gets one email and one SMS', async () => {
+    const { orders, rows } = groupStore(['at_printer', 'at_printer', 'delivered']);
+    const mail: EmailMessage[] = [];
+    const texts: string[] = [];
+    const moved = await advanceGroupAndNotify(
+      { orders, email: { send: async (m: EmailMessage) => void mail.push(m) }, emailFor: async () => 'c@example.com', siteUrl: 'https://vibecrew.co.ke', sms: { send: async (_to: string, t: string) => void texts.push(t) } },
+      rows[0].id,
+      { courier: 'G4S', tracking: 'KE9' },
+    );
+    expect(moved).toHaveLength(2);
+    expect(rows.map((r) => r.status)).toEqual(['shipped', 'shipped', 'delivered']); // the delivered one is left alone
+    expect(rows[1]).toMatchObject({ courier: 'G4S', tracking: 'KE9' });
+    expect(mail).toHaveLength(1);
+    expect(texts).toHaveLength(1);
+  });
+});
+
+describe('admin list helpers', () => {
+  test('profit is after refunds', () => {
+    expect(orderProfit({ priceKes: 1500, deliveryFeeKes: 250, costKes: 800 })).toBe(950);
+    expect(orderProfit({ priceKes: 1500, deliveryFeeKes: 250, costKes: 800, refundedKes: 1750 })).toBe(-800);
+  });
+
+  test('only real dates filter; +254 phone numbers find 07XX numbers', async () => {
+    const { isDate, searchWord } = await import('@/lib/adminOrders');
+    expect(isDate('2026-11-19')).toBe(true);
+    expect(isDate('2026-13-45')).toBe(false);
+    expect(isDate('2026-02-30')).toBe(false);
+    expect(searchWord('+254712345678')).toBe('0712345678');
+    expect(searchWord('254112345678')).toBe('0112345678');
+    expect(searchWord('wanjiku')).toBe('wanjiku');
   });
 });
