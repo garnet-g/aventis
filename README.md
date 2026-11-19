@@ -59,10 +59,10 @@ The app runs anywhere Docker runs, so it can be hosted on a Kenyan cloud or VPS 
 
 ```bash
 docker build -t vibecrew .
-docker run -d --restart unless-stopped -p 3000:3000 --env-file /etc/vibecrew.env vibecrew
+docker run -d --restart unless-stopped -p 127.0.0.1:3000:3000 --env-file /etc/vibecrew.env vibecrew
 ```
 
-- The image runs the standalone Next.js server on port 3000 in Nairobi time, with a health check at `/api/health`. Put a reverse proxy with HTTPS (Caddy or Nginx with Let's Encrypt) in front of it. Have it pass the visitor's address as `X-Real-IP` (Nginx: `proxy_set_header X-Real-IP $remote_addr;`, Caddy: `header_up X-Real-IP {remote_host}`): guests share a per-address limit on uploads and design checks.
+- The image runs the standalone Next.js server on port 3000 in Nairobi time, with a health check at `/api/health`. Put a reverse proxy with HTTPS (Caddy or Nginx with Let's Encrypt) in front of it. The app listens on 127.0.0.1 only, so visitors can reach it through the proxy alone. Have the proxy set (overwrite, never append) the visitor's address as `X-Real-IP` (Nginx: `proxy_set_header X-Real-IP $remote_addr;`, Caddy: `header_up X-Real-IP {remote_host}`): guests share a per-address limit on uploads and design checks.
 - `NEXT_PUBLIC_*` values are read at build time: build the image with the production values present (for example `--build-arg` or a `.env.production` file that is not committed).
 - Database, storage and sign-in are Supabase. Create the hosted project in the closest region, run `npx supabase link` and `npx supabase db push` to apply the migrations, and turn on **email confirmations** in Authentication settings (admins can only be added once their email is confirmed).
 - Daily housekeeping: have cron call the cleanup once a day. It deletes drafts untouched for 90 days (never ordered, not in a cart) with their pictures, guests idle for 30 days who never ordered, and old rate-limit records:

@@ -38,13 +38,19 @@ export const LIMITS = {
  */
 export const GUEST_IP_FACTOR = 10;
 
-/** The visitor's address as the reverse proxy saw it (X-Real-IP, else the last X-Forwarded-For entry). */
-export function clientIp(h: { get(name: string): string | null }): string {
+/**
+ * The visitor's address as the reverse proxy saw it (X-Real-IP, else the last X-Forwarded-For entry), or null.
+ * These headers are only trustworthy because the app is reachable through the proxy alone (it listens on
+ * 127.0.0.1, see the README) and the proxy overwrites X-Real-IP with the real peer address.
+ */
+export function clientIp(h: { get(name: string): string | null }): string | null {
   const real = h.get('x-real-ip')?.trim();
   if (real) return real;
   const forwarded = h.get('x-forwarded-for')?.split(',').map((p) => p.trim()).filter(Boolean);
-  return forwarded?.at(-1) ?? 'unknown';
+  return forwarded?.at(-1) ?? null;
 }
+
+let warnedNoIp = false;
 
 type Who = string | { id: string; is_anonymous?: boolean };
 
@@ -54,6 +60,14 @@ export async function limit(name: keyof typeof LIMITS, who: Who) {
   await rateLimit(`${name}:${id}`, max, windowSeconds);
   if (typeof who !== 'string' && who.is_anonymous) {
     const { headers } = await import('next/headers');
-    await rateLimit(`${name}:guest-ip:${clientIp(await headers())}`, max * GUEST_IP_FACTOR, windowSeconds);
+    const ip = clientIp(await headers());
+    // No address (no proxy in front, e.g. local development): skip this limit rather than put every guest in one
+    // shared bucket, which would let one person lock all guests out. The per-account limit above still applies.
+    if (!ip) {
+      if (!warnedNoIp && process.env.NODE_ENV === 'production') console.warn('rate limits: no X-Real-IP header; is the reverse proxy setting it?');
+      warnedNoIp = true;
+      return;
+    }
+    await rateLimit(`${name}:guest-ip:${ip}`, max * GUEST_IP_FACTOR, windowSeconds);
   }
 }
